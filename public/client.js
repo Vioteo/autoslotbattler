@@ -14,8 +14,20 @@ const socket = io(getServerUrl(), {
     reconnectionAttempts: 5
 });
 
-// Символы для игрового автомата
-const SYMBOLS = ['🍒', '🍋', '🍊', '🍇', '🍉', '⭐', '💎', '🎰'];
+// Символы для игрового автомата (цветные фигуры)
+const SYMBOLS = [
+    { emoji: '🔴', color: '#ff0000', name: 'red' },
+    { emoji: '🔵', color: '#0066ff', name: 'blue' },
+    { emoji: '🟢', color: '#00ff00', name: 'green' },
+    { emoji: '🟡', color: '#ffff00', name: 'yellow' },
+    { emoji: '🟣', color: '#9900ff', name: 'purple' },
+    { emoji: '🟠', color: '#ff9900', name: 'orange' },
+    { emoji: '⚫', color: '#000000', name: 'black' },
+    { emoji: '⚪', color: '#ffffff', name: 'white' }
+];
+
+// Бонус символ
+const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus' };
 
 // Игровое состояние
 let gameState = {
@@ -90,7 +102,9 @@ socket.on('roomCreated', (data) => {
     console.log('Комната создана:', data.roomId);
     currentRoomId = data.roomId;
     currentPlayerNumber = data.playerNumber || 1;
-    displayRoomId.textContent = data.roomId;
+    if (displayRoomId) {
+        displayRoomId.textContent = data.roomId;
+    }
     showScreen(waitingScreen);
     hideError();
 });
@@ -99,14 +113,18 @@ socket.on('roomJoined', (data) => {
     console.log('Присоединено к комнате:', data);
     currentRoomId = data.roomId;
     currentPlayerNumber = data.playerNumber;
-    displayRoomId.textContent = data.roomId;
+    if (displayRoomId) {
+        displayRoomId.textContent = data.roomId;
+    }
     showScreen(waitingScreen);
     hideError();
 });
 
 socket.on('playerJoined', (data) => {
     console.log('Игрок присоединился:', data);
-    playersCount.textContent = data.playerCount;
+    if (playersCount) {
+        playersCount.textContent = data.playerCount;
+    }
 });
 
 socket.on('gameStart', (data) => {
@@ -147,9 +165,11 @@ socket.on('attack', (data) => {
 
 socket.on('playerLeft', (data) => {
     console.log('Игрок покинул комнату:', data);
-    playersCount.textContent = data.playerCount;
+    if (playersCount) {
+        playersCount.textContent = data.playerCount;
+    }
     
-    if (data.playerCount < 2 && gameScreen.classList.contains('active')) {
+    if (data.playerCount < 2 && gameScreen && gameScreen.classList.contains('active')) {
         showError('Другой игрок покинул игру');
         setTimeout(() => {
             resetToMenu();
@@ -185,11 +205,25 @@ function initGame() {
     });
 }
 
+// Получение случайного символа
+function getRandomSymbol() {
+    const allSymbols = [...SYMBOLS, BONUS_SYMBOL];
+    return allSymbols[Math.floor(Math.random() * allSymbols.length)];
+}
+
+// Установка символа в элемент
+function setSymbol(element, symbol) {
+    element.textContent = symbol.emoji;
+    element.style.color = symbol.color;
+    element.dataset.symbol = symbol.name;
+}
+
 // Генерация начальных символов
 function generateInitialSymbols() {
     slotLines.forEach(line => {
         line.forEach(symbol => {
-            symbol.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+            const randomSymbol = getRandomSymbol();
+            setSymbol(symbol, randomSymbol);
             symbol.classList.remove('spinning', 'matched');
         });
     });
@@ -210,8 +244,12 @@ function updateGameState(data) {
 function updateHpBars() {
     // Игрок
     const playerHpPercent = (gameState.playerHp / gameState.maxHp) * 100;
-    playerHpFill.style.width = `${playerHpPercent}%`;
-    playerHpText.textContent = `${gameState.playerHp} / ${gameState.maxHp}`;
+    if (playerHpFill) {
+        playerHpFill.style.width = `${playerHpPercent}%`;
+    }
+    if (playerHpText) {
+        playerHpText.textContent = `${gameState.playerHp} / ${gameState.maxHp}`;
+    }
     
     if (playerHpPercent <= 25) {
         playerHpFill.classList.add('low');
@@ -225,8 +263,12 @@ function updateHpBars() {
     
     // Противник
     const enemyHpPercent = (gameState.enemyHp / gameState.maxHp) * 100;
-    enemyHpFill.style.width = `${enemyHpPercent}%`;
-    enemyHpText.textContent = `${gameState.enemyHp} / ${gameState.maxHp}`;
+    if (enemyHpFill) {
+        enemyHpFill.style.width = `${enemyHpPercent}%`;
+    }
+    if (enemyHpText) {
+        enemyHpText.textContent = `${gameState.enemyHp} / ${gameState.maxHp}`;
+    }
     
     if (enemyHpPercent <= 25) {
         enemyHpFill.classList.add('low');
@@ -250,20 +292,46 @@ function updateHpBars() {
 
 // Спин игрового автомата
 function spin() {
-    if (!gameState.canSpin || gameState.isSpinning) return;
+    if (gameState.isSpinning) return;
     
     const wasRecharging = gameState.isRecharging;
     
-    // Если спин во время перезарядки, добавляем +2 секунды
+    // Если спин во время перезарядки, добавляем +2 секунды и продолжаем
     if (wasRecharging) {
         gameState.rechargeTime += 2000;
-        rechargeText.textContent = `Перезарядка: +2 сек`;
-        return;
+        const newEndTime = Date.now() + gameState.rechargeTime;
+        // Обновляем время окончания перезарядки
+        if (rechargeInterval) {
+            clearInterval(rechargeInterval);
+        }
+        const startTime = Date.now();
+        rechargeInterval = setInterval(() => {
+            const now = Date.now();
+            const remaining = Math.max(0, newEndTime - now);
+            const progress = 1 - (remaining / gameState.rechargeTime);
+            if (rechargeFill) {
+                rechargeFill.style.width = `${progress * 100}%`;
+            }
+            if (rechargeText) {
+                rechargeText.textContent = remaining > 0 
+                    ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
+                    : 'Готово';
+            }
+            if (remaining <= 0) {
+                clearInterval(rechargeInterval);
+                gameState.isRecharging = false;
+                gameState.rechargeTime = 0;
+                enableSpin();
+            }
+        }, 50);
+        if (rechargeText) {
+            rechargeText.textContent = `Перезарядка: +2 сек`;
+        }
     }
     
     gameState.isSpinning = true;
     gameState.canSpin = false;
-    spinBtn.disabled = true;
+    if (spinBtn) spinBtn.disabled = true;
     
     // Анимация спина
     slotLines.forEach((line, lineIndex) => {
@@ -272,7 +340,8 @@ function spin() {
                 symbol.classList.add('spinning');
                 // Случайные символы во время спина
                 const spinInterval = setInterval(() => {
-                    symbol.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+                    const randomSymbol = getRandomSymbol();
+                    setSymbol(symbol, randomSymbol);
                 }, 50);
                 
                 // Остановка спина через 1-2 секунды
@@ -280,7 +349,8 @@ function spin() {
                     clearInterval(spinInterval);
                     symbol.classList.remove('spinning');
                     // Финальный символ
-                    symbol.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+                    const finalSymbol = getRandomSymbol();
+                    setSymbol(symbol, finalSymbol);
                     
                     // Если это последний символ, проверяем совпадения
                     if (lineIndex === slotLines.length - 1 && symbolIndex === line.length - 1) {
@@ -294,47 +364,140 @@ function spin() {
     });
 }
 
+// Рисование линии между совпавшими символами
+function drawMatchLine(lineElement, matchedIndices) {
+    if (matchedIndices.length < 2) return;
+    
+    // Удаляем старые линии
+    const oldLines = lineElement.querySelectorAll('.match-line');
+    oldLines.forEach(line => line.remove());
+    
+    // Получаем позиции первого и последнего совпавшего символа
+    const firstSymbol = lineElement.children[matchedIndices[0]];
+    const lastSymbol = lineElement.children[matchedIndices[matchedIndices.length - 1]];
+    
+    if (!firstSymbol || !lastSymbol) return;
+    
+    const firstRect = firstSymbol.getBoundingClientRect();
+    const lineRect = lineElement.getBoundingClientRect();
+    
+    // Вычисляем позицию и размер линии
+    const lineLeft = firstSymbol.offsetLeft + firstSymbol.offsetWidth / 2;
+    const lineWidth = (lastSymbol.offsetLeft + lastSymbol.offsetWidth / 2) - lineLeft;
+    const lineTop = firstSymbol.offsetTop + firstSymbol.offsetHeight / 2 - 2;
+    
+    // Создаем линию
+    const matchLine = document.createElement('div');
+    matchLine.className = 'match-line';
+    matchLine.style.left = `${lineLeft}px`;
+    matchLine.style.top = `${lineTop}px`;
+    matchLine.style.width = `${lineWidth}px`;
+    
+    lineElement.appendChild(matchLine);
+    
+    // Удаляем линию через 2 секунды
+    setTimeout(() => {
+        if (matchLine.parentNode) {
+            matchLine.remove();
+        }
+    }, 2000);
+}
+
 // Проверка совпадений и расчет урона
 function checkMatches() {
     gameState.isSpinning = false;
     
     // Получаем символы из каждой линии
     const results = slotLines.map(line => {
-        return Array.from(line).map(symbol => symbol.textContent);
+        return Array.from(line).map(symbol => symbol.dataset.symbol);
     });
     
-    // Подсчет совпадений по горизонтали (в каждой линии)
-    let totalMatches = 0;
-    const matchDetails = [];
-    
-    results.forEach((line, lineIndex) => {
-        // Подсчет одинаковых символов в линии
-        const symbolCounts = {};
+    // Подсчет бонусов (3 бонуса = 25 урона)
+    let bonusCount = 0;
+    results.forEach(line => {
         line.forEach(symbol => {
-            symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+            if (symbol === 'bonus') bonusCount++;
         });
-        
-        // Находим максимальное количество совпадений в линии
-        const maxMatches = Math.max(...Object.values(symbolCounts));
-        if (maxMatches >= 3) {
-            totalMatches += maxMatches;
-            matchDetails.push({ line: lineIndex + 1, matches: maxMatches });
-            
-            // Подсветка совпавших символов
-            line.forEach((symbol, index) => {
-                if (symbolCounts[symbol] === maxMatches) {
-                    slotLines[lineIndex][index].classList.add('matched');
+    });
+    
+    let damage = 0;
+    
+    // Если 3 или больше бонусов
+    if (bonusCount >= 3) {
+        damage = 25;
+        // Подсветка всех бонусов и рисование линий
+        slotLines.forEach((line, lineIndex) => {
+            const matchedIndices = [];
+            line.forEach((symbol, symbolIndex) => {
+                if (symbol.dataset.symbol === 'bonus') {
+                    symbol.classList.add('matched');
+                    matchedIndices.push(symbolIndex);
                     setTimeout(() => {
-                        slotLines[lineIndex][index].classList.remove('matched');
+                        symbol.classList.remove('matched');
                     }, 2000);
                 }
             });
-        }
-    });
-    
-    // Расчет урона: базовый урон * количество совпадений
-    const baseDamage = 5;
-    const damage = baseDamage * totalMatches;
+            // Рисуем линии для каждой линии с бонусами
+            if (matchedIndices.length >= 2) {
+                const lineElement = document.getElementById(`line${lineIndex + 1}`);
+                if (lineElement) {
+                    drawMatchLine(lineElement, matchedIndices);
+                }
+            }
+        });
+    } else {
+        // Подсчет совпадений по горизонтали (в каждой линии)
+        let totalMatches = 0;
+        const matchDetails = [];
+        
+        results.forEach((line, lineIndex) => {
+            // Подсчет одинаковых символов в линии (исключая бонусы)
+            const symbolCounts = {};
+            line.forEach(symbol => {
+                if (symbol !== 'bonus') {
+                    symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+                }
+            });
+            
+            // Находим максимальное количество совпадений в линии
+            const maxMatches = Object.keys(symbolCounts).length > 0 
+                ? Math.max(...Object.values(symbolCounts))
+                : 0;
+            if (maxMatches >= 3) {
+                totalMatches += maxMatches;
+                matchDetails.push({ line: lineIndex + 1, matches: maxMatches });
+                
+                // Находим какой символ совпал и его индексы
+                const matchedSymbol = Object.keys(symbolCounts).find(
+                    key => symbolCounts[key] === maxMatches
+                );
+                const matchedIndices = [];
+                
+                // Подсветка совпавших символов и сбор индексов
+                line.forEach((symbolName, index) => {
+                    if (symbolName === matchedSymbol) {
+                        slotLines[lineIndex][index].classList.add('matched');
+                        matchedIndices.push(index);
+                        setTimeout(() => {
+                            slotLines[lineIndex][index].classList.remove('matched');
+                        }, 2000);
+                    }
+                });
+                
+                // Рисуем линию между совпавшими символами
+                if (matchedIndices.length >= 2) {
+                    const lineElement = document.getElementById(`line${lineIndex + 1}`);
+                    if (lineElement) {
+                        drawMatchLine(lineElement, matchedIndices);
+                    }
+                }
+            }
+        });
+        
+        // Расчет урона: базовый урон * количество совпадений
+        const baseDamage = 5;
+        damage = baseDamage * totalMatches;
+    }
     
     if (damage > 0) {
         // Отправляем атаку на сервер
@@ -342,7 +505,7 @@ function checkMatches() {
             roomId: currentRoomId,
             fromPlayer: currentPlayerNumber,
             damage: damage,
-            matches: totalMatches
+            matches: bonusCount >= 3 ? 'bonus' : 'normal'
         });
     }
     
@@ -423,8 +586,12 @@ function showAttackAnimation(damage, isMyAttack = false) {
 
 // Функции UI
 function updateConnectionStatus(status, text) {
-    connectionStatus.className = `status ${status}`;
-    statusText.textContent = text;
+    if (connectionStatus) {
+        connectionStatus.className = `status ${status}`;
+    }
+    if (statusText) {
+        statusText.textContent = text;
+    }
 }
 
 function showScreen(screen) {
@@ -435,11 +602,13 @@ function showScreen(screen) {
 }
 
 function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.classList.add('show');
-    setTimeout(() => {
-        hideError();
-    }, 5000);
+    if (errorMessage) {
+        errorMessage.textContent = message;
+        errorMessage.classList.add('show');
+        setTimeout(() => {
+            hideError();
+        }, 5000);
+    }
 }
 
 function hideError() {
@@ -450,9 +619,15 @@ function resetToMenu() {
     resetGame();
     currentRoomId = null;
     currentPlayerNumber = null;
-    roomIdInput.value = '';
-    displayRoomId.textContent = '-';
-    playersCount.textContent = '1';
+    if (roomIdInput) {
+        roomIdInput.value = '';
+    }
+    if (displayRoomId) {
+        displayRoomId.textContent = '-';
+    }
+    if (playersCount) {
+        playersCount.textContent = '1';
+    }
     showScreen(menuScreen);
     hideError();
 }
@@ -494,13 +669,15 @@ joinRoomBtn.addEventListener('click', () => {
 });
 
 copyRoomIdBtn.addEventListener('click', () => {
-    const roomId = displayRoomId.textContent;
-    navigator.clipboard.writeText(roomId).then(() => {
-        copyRoomIdBtn.textContent = 'Скопировано!';
-        setTimeout(() => {
-            copyRoomIdBtn.textContent = 'Копировать ID';
-        }, 2000);
-    });
+    if (displayRoomId && copyRoomIdBtn) {
+        const roomId = displayRoomId.textContent;
+        navigator.clipboard.writeText(roomId).then(() => {
+            copyRoomIdBtn.textContent = 'Скопировано!';
+            setTimeout(() => {
+                copyRoomIdBtn.textContent = 'Копировать ID';
+            }, 2000);
+        });
+    }
 });
 
 leaveRoomBtn.addEventListener('click', () => {
