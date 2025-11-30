@@ -122,8 +122,17 @@
             </div>
         </div>
 
-        <div id="errorMessage" class="error-message"></div>
-    </div>
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+
+        <!-- Модальное окно победы/поражения -->
+        <div id="gameResultModal" class="modal">
+            <div class="modal-content">
+                <h2 id="resultTitle">Победа!</h2>
+                <p id="resultMessage">Вы победили противника!</p>
+                <button id="closeResultBtn" class="btn btn-primary">Закрыть</button>
+            </div>
+        </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="client.js"></script>

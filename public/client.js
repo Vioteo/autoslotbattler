@@ -14,20 +14,20 @@ const socket = io(getServerUrl(), {
     reconnectionAttempts: 5
 });
 
-// Символы для игрового автомата (цветные фигуры)
+// Символы для игрового автомата (цветные фигуры) - уменьшенное количество
 const SYMBOLS = [
-    { emoji: '🔴', color: '#ff0000', name: 'red' },
-    { emoji: '🔵', color: '#0066ff', name: 'blue' },
-    { emoji: '🟢', color: '#00ff00', name: 'green' },
-    { emoji: '🟡', color: '#ffff00', name: 'yellow' },
-    { emoji: '🟣', color: '#9900ff', name: 'purple' },
-    { emoji: '🟠', color: '#ff9900', name: 'orange' },
-    { emoji: '⚫', color: '#000000', name: 'black' },
-    { emoji: '⚪', color: '#ffffff', name: 'white' }
+    { emoji: '🔴', color: '#ff0000', name: 'red', weight: 20 },
+    { emoji: '🔵', color: '#0066ff', name: 'blue', weight: 20 },
+    { emoji: '🟢', color: '#00ff00', name: 'green', weight: 20 },
+    { emoji: '🟡', color: '#ffff00', name: 'yellow', weight: 20 },
+    { emoji: '🟣', color: '#9900ff', name: 'purple', weight: 20 }
 ];
 
+// Wild символ (сочетается с любым)
+const WILD_SYMBOL = { emoji: '⭐', color: '#ffd700', name: 'wild', weight: 5 };
+
 // Бонус символ
-const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus' };
+const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 3 };
 
 // Игровое состояние
 let gameState = {
@@ -67,6 +67,10 @@ const enemyHpFill = document.getElementById('enemyHpFill');
 const enemyHpText = document.getElementById('enemyHpText');
 const playerAvatar = document.getElementById('playerAvatar');
 const enemyAvatar = document.getElementById('enemyAvatar');
+const gameResultModal = document.getElementById('gameResultModal');
+const resultTitle = document.getElementById('resultTitle');
+const resultMessage = document.getElementById('resultMessage');
+const closeResultBtn = document.getElementById('closeResultBtn');
 
 // Получаем все линии слотов
 const slotLines = [
@@ -205,10 +209,21 @@ function initGame() {
     });
 }
 
-// Получение случайного символа
+// Получение случайного символа с учетом весов
 function getRandomSymbol() {
-    const allSymbols = [...SYMBOLS, BONUS_SYMBOL];
-    return allSymbols[Math.floor(Math.random() * allSymbols.length)];
+    const allSymbols = [...SYMBOLS, WILD_SYMBOL, BONUS_SYMBOL];
+    const totalWeight = allSymbols.reduce((sum, symbol) => sum + symbol.weight, 0);
+    let random = Math.random() * totalWeight;
+    
+    for (const symbol of allSymbols) {
+        random -= symbol.weight;
+        if (random <= 0) {
+            return symbol;
+        }
+    }
+    
+    // Fallback на первый символ
+    return SYMBOLS[0];
 }
 
 // Установка символа в элемент
@@ -282,11 +297,9 @@ function updateHpBars() {
     
     // Проверка победы/поражения
     if (gameState.playerHp <= 0) {
-        showError('Вы проиграли!');
-        setTimeout(() => resetToMenu(), 3000);
+        showGameResult(false);
     } else if (gameState.enemyHp <= 0) {
-        showError('Вы победили!');
-        setTimeout(() => resetToMenu(), 3000);
+        showGameResult(true);
     }
 }
 
@@ -333,33 +346,56 @@ function spin() {
     gameState.canSpin = false;
     if (spinBtn) spinBtn.disabled = true;
     
-    // Анимация спина
+    // Анимация спина - вращение барабана с остановкой
+    const allSymbols = [...SYMBOLS, WILD_SYMBOL, BONUS_SYMBOL];
+    let completedSpins = 0;
+    const totalSymbols = slotLines.reduce((sum, line) => sum + line.length, 0);
+    
     slotLines.forEach((line, lineIndex) => {
         line.forEach((symbol, symbolIndex) => {
+            const delay = (lineIndex * 200) + (symbolIndex * 100);
+            const spinDuration = 1000 + Math.random() * 1000;
+            const spinStartTime = Date.now() + delay;
+            
             setTimeout(() => {
+                // Начало вращения - добавляем класс для анимации
+                symbol.style.transition = 'transform 0.1s linear';
                 symbol.classList.add('spinning');
-                // Случайные символы во время спина
+                
+                let spinFrame = 0;
+                const spinSpeed = 50; // мс между сменами символов
+                const totalFrames = Math.floor(spinDuration / spinSpeed);
+                
                 const spinInterval = setInterval(() => {
+                    spinFrame++;
+                    const progress = spinFrame / totalFrames;
+                    
+                    // Замедление в конце
+                    const slowDownFactor = progress > 0.7 ? (1 - progress) * 3 : 1;
                     const randomSymbol = getRandomSymbol();
                     setSymbol(symbol, randomSymbol);
-                }, 50);
-                
-                // Остановка спина через 1-2 секунды
-                setTimeout(() => {
-                    clearInterval(spinInterval);
-                    symbol.classList.remove('spinning');
-                    // Финальный символ
-                    const finalSymbol = getRandomSymbol();
-                    setSymbol(symbol, finalSymbol);
                     
-                    // Если это последний символ, проверяем совпадения
-                    if (lineIndex === slotLines.length - 1 && symbolIndex === line.length - 1) {
-                        setTimeout(() => {
-                            checkMatches();
-                        }, 300);
+                    // Остановка с замедлением
+                    if (spinFrame >= totalFrames) {
+                        clearInterval(spinInterval);
+                        symbol.classList.remove('spinning');
+                        symbol.style.transition = 'none';
+                        
+                        // Финальный символ
+                        const finalSymbol = getRandomSymbol();
+                        setSymbol(symbol, finalSymbol);
+                        
+                        completedSpins++;
+                        
+                        // Если все символы остановились, проверяем совпадения
+                        if (completedSpins === totalSymbols) {
+                            setTimeout(() => {
+                                checkMatches();
+                            }, 300);
+                        }
                     }
-                }, 1000 + Math.random() * 1000);
-            }, (lineIndex * 200) + (symbolIndex * 100));
+                }, spinSpeed);
+            }, delay);
         });
     });
 }
@@ -446,36 +482,51 @@ function checkMatches() {
             }
         });
     } else {
-        // Подсчет совпадений по горизонтали (в каждой линии)
+        // Подсчет совпадений по горизонтали (в каждой линии) с учетом wild
         let totalMatches = 0;
         const matchDetails = [];
         
         results.forEach((line, lineIndex) => {
-            // Подсчет одинаковых символов в линии (исключая бонусы)
-            const symbolCounts = {};
+            // Подсчет wild символов
+            let wildCount = 0;
+            const regularSymbols = [];
+            
             line.forEach(symbol => {
-                if (symbol !== 'bonus') {
-                    symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+                if (symbol === 'wild') {
+                    wildCount++;
+                } else if (symbol !== 'bonus') {
+                    regularSymbols.push(symbol);
                 }
             });
             
-            // Находим максимальное количество совпадений в линии
-            const maxMatches = Object.keys(symbolCounts).length > 0 
+            // Подсчет одинаковых символов среди обычных (wild сочетается с любым)
+            const symbolCounts = {};
+            regularSymbols.forEach(symbol => {
+                symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+            });
+            
+            // Находим максимальное количество совпадений
+            const maxRegularMatches = Object.keys(symbolCounts).length > 0 
                 ? Math.max(...Object.values(symbolCounts))
                 : 0;
-            if (maxMatches >= 3) {
-                totalMatches += maxMatches;
-                matchDetails.push({ line: lineIndex + 1, matches: maxMatches });
+            
+            // Общее количество совпадений = обычные + wild
+            const totalLineMatches = maxRegularMatches + wildCount;
+            
+            if (totalLineMatches >= 3) {
+                totalMatches += totalLineMatches;
+                matchDetails.push({ line: lineIndex + 1, matches: totalLineMatches });
                 
-                // Находим какой символ совпал и его индексы
-                const matchedSymbol = Object.keys(symbolCounts).find(
-                    key => symbolCounts[key] === maxMatches
-                );
+                // Определяем основной символ для совпадения (первый не-wild, или любой если все wild)
+                const matchedSymbol = Object.keys(symbolCounts).length > 0
+                    ? Object.keys(symbolCounts).find(key => symbolCounts[key] === maxRegularMatches)
+                    : 'wild';
+                
                 const matchedIndices = [];
                 
                 // Подсветка совпавших символов и сбор индексов
                 line.forEach((symbolName, index) => {
-                    if (symbolName === matchedSymbol) {
+                    if (symbolName === 'wild' || symbolName === matchedSymbol) {
                         slotLines[lineIndex][index].classList.add('matched');
                         matchedIndices.push(index);
                         setTimeout(() => {
@@ -576,12 +627,44 @@ function showAttackAnimation(damage, isMyAttack = false) {
         ? document.querySelector('.enemy-character')
         : document.querySelector('.player-character');
     
-    targetContainer.classList.add('taking-damage');
-    setTimeout(() => {
-        targetContainer.classList.remove('taking-damage');
-    }, 500);
+    if (targetContainer) {
+        targetContainer.classList.add('taking-damage');
+        setTimeout(() => {
+            targetContainer.classList.remove('taking-damage');
+        }, 500);
+    }
     
     // HP обновляется через gameState от другого игрока, здесь только анимация
+}
+
+// Показ результата игры (победа/поражение)
+function showGameResult(isVictory) {
+    if (!gameResultModal || !resultTitle || !resultMessage) return;
+    
+    if (isVictory) {
+        resultTitle.textContent = '🎉 Победа!';
+        resultMessage.textContent = 'Вы победили противника!';
+        gameResultModal.classList.add('show');
+    } else {
+        resultTitle.textContent = '💀 Поражение';
+        resultMessage.textContent = 'Вы проиграли. Попробуйте еще раз!';
+        gameResultModal.classList.add('show');
+    }
+    
+    // Автоматически закрываем через 5 секунд и возвращаем в меню
+    setTimeout(() => {
+        closeGameResult();
+        setTimeout(() => {
+            resetToMenu();
+        }, 500);
+    }, 5000);
+}
+
+// Закрытие модального окна результата
+function closeGameResult() {
+    if (gameResultModal) {
+        gameResultModal.classList.remove('show');
+    }
 }
 
 // Функции UI
@@ -704,6 +787,14 @@ roomIdInput.addEventListener('keypress', (e) => {
         joinRoomBtn.click();
     }
 });
+
+// Обработчик закрытия модального окна результата
+if (closeResultBtn) {
+    closeResultBtn.addEventListener('click', () => {
+        closeGameResult();
+        resetToMenu();
+    });
+}
 
 // Инициализация
 updateConnectionStatus('disconnected', 'Отключено');
