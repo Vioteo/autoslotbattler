@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Многопользовательская веб-игра</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Многопользовательская игра</h1>
+        
+        <div id="connectionStatus" class="status disconnected">
+            <span id="statusText">Отключено</span>
+        </div>
+
+        <div id="menuScreen" class="screen active">
+            <div class="menu-options">
+                <button id="createRoomBtn" class="btn btn-primary">Создать комнату</button>
+                <div class="divider">
+                    <span>или</span>
+                </div>
+                <div class="join-form">
+                    <input type="text" id="roomIdInput" placeholder="Введите ID комнаты" maxlength="6">
+                    <button id="joinRoomBtn" class="btn btn-secondary">Присоединиться</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="waitingScreen" class="screen">
+            <div class="waiting-content">
+                <h2>Ожидание игроков...</h2>
+                <div class="room-info">
+                    <p>ID комнаты:</p>
+                    <div class="room-id" id="displayRoomId">-</div>
+                    <button id="copyRoomIdBtn" class="btn btn-small">Копировать ID</button>
+                </div>
+                <div class="players-count">
+                    <span id="playersCount">1</span> / 2 игроков
+                </div>
+                <button id="leaveRoomBtn" class="btn btn-secondary">Покинуть комнату</button>
+            </div>
+        </div>
+
+        <div id="gameScreen" class="screen">
+            <div class="game-header">
+                <div class="room-info-small">
+                    <span>Комната: <strong id="gameRoomId">-</strong></span>
+                </div>
+                <div class="player-info">
+                    <span>Вы: <strong id="playerNumber">-</strong></span>
+                </div>
+            </div>
+            <div class="game-area" id="gameArea">
+                <p>Игра началась! Используйте это пространство для вашей игры.</p>
+                <div class="game-controls">
+                    <button id="sendTestDataBtn" class="btn btn-small">Отправить тестовые данные</button>
+                </div>
+                <div id="gameDataDisplay" class="game-data-display"></div>
+            </div>
+            <button id="leaveGameBtn" class="btn btn-secondary">Покинуть игру</button>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
+
