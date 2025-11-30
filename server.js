@@ -36,7 +36,7 @@ io.on('connection', (socket) => {
     });
     
     socket.join(roomId);
-    socket.emit('roomCreated', { roomId });
+    socket.emit('roomCreated', { roomId, playerNumber: 1 });
     console.log(`Комната ${roomId} создана пользователем ${socket.id}`);
   });
 
@@ -72,10 +72,21 @@ io.on('connection', (socket) => {
 
     // Если комната заполнена, начинаем игру
     if (room.players.length === 2) {
-      io.to(roomId).emit('gameStart', {
-        roomId,
-        players: room.players
+      // Отправляем gameStart всем в комнате с правильными номерами игроков
+      const playerNumbers = {};
+      room.players.forEach((playerId, index) => {
+        playerNumbers[playerId] = index + 1;
       });
+      
+      // Отправляем каждому игроку его номер
+      room.players.forEach((playerId, index) => {
+        io.to(playerId).emit('gameStart', {
+          roomId,
+          playerNumber: index + 1,
+          players: room.players
+        });
+      });
+      
       console.log(`Игра началась в комнате ${roomId}`);
     }
   });

@@ -89,6 +89,7 @@ socket.on('connect_error', () => {
 socket.on('roomCreated', (data) => {
     console.log('Комната создана:', data.roomId);
     currentRoomId = data.roomId;
+    currentPlayerNumber = data.playerNumber || 1;
     displayRoomId.textContent = data.roomId;
     showScreen(waitingScreen);
     hideError();
@@ -110,6 +111,10 @@ socket.on('playerJoined', (data) => {
 
 socket.on('gameStart', (data) => {
     console.log('Игра началась:', data);
+    currentRoomId = data.roomId;
+    if (data.playerNumber) {
+        currentPlayerNumber = data.playerNumber;
+    }
     gameRoomId.textContent = data.roomId;
     playerNumber.textContent = currentPlayerNumber;
     initGame();
