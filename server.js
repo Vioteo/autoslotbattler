@@ -87,6 +87,47 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('gameData', { gameData });
   });
 
+  // Обновление состояния игры
+  socket.on('gameState', (data) => {
+    const { roomId, playerNumber, gameState } = data;
+    const room = rooms.get(roomId);
+    
+    if (room) {
+      // Сохраняем состояние игрока
+      if (!room.gameState) {
+        room.gameState = {};
+      }
+      room.gameState[playerNumber] = gameState;
+      
+      // Отправляем состояние другому игроку
+      socket.to(roomId).emit('gameState', {
+        playerNumber: playerNumber,
+        gameState: gameState
+      });
+    }
+  });
+
+  // Обработка атаки
+  socket.on('attack', (data) => {
+    const { roomId, fromPlayer, damage, matches } = data;
+    const room = rooms.get(roomId);
+    
+    if (room && room.players.length === 2) {
+      // Определяем цель атаки (другой игрок)
+      const targetPlayer = fromPlayer === 1 ? 2 : 1;
+      
+      // Отправляем атаку всем в комнате
+      io.to(roomId).emit('attack', {
+        fromPlayer: fromPlayer,
+        targetPlayer: targetPlayer,
+        damage: damage,
+        matches: matches
+      });
+      
+      console.log(`Игрок ${fromPlayer} атакует игрока ${targetPlayer} на ${damage} урона (совпадений: ${matches})`);
+    }
+  });
+
   // Отключение игрока
   socket.on('disconnect', () => {
     console.log('Пользователь отключился:', socket.id);

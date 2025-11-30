@@ -47,18 +47,76 @@
                 <div class="room-info-small">
                     <span>Комната: <strong id="gameRoomId">-</strong></span>
                 </div>
-                <div class="player-info">
-                    <span>Вы: <strong id="playerNumber">-</strong></span>
+            </div>
+            
+            <!-- Боевая зона с персонажами -->
+            <div class="battle-area">
+                <div class="character-container player-character">
+                    <div class="character-avatar" id="playerAvatar">👤</div>
+                    <div class="character-name">Вы</div>
+                    <div class="hp-bar-container">
+                        <div class="hp-bar" id="playerHpBar">
+                            <div class="hp-fill" id="playerHpFill" style="width: 100%"></div>
+                        </div>
+                        <div class="hp-text" id="playerHpText">100 / 100</div>
+                    </div>
+                </div>
+                
+                <div class="vs-indicator">VS</div>
+                
+                <div class="character-container enemy-character">
+                    <div class="character-avatar" id="enemyAvatar">👤</div>
+                    <div class="character-name">Противник</div>
+                    <div class="hp-bar-container">
+                        <div class="hp-bar" id="enemyHpBar">
+                            <div class="hp-fill" id="enemyHpFill" style="width: 100%"></div>
+                        </div>
+                        <div class="hp-text" id="enemyHpText">100 / 100</div>
+                    </div>
                 </div>
             </div>
-            <div class="game-area" id="gameArea">
-                <p>Игра началась! Используйте это пространство для вашей игры.</p>
-                <div class="game-controls">
-                    <button id="sendTestDataBtn" class="btn btn-small">Отправить тестовые данные</button>
+
+            <!-- Игровой автомат -->
+            <div class="slot-machine-container">
+                <div class="slot-machine">
+                    <div class="slot-lines">
+                        <div class="slot-line" id="line1">
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                        </div>
+                        <div class="slot-line" id="line2">
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                        </div>
+                        <div class="slot-line" id="line3">
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                            <div class="slot-symbol" data-symbol=""></div>
+                        </div>
+                    </div>
+                    <div class="slot-controls">
+                        <button id="spinBtn" class="btn btn-spin">SPIN</button>
+                        <div class="recharge-indicator">
+                            <div class="recharge-bar" id="rechargeBar">
+                                <div class="recharge-fill" id="rechargeFill"></div>
+                            </div>
+                            <div class="recharge-text" id="rechargeText">Готово</div>
+                        </div>
+                    </div>
                 </div>
-                <div id="gameDataDisplay" class="game-data-display"></div>
             </div>
-            <button id="leaveGameBtn" class="btn btn-secondary">Покинуть игру</button>
+
+            <div class="game-footer">
+                <button id="leaveGameBtn" class="btn btn-secondary">Покинуть игру</button>
+            </div>
         </div>
 
         <div id="errorMessage" class="error-message"></div>
