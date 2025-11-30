@@ -91,3 +91,4 @@ socket.on('gameData', (data) => {
 
 MIT
 
+"# autoslotbattler" 
