@@ -115,8 +115,12 @@ socket.on('gameStart', (data) => {
     if (data.playerNumber) {
         currentPlayerNumber = data.playerNumber;
     }
-    gameRoomId.textContent = data.roomId;
-    playerNumber.textContent = currentPlayerNumber;
+    if (gameRoomId) {
+        gameRoomId.textContent = data.roomId;
+    }
+    if (playerNumber) {
+        playerNumber.textContent = currentPlayerNumber;
+    }
     initGame();
     showScreen(gameScreen);
     hideError();
