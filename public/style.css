@@ -1893,69 +1893,39 @@ h1 {
 }
 
 .players-stats-in-shop {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 10px;
-    border: 2px solid #ddd;
-}
-
-.players-stats-section h3 {
-    color: #667eea;
     margin-bottom: 15px;
-    font-size: 18px;
-    text-align: center;
-}
-
-.players-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.player-stats-card {
-    background: white;
-    border: 2px solid #ddd;
+    padding: 10px;
+    background: #f8f9fa;
     border-radius: 8px;
-    padding: 12px;
-    transition: all 0.3s ease;
+    border: 2px solid #ddd;
 }
 
-.player-stats-card:hover {
-    border-color: #667eea;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-}
-
-.player-stats-header {
+.player-stats-compact {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e0e0e0;
+    gap: 15px;
+    align-items: flex-start;
 }
 
-.player-stats-emoji {
-    font-size: 20px;
-}
-
-.player-stats-name {
-    font-weight: bold;
-    font-size: 14px;
-    color: #333;
+.player-stats-column {
+    flex: 1;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
 }
 
 .player-stats-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .stat-row {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: 11px;
     color: #666;
+    padding: 2px 0;
 }
 
 .stat-row strong {

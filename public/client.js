@@ -135,6 +135,14 @@ let gameStateController = {
     preBattleEndTime: 0
 };
 
+// Offset между серверным и клиентским временем (для синхронизации)
+let serverTimeOffset = 0;
+
+// Получение синхронизированного времени (клиентское время + offset)
+function getSyncedTime() {
+    return Date.now() + serverTimeOffset;
+}
+
 // Элементы DOM
 const menuScreen = document.getElementById('menuScreen');
 const characterSelectScreen = document.getElementById('characterSelectScreen');
@@ -536,6 +544,13 @@ socket.on('breakStarted', (data) => {
 socket.on('gameStateChanged', (data) => {
     console.log('Состояние игры изменилось:', data);
     
+    // Вычисляем offset между серверным и клиентским временем для синхронизации
+    if (data.serverTime) {
+        const clientTime = Date.now();
+        serverTimeOffset = data.serverTime - clientTime;
+        console.log('Синхронизация времени: offset =', serverTimeOffset, 'мс');
+    }
+    
     // Обновляем состояние контроллера
     gameStateController.currentState = data.state;
     gameStateController.stateStartTime = data.stateStartTime;
@@ -619,6 +634,13 @@ function updatePlayersStatsInShop() {
         return;
     }
     
+    // Находим текущего игрока
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) {
+        playersStatsInShop.innerHTML = '';
+        return;
+    }
+    
     // Названия стилей
     const styleNames = {
         health: '❤️ Здоровье',
@@ -630,37 +652,98 @@ function updatePlayersStatsInShop() {
         attack: '⚔️ Атака'
     };
     
-    let html = '<div class="players-stats-section"><h3>Уровни стиля игроков</h3>';
-    html += '<div class="players-stats-grid">';
+    // Получаем статистику из stylePoints
+    const stylePoints = player.stylePoints || {};
+    const attackStyle = stylePoints.attack || 0;
+    const armorStyle = stylePoints.armor || 0;
+    const dodgeStyle = stylePoints.dodge || 0;
+    const critStyle = stylePoints.critical || 0;
+    const freezeStyle = stylePoints.freeze || 0;
+    const healingStyle = stylePoints.healing || 0;
     
-    roomState.players.forEach(player => {
-        if (!player) return;
-        
-        const char = CHARACTERS.find(c => c.id === player.characterId);
-        const emoji = char ? char.emoji : '👤';
-        const name = player.nickname + (player.isBot ? ' 🤖' : '');
-        const stylePoints = player.stylePoints || {};
-        
-        html += `
-            <div class="player-stats-card">
-                <div class="player-stats-header">
-                    <span class="player-stats-emoji">${emoji}</span>
-                    <span class="player-stats-name">${name}</span>
-                </div>
-                <div class="player-stats-list">
-                    <div class="stat-row"><span>${styleNames.health}:</span> <strong>${stylePoints.health || 0}</strong></div>
-                    <div class="stat-row"><span>${styleNames.dodge}:</span> <strong>${stylePoints.dodge || 0}</strong></div>
-                    <div class="stat-row"><span>${styleNames.critical}:</span> <strong>${stylePoints.critical || 0}</strong></div>
-                    <div class="stat-row"><span>${styleNames.healing}:</span> <strong>${stylePoints.healing || 0}</strong></div>
-                    <div class="stat-row"><span>${styleNames.armor}:</span> <strong>${stylePoints.armor || 0}</strong></div>
-                    <div class="stat-row"><span>${styleNames.freeze}:</span> <strong>${stylePoints.freeze || 0}</strong></div>
-                    <div class="stat-row"><span>${styleNames.attack}:</span> <strong>${stylePoints.attack || 0}</strong></div>
-                </div>
-            </div>
-        `;
-    });
+    // Базовые значения
+    const baseAttack = 10;
+    const baseArmor = 25;
+    const baseDodge = 15;
+    const baseCritChance = 10;
+    const baseCritMultiplier = 1.5;
+    const baseFreeze = 0;
+    const baseHealing = 0;
     
+    // Применяем очки стиля
+    let attack = baseAttack + attackStyle;
+    let armor = baseArmor + armorStyle;
+    let dodge = baseDodge + dodgeStyle;
+    let critChance = baseCritChance + critStyle;
+    let critMultiplier = baseCritMultiplier + (critStyle * 0.1);
+    let freeze = baseFreeze + (freezeStyle * 0.3);
+    let healing = baseHealing + (healingStyle * 10);
+    
+    // Применяем пороговые бонусы
+    const attackBonus = getStyleBonus(attackStyle);
+    const armorBonus = getStyleBonus(armorStyle);
+    const dodgeBonus = getStyleBonus(dodgeStyle);
+    const critBonus = getStyleBonus(critStyle);
+    
+    // Специальные пороговые эффекты для крита
+    let critMultBonus = 0;
+    if (critStyle >= 20) {
+        critMultBonus = 0.75;
+    } else if (critStyle >= 10) {
+        critMultBonus = 0.5;
+    } else if (critStyle >= 4) {
+        critMultBonus = 0.25;
+    }
+    
+    // Специальные пороговые эффекты для заморозки
+    let freezeTimeBonus = 0;
+    if (freezeStyle >= 20) {
+        freezeTimeBonus = 5;
+    } else if (freezeStyle >= 10) {
+        freezeTimeBonus = 3;
+    } else if (freezeStyle >= 4) {
+        freezeTimeBonus = 2;
+    }
+    
+    // Специальные пороговые эффекты для лечения
+    const healingBonus = getStyleBonus(healingStyle);
+    
+    // Финальные значения
+    const finalAttack = Math.round(attack + attackBonus);
+    const finalArmor = Math.round(armor + armorBonus);
+    const finalDodge = Math.round(dodge + dodgeBonus);
+    const finalCritChance = Math.round(critChance + critBonus);
+    const finalCritMultiplier = (critMultiplier + critMultBonus).toFixed(1);
+    const finalFreeze = (freeze + freezeTimeBonus).toFixed(1);
+    const finalHealing = Math.round(healing + healingBonus);
+    const maxHp = player.maxHp || 100;
+    
+    // Создаем двухколоночный layout
+    let html = '<div class="player-stats-compact">';
+    html += '<div class="player-stats-column">';
+    html += '<div class="player-stats-list">';
+    html += `<div class="stat-row"><span>${styleNames.health}:</span> <strong>${stylePoints.health || 0}</strong></div>`;
+    html += `<div class="stat-row"><span>${styleNames.dodge}:</span> <strong>${stylePoints.dodge || 0}</strong></div>`;
+    html += `<div class="stat-row"><span>${styleNames.critical}:</span> <strong>${stylePoints.critical || 0}</strong></div>`;
+    html += `<div class="stat-row"><span>${styleNames.healing}:</span> <strong>${stylePoints.healing || 0}</strong></div>`;
+    html += `<div class="stat-row"><span>${styleNames.armor}:</span> <strong>${stylePoints.armor || 0}</strong></div>`;
+    html += `<div class="stat-row"><span>${styleNames.freeze}:</span> <strong>${stylePoints.freeze || 0}</strong></div>`;
+    html += `<div class="stat-row"><span>${styleNames.attack}:</span> <strong>${stylePoints.attack || 0}</strong></div>`;
     html += '</div></div>';
+    
+    html += '<div class="player-stats-column">';
+    html += '<div class="player-stats-list">';
+    html += `<div class="stat-row"><span>Макс. HP:</span> <strong>${maxHp}</strong></div>`;
+    html += `<div class="stat-row"><span>Атака:</span> <strong>${finalAttack}</strong></div>`;
+    html += `<div class="stat-row"><span>Броня:</span> <strong>${finalArmor}%</strong></div>`;
+    html += `<div class="stat-row"><span>Уклонение:</span> <strong>${finalDodge}%</strong></div>`;
+    html += `<div class="stat-row"><span>Крит. шанс:</span> <strong>${finalCritChance}%</strong></div>`;
+    html += `<div class="stat-row"><span>Крит. множ.:</span> <strong>x${finalCritMultiplier}</strong></div>`;
+    html += `<div class="stat-row"><span>Заморозка:</span> <strong>${finalFreeze} сек</strong></div>`;
+    html += `<div class="stat-row"><span>Лечение:</span> <strong>${finalHealing} HP</strong></div>`;
+    html += '</div></div>';
+    html += '</div>';
+    
     playersStatsInShop.innerHTML = html;
 }
 
@@ -780,11 +863,11 @@ function updateCardShop() {
         }
     }
     
-    // Обновляем уровни стиля игроков
-    updatePlayersStatsInShop();
-    
     // Обновляем статистику раунда
     updateRoundStatsInShop();
+    
+    // Обновляем уровни стиля игроков
+    updatePlayersStatsInShop();
     
     // Обновляем счетчик готовности
     updateReadyCount();
@@ -1143,8 +1226,8 @@ function spin() {
         return;
     }
     
-    // Проверяем таймер перед боем (10 секунд) - используем общее состояние
-    const now = Date.now();
+    // Проверяем таймер перед боем (10 секунд) - используем общее состояние с синхронизацией
+    const now = getSyncedTime();
     if (gameStateController.currentState === 'preparation' && 
         gameStateController.preBattleEndTime > 0 && 
         now < gameStateController.preBattleEndTime) {
@@ -1837,9 +1920,9 @@ function enableSpin() {
         return;
     }
     
-    const now = Date.now();
+    const now = getSyncedTime();
     
-    // Проверяем условия для доступности спина - используем общее состояние
+    // Проверяем условия для доступности спина - используем общее состояние с синхронизацией
     let hasPassedPreBattleTimer = true;
     if (gameStateController.currentState === 'preparation' && gameStateController.preBattleEndTime > 0) {
         hasPassedPreBattleTimer = now >= gameStateController.preBattleEndTime;
@@ -2900,8 +2983,8 @@ function updateBattlePhase() {
         battlePhase.textContent = 'Перерыв между боями';
         battlePhase.className = 'battle-phase phase-break';
     } else {
-        // Используем общее состояние игры
-        const now = Date.now();
+        // Используем общее состояние игры с синхронизацией
+        const now = getSyncedTime();
         if (gameStateController.currentState === 'preparation' && 
             gameStateController.preBattleEndTime > 0 && 
             now < gameStateController.preBattleEndTime) {
@@ -2946,7 +3029,8 @@ function startBattleTimerFromState(preBattleEndTime) {
         return;
     }
     
-    const now = Date.now();
+    // Используем синхронизированное время
+    const now = getSyncedTime();
     const remaining = preBattleEndTime - now;
     
     // Если таймер уже прошел, сразу разблокируем кнопку
@@ -2962,8 +3046,8 @@ function startBattleTimerFromState(preBattleEndTime) {
     if (vsText) vsText.style.display = 'none';
     
     battleTimerInterval = setInterval(() => {
-        const now = Date.now();
-        const remaining = Math.max(0, preBattleEndTime - now);
+        const syncedNow = getSyncedTime();
+        const remaining = Math.max(0, preBattleEndTime - syncedNow);
         
         if (remaining <= 0) {
             clearInterval(battleTimerInterval);

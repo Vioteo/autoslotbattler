@@ -42,6 +42,31 @@ const players = new Map();
 const bots = new Map();
 let botIdCounter = 0;
 
+// Паттерны поведения ботов
+const BOT_BEHAVIOR_PATTERNS = {
+  AGGRESSIVE: {
+    name: 'Агрессивный',
+    permanentGoldAttackChance: 0.7,
+    cardPurchaseChance: 0.2,
+    suffixes: ['-Безумец', '-Разрушитель', '-Берсерк', '-Яростный']
+  },
+  ECONOMIC: {
+    name: 'Экономичный',
+    permanentGoldAttackChance: 0.2,
+    cardPurchaseChance: 0.6,
+    suffixes: ['-Скупой', '-Торгаш', '-Коллекционер', '-Хранитель']
+  },
+  STRATEGIC: {
+    name: 'Стратегический',
+    permanentGoldAttackChance: 0.3, // до 30 HP
+    permanentGoldAttackChanceAfter: 0.85, // после 30 HP
+    cardPurchaseChance: 0.3, // до 30 HP
+    cardPurchaseChanceAfter: 0.7, // после 30 HP
+    hpThreshold: 30,
+    suffixes: ['-Терпеливый', '-Мудрый', '-Хитрец', '-Тактик']
+  }
+};
+
 // Имена для ботов
 const botNames = [
   'Бот-Воин', 'Бот-Мастер', 'Бот-Победитель', 'Бот-Легенда',
@@ -172,7 +197,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     lastSpinTime: 0,
     rechargeEndTime: 0,
     // Экономика
-    permanentGold: 0,
+    permanentGold: 30,
     temporaryGold: 0,
     hasEndedTurn: false, // Закончил ли ход
     isReady: isBot, // Готовность к следующему раунду (боты всегда готовы)
@@ -219,8 +244,21 @@ function getRandomSpinDelay() {
 function createBot(roomId) {
   botIdCounter++;
   const botId = `BOT_${botIdCounter}`;
-  const botName = botNames[Math.floor(Math.random() * botNames.length)];
+  
+  // Выбираем случайный паттерн поведения
+  const patternKeys = Object.keys(BOT_BEHAVIOR_PATTERNS);
+  const randomPatternKey = patternKeys[Math.floor(Math.random() * patternKeys.length)];
+  const behaviorPattern = BOT_BEHAVIOR_PATTERNS[randomPatternKey];
+  
+  // Выбираем базовое имя и добавляем смешной суффикс в зависимости от паттерна
+  const baseName = botNames[Math.floor(Math.random() * botNames.length)];
+  const suffix = behaviorPattern.suffixes[Math.floor(Math.random() * behaviorPattern.suffixes.length)];
+  const botName = baseName + suffix;
+  
   const bot = createPlayer(botId, botName, roomId, true);
+  
+  // Добавляем паттерн поведения боту
+  bot.behaviorPattern = randomPatternKey;
   
   // Автоматически назначаем случайного персонажа боту
   const randomCharacter = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
@@ -354,19 +392,15 @@ function simulateBotSpin() {
 }
 
 // Принятие решения ботом: делать ли еще спин или закончить ход
-// БОТЫ ДОЛЖНЫ РЕДКО ДЕЛАТЬ СПИНЫ - ТОЛЬКО ЕСЛИ ЕСТЬ ВРЕМЕННОЕ ЗОЛОТО ИЛИ КРИТИЧЕСКАЯ СИТУАЦИЯ
+// БОТЫ ДОЛЖНЫ АКТИВНО ИСПОЛЬЗОВАТЬ ВРЕМЕННОЕ ЗОЛОТО, ТАК КАК ОНО ТЕРЯЕТСЯ В КОНЦЕ РАУНДА
 function botDecideAction(bot, opponent) {
   const spinCost = 5;
   const botHpPercent = bot.roundHp / 100;
   const opponentHpPercent = opponent.roundHp / 100;
   
-  // Если есть временное золото - крутим (но редко, с вероятностью 20%)
+  // 100% шанс атаковать при наличии временного золота (оно теряется в конце раунда!)
   if (bot.temporaryGold >= spinCost) {
-    // Только 20% шанс сделать спин, даже если есть временное золото
-    if (Math.random() < 0.2) {
-      return 'spin';
-    }
-    return 'endTurn';
+    return 'spin';
   }
   
   // Если у бота нет золота - заканчивает ход
@@ -374,24 +408,37 @@ function botDecideAction(bot, opponent) {
     return 'endTurn';
   }
   
-  // Очень редко тратим постоянное золото на спины - только в критических ситуациях
-  // Если противник почти мертв (HP < 15%) - пытаемся добить (можно тратить постоянное, но с 30% шансом)
-  if (opponentHpPercent < 0.15 && bot.permanentGold >= spinCost) {
-    if (Math.random() < 0.3) {
-      return 'spin';
-    }
+  // Логика использования постоянного золота зависит от паттерна поведения
+  const behaviorPattern = bot.behaviorPattern || 'ECONOMIC'; // По умолчанию экономичный
+  const pattern = BOT_BEHAVIOR_PATTERNS[behaviorPattern];
+  
+  if (!pattern) {
+    // Если паттерн не найден, используем старую логику
     return 'endTurn';
   }
   
-  // Если у бота очень мало HP (< 20%) и есть постоянное золото - пытаемся атаковать (с 25% шансом)
-  if (botHpPercent < 0.2 && bot.permanentGold >= spinCost) {
-    if (Math.random() < 0.25) {
+  // Стратегический паттерн: проверяем totalHp
+  if (behaviorPattern === 'STRATEGIC') {
+    const hpThreshold = pattern.hpThreshold || 30;
+    if (bot.totalHp >= hpThreshold) {
+      // После достижения порога HP - агрессивно тратим на атаки
+      if (bot.permanentGold >= spinCost && Math.random() < pattern.permanentGoldAttackChanceAfter) {
+        return 'spin';
+      }
+    } else {
+      // До достижения порога HP - экономим
+      if (bot.permanentGold >= spinCost && Math.random() < pattern.permanentGoldAttackChance) {
+        return 'spin';
+      }
+    }
+  } else {
+    // Агрессивный и экономичный паттерны
+    if (bot.permanentGold >= spinCost && Math.random() < pattern.permanentGoldAttackChance) {
       return 'spin';
     }
-    return 'endTurn';
   }
   
-  // Иначе заканчиваем ход (боты предпочитают экономить золото на карточки)
+  // Иначе заканчиваем ход (боты предпочитают экономить постоянное золото на карточки)
   return 'endTurn';
 }
 
@@ -417,8 +464,10 @@ function useCharacterAbility(player, opponent, roomId) {
       
     case 'heal':
       // Восстановление текущего здоровья
-      const healAmount = Math.min(character.abilityValue, 100 - player.roundHp);
-      player.roundHp = Math.min(100, player.roundHp + character.abilityValue);
+      const playerStats = calculatePlayerStats(player);
+      const maxHp = playerStats.maxHp;
+      const healAmount = Math.min(character.abilityValue, maxHp - player.roundHp);
+      player.roundHp = Math.min(maxHp, player.roundHp + character.abilityValue);
       result.message = `${character.name}: восстановлено ${healAmount} HP`;
       result.healAmount = healAmount;
       break;
@@ -987,7 +1036,7 @@ function calculatePlayerStats(player) {
   let baseCritMultiplier = 1.5;
   let baseFreeze = 0;
   let baseHealing = 0;
-  let maxHp = 50;
+  let maxHp = 100;
   
   // Применяем очки стиля (1 единица = базовый эффект)
   baseAttack += stylePoints.attack || 0;
@@ -1072,9 +1121,30 @@ function handleBotCardPurchase(botId, roomId) {
       bot.cardShopOffers = generateCardShopOffers(bot);
     }
     
-    // Бот случайным образом покупает карточки (30% шанс на каждую)
+    // Определяем шанс покупки карточек в зависимости от паттерна поведения
+    const behaviorPattern = bot.behaviorPattern || 'ECONOMIC'; // По умолчанию экономичный
+    const pattern = BOT_BEHAVIOR_PATTERNS[behaviorPattern];
+    
+    let cardPurchaseChance = 0.3; // Значение по умолчанию
+    
+    if (pattern) {
+      if (behaviorPattern === 'STRATEGIC') {
+        // Для стратегического паттерна проверяем totalHp
+        const hpThreshold = pattern.hpThreshold || 30;
+        if (bot.totalHp >= hpThreshold) {
+          cardPurchaseChance = pattern.cardPurchaseChanceAfter || 0.7;
+        } else {
+          cardPurchaseChance = pattern.cardPurchaseChance || 0.3;
+        }
+      } else {
+        // Для агрессивного и экономичного паттернов используем фиксированный шанс
+        cardPurchaseChance = pattern.cardPurchaseChance || 0.3;
+      }
+    }
+    
+    // Бот покупает карточки в зависимости от паттерна поведения
     bot.cardShopOffers.forEach(card => {
-      if (Math.random() < 0.3 && bot.permanentGold >= card.cost) {
+      if (Math.random() < cardPurchaseChance && bot.permanentGold >= card.cost) {
         const result = buyCard(bot, card.id);
         if (result.success) {
           console.log(`Бот ${bot.nickname} купил карточку ${card.name}`);
@@ -1203,13 +1273,15 @@ function setGameState(roomId, newState) {
       break;
   }
   
-  // Отправляем событие о смене состояния всем клиентам
+  // Отправляем событие о смене состояния всем клиентам с серверным временем для синхронизации
+  const serverTime = Date.now();
   io.to(roomId).emit('gameStateChanged', {
     state: newState,
     stateStartTime: controller.stateStartTime,
     preBattleEndTime: controller.preBattleEndTime,
     roundStartTime: controller.roundStartTime,
-    breakStartTime: controller.breakStartTime
+    breakStartTime: controller.breakStartTime,
+    serverTime: serverTime // Серверное время для синхронизации
   });
   
   console.log(`Комната ${roomId}: состояние изменено с ${oldState} на ${newState}`);
@@ -1442,7 +1514,7 @@ function calculateBonusPercent(streak, isWin) {
 
 // Начисление золота с учетом серий
 function awardGold(player, isWinner) {
-  const baseGold = 10; // И за победу, и за поражение одинаково: 10
+  const baseGold = 20; // И за победу, и за поражение одинаково: 20
   const streak = isWinner ? player.winStreak : player.loseStreak;
   const bonusPercent = calculateBonusPercent(streak, isWinner);
   const bonusGold = Math.floor(baseGold * bonusPercent / 100);
@@ -1580,7 +1652,9 @@ function startNextRound(roomId) {
         p.lastRoundGoldBonus = 20; // 20% проценты
       }
       
-      p.roundHp = 100;
+      // Устанавливаем roundHp равным maxHp в начале раунда
+      const stats = calculatePlayerStats(p);
+      p.roundHp = stats.maxHp;
       p.isInDuel = false;
       p.duelOpponent = null;
       p.duelStatus = null;
