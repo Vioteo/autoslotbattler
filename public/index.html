@@ -81,6 +81,17 @@
                         </div>
                         <div class="player-info">
                             <span>Ваш ник: <strong id="playerNickname">-</strong></span>
+                            <div class="streak-info" id="streakInfo" style="margin-top: 10px; font-size: 14px;">
+                                <span class="streak-item" id="winStreakDisplay" title="Серия побед: +5% за каждую победу (макс. +50%)">
+                                    🏆 Побед: <strong>0</strong>
+                                </span>
+                                <span class="streak-item" id="loseStreakDisplay" title="Серия поражений: +3% за каждое поражение (макс. +30%)">
+                                    💔 Поражений: <strong>0</strong>
+                                </span>
+                            </div>
+                            <div class="round-reward-info" id="roundRewardInfo" style="margin-top: 10px; font-size: 14px; display: none;">
+                                <span id="roundRewardText" title="Золото, полученное в конце раунда с учетом бонусов от серий"></span>
+                            </div>
                         </div>
                     </div>
                     
@@ -100,7 +111,12 @@
                     </div>
                 </div>
                 
-                <div class="vs-indicator">VS</div>
+                <div class="vs-indicator">
+                    <div id="battleTimer" style="display: none; font-size: 24px; font-weight: bold; color: #ff6b6b; margin-top: 10px;">
+                        Бой начнется через: <span id="battleTimerCountdown">3</span>
+                    </div>
+                    <div id="vsText">VS</div>
+                </div>
                 
                 <div class="character-container enemy-character">
                     <div class="character-avatar" id="enemyAvatar">👤</div>
@@ -111,13 +127,49 @@
                         </div>
                         <div class="hp-text" id="enemyHpText">100 / 100</div>
                     </div>
+                    <div class="gold-display-enemy" id="enemyGoldDisplay" style="display: none;">
+                        <div>💵 Временное: <span id="enemyTempGold">0</span></div>
+                        <div>💰 Постоянное: <span id="enemyPermGold">0</span></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Игровой автомат -->
             <div class="slot-machine-container">
                 <div class="slot-machine">
-                    <div class="slot-lines">
+                    <div class="slot-reels-wrapper">
+                        <div class="slot-border slot-border-top"></div>
+                        <div class="slot-reels">
+                            <div class="slot-reel" id="reel1">
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                            </div>
+                            <div class="slot-reel" id="reel2">
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                            </div>
+                            <div class="slot-reel" id="reel3">
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                            </div>
+                            <div class="slot-reel" id="reel4">
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                            </div>
+                            <div class="slot-reel" id="reel5">
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                                <div class="slot-symbol" data-symbol=""></div>
+                            </div>
+                        </div>
+                        <div class="slot-border slot-border-bottom"></div>
+                    </div>
+                    <!-- Сохраняем старую структуру для обратной совместимости -->
+                    <div class="slot-lines" style="display: none;">
                         <div class="slot-line" id="line1">
                             <div class="slot-symbol" data-symbol=""></div>
                             <div class="slot-symbol" data-symbol=""></div>

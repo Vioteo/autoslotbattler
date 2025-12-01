@@ -71,7 +71,9 @@ let playerState = {
     permanentGold: 0,
     temporaryGold: 0,
     winStreak: 0,
-    loseStreak: 0
+    loseStreak: 0,
+    lastRoundGoldBonus: 0,
+    lastRoundGoldEarned: 0
 };
 
 // Состояние комнаты
@@ -123,15 +125,25 @@ const closeResultBtn = document.getElementById('closeResultBtn');
 const duelsContainer = document.getElementById('duelsContainer');
 const endTurnBtn = document.getElementById('endTurnBtn');
 
-// Получаем все линии слотов
+// Получаем все линии слотов (старая структура для обратной совместимости)
 const slotLines = [
     document.querySelectorAll('#line1 .slot-symbol'),
     document.querySelectorAll('#line2 .slot-symbol'),
     document.querySelectorAll('#line3 .slot-symbol')
 ];
 
+// Получаем все рельсы (столбцы) для новой структуры
+const slotReels = [
+    document.getElementById('reel1'),
+    document.getElementById('reel2'),
+    document.getElementById('reel3'),
+    document.getElementById('reel4'),
+    document.getElementById('reel5')
+];
+
 let rechargeInterval = null;
 let spinTimeout = null;
+let battleTimerInterval = null;
 
 // Обработчики событий Socket.io
 socket.on('connect', () => {
@@ -252,6 +264,20 @@ socket.on('roomStateUpdate', (data) => {
         roomState.players = data.players;
         updatePlayersListGame();
         updateGoldDisplay();
+        updateStreakDisplay();
+        updateRoundRewardDisplay();
+        
+        // Обновляем баланс противника
+        const player = roomState.players.find(p => p.socketId === playerState.socketId);
+        if (player && player.isInDuel && player.duelOpponent) {
+            const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+            if (opponent) {
+                const enemyTempGold = document.getElementById('enemyTempGold');
+                const enemyPermGold = document.getElementById('enemyPermGold');
+                if (enemyTempGold) enemyTempGold.textContent = opponent.temporaryGold || 0;
+                if (enemyPermGold) enemyPermGold.textContent = opponent.permanentGold || 0;
+            }
+        }
     }
     if (data.pairs) {
         roomState.pairs = data.pairs;
@@ -283,6 +309,14 @@ socket.on('roundStarted', (data) => {
     updateDuelsDisplay();
     updatePlayersListGame();
     updateGoldDisplay();
+    updateStreakDisplay();
+    updateRoundRewardDisplay();
+    
+    // Запускаем таймер перед боем, если игрок в дуэли
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player && player.isInDuel && player.duelStartTime) {
+        startBattleTimer(player.duelStartTime);
+    }
 });
 
 socket.on('gameEnded', (data) => {
@@ -419,13 +453,28 @@ function setSymbol(element, symbol) {
 
 // Генерация начальных символов
 function generateInitialSymbols() {
-    slotLines.forEach(line => {
-        line.forEach(symbol => {
-            const randomSymbol = getRandomSymbol();
-            setSymbol(symbol, randomSymbol);
-            symbol.classList.remove('spinning', 'matched');
+    // Используем новую структуру с рельсами
+    if (slotReels[0] && slotReels[0].children.length > 0) {
+        slotReels.forEach(reel => {
+            Array.from(reel.children).forEach((symbol, index) => {
+                const randomSymbol = getRandomSymbol();
+                setSymbol(symbol, randomSymbol);
+                symbol.classList.remove('spinning', 'matched');
+                // Сбрасываем позицию
+                symbol.style.transform = 'translateY(0)';
+                symbol.style.transition = 'none';
+            });
         });
-    });
+    } else {
+        // Fallback на старую структуру
+        slotLines.forEach(line => {
+            line.forEach(symbol => {
+                const randomSymbol = getRandomSymbol();
+                setSymbol(symbol, randomSymbol);
+                symbol.classList.remove('spinning', 'matched');
+            });
+        });
+    }
 }
 
 // Обновление состояния игры
@@ -505,9 +554,19 @@ function updateHpBars() {
 function spin() {
     if (gameState.isSpinning) return;
     
+    // Проверяем таймер перед боем (3 секунды)
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player && player.duelStartTime) {
+        const now = Date.now();
+        if (now < player.duelStartTime + 3000) {
+            const remaining = Math.ceil((player.duelStartTime + 3000 - now) / 1000);
+            showError(`Бой еще не начался! Подождите ${remaining} секунд`);
+            return;
+        }
+    }
+    
     // Проверяем наличие золота (5 золота на спин)
     const spinCost = 5;
-    const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player) {
         const totalGold = (player.temporaryGold || 0) + (player.permanentGold || 0);
         if (totalGold < spinCost) {
@@ -559,7 +618,129 @@ function spin() {
     gameState.canSpin = false;
     if (spinBtn) spinBtn.disabled = true;
     
-    // Анимация спина - вращение барабана с остановкой
+    // Используем новую структуру с рельсами (столбцами)
+    if (slotReels[0] && slotReels[0].children.length > 0) {
+        spinReels();
+    } else {
+        // Fallback на старую структуру
+        spinOldStructure();
+    }
+}
+
+// Новая функция спина для рельсов (столбцов)
+function spinReels() {
+    let completedReels = 0;
+    const totalReels = slotReels.length;
+    
+    // Генерируем финальные символы для каждого столбца заранее
+    const finalSymbols = [];
+    for (let i = 0; i < totalReels; i++) {
+        finalSymbols.push([
+            getRandomSymbol(),
+            getRandomSymbol(),
+            getRandomSymbol()
+        ]);
+    }
+    
+    slotReels.forEach((reel, reelIndex) => {
+        // Разная скорость для каждого столбца (от 1.5 до 2.5 секунд)
+        const baseSpeed = 1500 + Math.random() * 1000;
+        const speedVariation = 0.9 + (reelIndex * 0.12); // Разная скорость по столбцам
+        const spinDuration = baseSpeed * speedVariation;
+        
+        // Задержка начала для каждого столбца (каскадный эффект)
+        const startDelay = reelIndex * 100;
+        
+        setTimeout(() => {
+            reel.classList.add('spinning');
+            
+            const symbols = Array.from(reel.children);
+            const symbolHeight = 60; // Высота символа
+            
+            // Создаем дополнительные символы для плавной прокрутки
+            const extraSymbols = [];
+            for (let i = 0; i < 8; i++) {
+                const extraSymbol = document.createElement('div');
+                extraSymbol.className = 'slot-symbol';
+                const randomSymbol = getRandomSymbol();
+                setSymbol(extraSymbol, randomSymbol);
+                reel.appendChild(extraSymbol);
+                extraSymbols.push(extraSymbol);
+            }
+            
+            const allSymbolsInReel = Array.from(reel.children);
+            let currentOffset = 0;
+            const startTime = Date.now();
+            const targetTime = startTime + spinDuration;
+            
+            function animate() {
+                const currentTime = Date.now();
+                const elapsed = currentTime - startTime;
+                const remaining = targetTime - currentTime;
+                const progress = elapsed / spinDuration;
+                
+                if (remaining <= 0) {
+                    // Остановка - устанавливаем финальные символы
+                    reel.classList.remove('spinning');
+                    
+                    // Удаляем дополнительные символы
+                    extraSymbols.forEach(s => {
+                        if (s.parentNode) s.remove();
+                    });
+                    
+                    // Устанавливаем финальные символы и сбрасываем позиции
+                    symbols.forEach((symbol, index) => {
+                        setSymbol(symbol, finalSymbols[reelIndex][index]);
+                        symbol.style.transform = 'translateY(0)';
+                        symbol.style.transition = 'none';
+                    });
+                    
+                    completedReels++;
+                    
+                    // Если все столбцы остановились, проверяем совпадения
+                    if (completedReels === totalReels) {
+                        setTimeout(() => {
+                            checkMatches();
+                        }, 300);
+                    }
+                    return;
+                }
+                
+                // Плавное замедление в конце (ease-out)
+                let easeFactor = 1;
+                if (progress > 0.6) {
+                    const slowProgress = (progress - 0.6) / 0.4;
+                    easeFactor = 1 - (slowProgress * slowProgress * slowProgress);
+                }
+                
+                // Скорость прокрутки (замедляется к концу)
+                const baseSpeed = 2; // пикселей за кадр
+                const currentSpeed = baseSpeed * easeFactor;
+                currentOffset += currentSpeed;
+                
+                // Обновляем позиции всех символов
+                allSymbolsInReel.forEach((symbol, index) => {
+                    const position = (index * symbolHeight) - (currentOffset % symbolHeight);
+                    symbol.style.transform = `translateY(${position}px)`;
+                    symbol.style.transition = 'none';
+                    
+                    // Обновляем символы, которые выходят за верхнюю границу
+                    if (position < -symbolHeight * 2) {
+                        const randomSymbol = getRandomSymbol();
+                        setSymbol(symbol, randomSymbol);
+                    }
+                });
+                
+                requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }, startDelay);
+    });
+}
+
+// Старая функция спина (для обратной совместимости)
+function spinOldStructure() {
     const allSymbols = [...SYMBOLS, WILD_SYMBOL, BONUS_SYMBOL];
     let completedSpins = 0;
     const totalSymbols = slotLines.reduce((sum, line) => sum + line.length, 0);
@@ -657,9 +838,28 @@ function checkMatches() {
     gameState.isSpinning = false;
     
     // Получаем символы из каждой линии
-    const results = slotLines.map(line => {
-        return Array.from(line).map(symbol => symbol.dataset.symbol);
-    });
+    let results;
+    
+    // Используем новую структуру с рельсами
+    if (slotReels[0] && slotReels[0].children.length >= 3) {
+        // Читаем символы из рельсов (по горизонтали)
+        results = [];
+        for (let row = 0; row < 3; row++) {
+            const line = [];
+            slotReels.forEach(reel => {
+                const symbols = Array.from(reel.children);
+                if (symbols[row]) {
+                    line.push(symbols[row].dataset.symbol);
+                }
+            });
+            results.push(line);
+        }
+    } else {
+        // Fallback на старую структуру
+        results = slotLines.map(line => {
+            return Array.from(line).map(symbol => symbol.dataset.symbol);
+        });
+    }
     
     // Подсчет бонусов (3 бонуса = 25 урона)
     let bonusCount = 0;
@@ -675,25 +875,63 @@ function checkMatches() {
     if (bonusCount >= 3) {
         damage = 25;
         // Подсветка всех бонусов и рисование линий
-        slotLines.forEach((line, lineIndex) => {
+        for (let lineIndex = 0; lineIndex < results.length; lineIndex++) {
+            const line = results[lineIndex];
             const matchedIndices = [];
-            line.forEach((symbol, symbolIndex) => {
-                if (symbol.dataset.symbol === 'bonus') {
-                    symbol.classList.add('matched');
-                    matchedIndices.push(symbolIndex);
-                    setTimeout(() => {
-                        symbol.classList.remove('matched');
-                    }, 2000);
+            line.forEach((symbolName, symbolIndex) => {
+                if (symbolName === 'bonus') {
+                    // Находим соответствующий элемент символа
+                    let symbolElement;
+                    if (slotReels[0] && slotReels[0].children.length >= 3) {
+                        // Новая структура
+                        const reel = slotReels[symbolIndex];
+                        if (reel) {
+                            const symbols = Array.from(reel.children);
+                            symbolElement = symbols[lineIndex];
+                        }
+                    } else {
+                        // Старая структура
+                        symbolElement = slotLines[lineIndex][symbolIndex];
+                    }
+                    
+                    if (symbolElement) {
+                        symbolElement.classList.add('matched');
+                        matchedIndices.push(symbolIndex);
+                        setTimeout(() => {
+                            symbolElement.classList.remove('matched');
+                        }, 2000);
+                    }
                 }
             });
             // Рисуем линии для каждой линии с бонусами
             if (matchedIndices.length >= 2) {
-                const lineElement = document.getElementById(`line${lineIndex + 1}`);
-                if (lineElement) {
-                    drawMatchLine(lineElement, matchedIndices);
+                if (slotReels[0] && slotReels[0].children.length >= 3) {
+                    // Создаем визуальную линию поверх рельсов
+                    const reelsContainer = document.querySelector('.slot-reels');
+                    if (reelsContainer) {
+                        const lineElement = document.createElement('div');
+                        lineElement.className = 'slot-line-temp';
+                        lineElement.style.position = 'absolute';
+                        lineElement.style.top = `${lineIndex * 60 + 30}px`;
+                        lineElement.style.left = '0';
+                        lineElement.style.right = '0';
+                        lineElement.style.height = '4px';
+                        lineElement.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
+                        lineElement.style.zIndex = '5';
+                        lineElement.style.borderRadius = '2px';
+                        lineElement.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.8)';
+                        reelsContainer.parentElement.style.position = 'relative';
+                        reelsContainer.parentElement.appendChild(lineElement);
+                        setTimeout(() => lineElement.remove(), 2000);
+                    }
+                } else {
+                    const lineElement = document.getElementById(`line${lineIndex + 1}`);
+                    if (lineElement) {
+                        drawMatchLine(lineElement, matchedIndices);
+                    }
                 }
             }
-        });
+        }
     } else {
         // Подсчет совпадений по горизонтали (в каждой линии) с учетом wild
         let totalMatches = 0;
@@ -740,19 +978,57 @@ function checkMatches() {
                 // Подсветка совпавших символов и сбор индексов
                 line.forEach((symbolName, index) => {
                     if (symbolName === 'wild' || symbolName === matchedSymbol) {
-                        slotLines[lineIndex][index].classList.add('matched');
-                        matchedIndices.push(index);
-                        setTimeout(() => {
-                            slotLines[lineIndex][index].classList.remove('matched');
-                        }, 2000);
+                        // Находим соответствующий элемент символа
+                        let symbolElement;
+                        if (slotReels[0] && slotReels[0].children.length >= 3) {
+                            // Новая структура
+                            const reel = slotReels[index];
+                            if (reel) {
+                                const symbols = Array.from(reel.children);
+                                symbolElement = symbols[lineIndex];
+                            }
+                        } else {
+                            // Старая структура
+                            symbolElement = slotLines[lineIndex][index];
+                        }
+                        
+                        if (symbolElement) {
+                            symbolElement.classList.add('matched');
+                            matchedIndices.push(index);
+                            setTimeout(() => {
+                                symbolElement.classList.remove('matched');
+                            }, 2000);
+                        }
                     }
                 });
                 
                 // Рисуем линию между совпавшими символами
                 if (matchedIndices.length >= 2) {
-                    const lineElement = document.getElementById(`line${lineIndex + 1}`);
-                    if (lineElement) {
-                        drawMatchLine(lineElement, matchedIndices);
+                    // Для новой структуры создаем временный контейнер для линии
+                    if (slotReels[0] && slotReels[0].children.length >= 3) {
+                        // Создаем визуальную линию поверх рельсов
+                        const reelsContainer = document.querySelector('.slot-reels');
+                        if (reelsContainer) {
+                            const lineElement = document.createElement('div');
+                            lineElement.className = 'slot-line-temp';
+                            lineElement.style.position = 'absolute';
+                            lineElement.style.top = `${lineIndex * 60 + 30}px`;
+                            lineElement.style.left = '0';
+                            lineElement.style.right = '0';
+                            lineElement.style.height = '4px';
+                            lineElement.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
+                            lineElement.style.zIndex = '5';
+                            lineElement.style.borderRadius = '2px';
+                            lineElement.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.8)';
+                            reelsContainer.parentElement.style.position = 'relative';
+                            reelsContainer.parentElement.appendChild(lineElement);
+                            setTimeout(() => lineElement.remove(), 2000);
+                        }
+                    } else {
+                        const lineElement = document.getElementById(`line${lineIndex + 1}`);
+                        if (lineElement) {
+                            drawMatchLine(lineElement, matchedIndices);
+                        }
                     }
                 }
             }
@@ -964,7 +1240,22 @@ function updatePlayersListGame() {
         if (player.temporaryGold !== undefined) {
             playerState.temporaryGold = player.temporaryGold;
         }
+        // Обновляем серии
+        if (player.winStreak !== undefined) {
+            playerState.winStreak = player.winStreak;
+        }
+        if (player.loseStreak !== undefined) {
+            playerState.loseStreak = player.loseStreak;
+        }
+        if (player.lastRoundGoldBonus !== undefined) {
+            playerState.lastRoundGoldBonus = player.lastRoundGoldBonus;
+        }
+        if (player.lastRoundGoldEarned !== undefined) {
+            playerState.lastRoundGoldEarned = player.lastRoundGoldEarned;
+        }
         updateGoldDisplay();
+        updateStreakDisplay();
+        updateRoundRewardDisplay();
         
         // Обновляем состояние кнопки "Закончил ход"
         if (endTurnBtn) {
@@ -987,6 +1278,30 @@ function updatePlayersListGame() {
             if (opponent) {
                 gameState.enemyRoundHp = opponent.roundHp;
                 gameState.enemyTotalHp = opponent.totalHp;
+                
+                // Обновляем баланс противника
+                const enemyGoldDisplay = document.getElementById('enemyGoldDisplay');
+                const enemyTempGold = document.getElementById('enemyTempGold');
+                const enemyPermGold = document.getElementById('enemyPermGold');
+                if (enemyGoldDisplay && enemyTempGold && enemyPermGold) {
+                    enemyGoldDisplay.style.display = 'block';
+                    enemyTempGold.textContent = opponent.temporaryGold || 0;
+                    enemyPermGold.textContent = opponent.permanentGold || 0;
+                }
+                
+                // Запускаем таймер перед боем, если он есть
+                if (opponent.duelStartTime || player.duelStartTime) {
+                    const duelStartTime = player.duelStartTime || opponent.duelStartTime;
+                    if (duelStartTime > 0) {
+                        startBattleTimer(duelStartTime);
+                    }
+                }
+            }
+        } else {
+            // Скрываем баланс противника, если не в дуэли
+            const enemyGoldDisplay = document.getElementById('enemyGoldDisplay');
+            if (enemyGoldDisplay) {
+                enemyGoldDisplay.style.display = 'none';
             }
         }
         
@@ -1016,6 +1331,9 @@ function updatePlayersListGame() {
                 </div>
                 <div class="player-item-hp">
                     Раунд: ${player.roundHp} | Всего: ${player.totalHp}
+                </div>
+                <div class="player-item-gold" style="font-size: 12px; color: #ffd700; margin-top: 5px;">
+                    💵 ${player.temporaryGold || 0} | 💰 ${player.permanentGold || 0}
                 </div>
                 <div class="player-hp-bars">
                     <div class="player-hp-bar-mini">
@@ -1173,6 +1491,16 @@ function resetGame() {
         clearTimeout(spinTimeout);
         spinTimeout = null;
     }
+    if (battleTimerInterval) {
+        clearInterval(battleTimerInterval);
+        battleTimerInterval = null;
+    }
+    
+    const battleTimer = document.getElementById('battleTimer');
+    const vsText = document.getElementById('vsText');
+    if (battleTimer) battleTimer.style.display = 'none';
+    if (vsText) vsText.style.display = 'block';
+    
     gameState = {
         roundHp: 100,
         totalHp: 100,
@@ -1294,6 +1622,40 @@ if (closeResultBtn) {
     });
 }
 
+// Запуск таймера перед боем
+function startBattleTimer(duelStartTime) {
+    const battleTimer = document.getElementById('battleTimer');
+    const battleTimerCountdown = document.getElementById('battleTimerCountdown');
+    const vsText = document.getElementById('vsText');
+    
+    if (!battleTimer || !battleTimerCountdown) return;
+    
+    // Очищаем предыдущий таймер
+    if (battleTimerInterval) {
+        clearInterval(battleTimerInterval);
+    }
+    
+    battleTimer.style.display = 'block';
+    if (vsText) vsText.style.display = 'none';
+    
+    battleTimerInterval = setInterval(() => {
+        const now = Date.now();
+        const remaining = Math.max(0, duelStartTime + 3000 - now);
+        const seconds = Math.ceil(remaining / 1000);
+        
+        if (battleTimerCountdown) {
+            battleTimerCountdown.textContent = seconds;
+        }
+        
+        if (remaining <= 0) {
+            clearInterval(battleTimerInterval);
+            battleTimerInterval = null;
+            battleTimer.style.display = 'none';
+            if (vsText) vsText.style.display = 'block';
+        }
+    }, 100);
+}
+
 // Обновление отображения золота
 function updateGoldDisplay() {
     const tempGoldEl = document.getElementById('tempGoldDisplay');
@@ -1315,6 +1677,74 @@ function updateGoldDisplay() {
     }
     if (permGoldEl) {
         permGoldEl.textContent = playerState.permanentGold || 0;
+    }
+}
+
+// Обновление отображения серий
+function updateStreakDisplay() {
+    const winStreakDisplay = document.getElementById('winStreakDisplay');
+    const loseStreakDisplay = document.getElementById('loseStreakDisplay');
+    
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        if (player.winStreak !== undefined) {
+            playerState.winStreak = player.winStreak;
+        }
+        if (player.loseStreak !== undefined) {
+            playerState.loseStreak = player.loseStreak;
+        }
+    }
+    
+    if (winStreakDisplay) {
+        const winStreak = playerState.winStreak || 0;
+        const bonusPercent = Math.min(winStreak * 5, 50);
+        winStreakDisplay.innerHTML = `🏆 Побед: <strong>${winStreak}</strong>`;
+        winStreakDisplay.title = `Серия побед: +5% за каждую победу (макс. +50%)\nТекущий бонус: +${bonusPercent}%`;
+    }
+    
+    if (loseStreakDisplay) {
+        const loseStreak = playerState.loseStreak || 0;
+        const bonusPercent = Math.min(loseStreak * 3, 30);
+        loseStreakDisplay.innerHTML = `💔 Поражений: <strong>${loseStreak}</strong>`;
+        loseStreakDisplay.title = `Серия поражений: +3% за каждое поражение (макс. +30%)\nТекущий бонус: +${bonusPercent}%`;
+    }
+}
+
+// Обновление отображения награды за раунд
+function updateRoundRewardDisplay() {
+    const roundRewardInfo = document.getElementById('roundRewardInfo');
+    const roundRewardText = document.getElementById('roundRewardText');
+    
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player && player.lastRoundGoldEarned > 0) {
+        if (player.lastRoundGoldBonus !== undefined) {
+            playerState.lastRoundGoldBonus = player.lastRoundGoldBonus;
+        }
+        if (player.lastRoundGoldEarned !== undefined) {
+            playerState.lastRoundGoldEarned = player.lastRoundGoldEarned;
+        }
+        
+        if (roundRewardInfo && roundRewardText) {
+            const bonus = playerState.lastRoundGoldBonus || 0;
+            const earned = playerState.lastRoundGoldEarned || 0;
+            const baseGold = bonus > 0 ? Math.round(earned / (1 + bonus / 100)) : earned;
+            
+            roundRewardText.innerHTML = `💰 Получено: <strong>+${earned}</strong> золота`;
+            if (bonus > 0) {
+                roundRewardText.innerHTML += ` <span style="color: #4caf50;">(+${bonus}% бонус)</span>`;
+            }
+            roundRewardText.title = `Базовое золото: ${baseGold}\nБонус от серии: +${bonus}%\nИтого: ${earned} золота`;
+            roundRewardInfo.style.display = 'block';
+            
+            // Скрываем через 10 секунд
+            setTimeout(() => {
+                if (roundRewardInfo) {
+                    roundRewardInfo.style.display = 'none';
+                }
+            }, 10000);
+        }
+    } else if (roundRewardInfo) {
+        roundRewardInfo.style.display = 'none';
     }
 }
 
