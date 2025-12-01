@@ -186,6 +186,8 @@ function simulateBotSpin() {
   
   // Подсчет совпадений по горизонтали с учетом wild
   let totalMatches = 0;
+  let firstMatchLine = null;
+  let firstMatchSymbol = null;
   
   results.forEach(line => {
     // Подсчет wild символов
@@ -217,6 +219,14 @@ function simulateBotSpin() {
     // Только если 3 или больше совпадений в линии
     if (totalLineMatches >= 3) {
       totalMatches += totalLineMatches;
+      
+      // Сохраняем информацию о первой комбинации
+      if (!firstMatchLine) {
+        firstMatchLine = totalLineMatches;
+        firstMatchSymbol = Object.keys(symbolCounts).length > 0
+          ? Object.keys(symbolCounts).find(key => symbolCounts[key] === maxRegularMatches)
+          : 'wild';
+      }
     }
   });
   
@@ -224,7 +234,26 @@ function simulateBotSpin() {
   const baseDamage = 5;
   const damage = baseDamage * totalMatches;
   
-  return { damage: damage, matches: 'normal' };
+  // Формируем информацию о комбинации
+  let comboDetails = null;
+  if (firstMatchLine && firstMatchSymbol) {
+    const symbolNames = {
+      'red': 'КРАСНЫХ',
+      'blue': 'СИНИХ',
+      'green': 'ЗЕЛЕНЫХ',
+      'yellow': 'ЖЕЛТЫХ',
+      'purple': 'ФИОЛЕТОВЫХ',
+      'wild': 'WILD'
+    };
+    const symbolName = symbolNames[firstMatchSymbol] || 'СИМВОЛОВ';
+    comboDetails = {
+      symbol: firstMatchSymbol,
+      count: firstMatchLine,
+      text: `${firstMatchLine} ${symbolName} ШАРИКА`
+    };
+  }
+  
+  return { damage: damage, matches: 'normal', comboDetails: comboDetails };
 }
 
 // Принятие решения ботом: делать ли еще спин или закончить ход
@@ -233,28 +262,24 @@ function botDecideAction(bot, opponent) {
   const botHpPercent = bot.roundHp / 200;
   const opponentHpPercent = opponent.roundHp / 200;
   
+  // БОТЫ ДОЛЖНЫ КРУТИТЬ МИНИМУМ ДО КОНЦА ВРЕМЕННЫХ ДЕНЕГ
+  // Если есть временное золото - обязательно крутим
+  if (bot.temporaryGold >= spinCost) {
+    return 'spin';
+  }
+  
   // Если у бота нет золота - заканчивает ход
   if (bot.temporaryGold < spinCost && bot.permanentGold < spinCost) {
     return 'endTurn';
   }
   
-  // Если противник почти мертв (HP < 20%) - пытаемся добить
-  if (opponentHpPercent < 0.2 && (bot.temporaryGold >= spinCost || bot.permanentGold >= spinCost)) {
+  // Если противник почти мертв (HP < 20%) - пытаемся добить (можно тратить постоянное)
+  if (opponentHpPercent < 0.2 && bot.permanentGold >= spinCost) {
     return 'spin';
   }
   
-  // Если у бота мало HP (< 30%) и есть временное золото - пытаемся атаковать
-  if (botHpPercent < 0.3 && bot.temporaryGold >= spinCost) {
-    return 'spin';
-  }
-  
-  // Если у бота много временного золота (> 15) - делаем еще спин
-  if (bot.temporaryGold >= 15) {
-    return 'spin';
-  }
-  
-  // Если у бота есть временное золото и противник не слишком силен - спин
-  if (bot.temporaryGold >= spinCost && opponentHpPercent < 0.7) {
+  // Если у бота мало HP (< 30%) и есть постоянное золото - пытаемся атаковать
+  if (botHpPercent < 0.3 && bot.permanentGold >= spinCost) {
     return 'spin';
   }
   
@@ -442,13 +467,42 @@ function handleBotSpin(botId, roomId) {
       }
     }
     
+    // Формируем информацию о комбинации для бота
+    let comboInfo = null;
+    if (spinResult.matches === 'bonus' && bot.characterId) {
+      const character = CHARACTERS.find(c => c.id === bot.characterId);
+      comboInfo = {
+        type: 'bonus',
+        text: `3+ БОНУСА`,
+        description: character ? character.description : 'Способность персонажа',
+        damage: damage
+      };
+    } else if (damage > 0 && spinResult.comboDetails) {
+      // Используем детали комбинации из результата спина
+      comboInfo = {
+        type: 'combo',
+        text: spinResult.comboDetails.text,
+        damage: damage,
+        description: `Урон: ${damage}`
+      };
+    } else if (damage > 0) {
+      // Для обычных комбинаций бота формируем базовую информацию
+      comboInfo = {
+        type: 'combo',
+        text: `КОМБИНАЦИЯ`,
+        damage: damage,
+        description: `Урон: ${damage}`
+      };
+    }
+    
     // Отправляем атаку всем в комнате
     if (damage > 0 || spinResult.matches === 'bonus') {
       io.to(roomId).emit('attack', {
         fromPlayerSocketId: botId,
         targetPlayerSocketId: opponentId,
         damage: damage,
-        matches: spinResult.matches
+        matches: spinResult.matches,
+        comboInfo: comboInfo
       });
     }
     
@@ -499,12 +553,17 @@ function handleBotSpin(botId, roomId) {
       return;
     }
     
-    // Планируем следующее действие бота (перезарядка + случайная задержка)
+    // Планируем следующее действие бота ПОСЛЕ окончания перезарядки + задержка
+    // Перезарядка начинается после окончания спина (spinEndTime) и длится 3000мс
+    // После окончания перезарядки добавляем задержку bot.spinDelay
+    // Общее время до следующего спина = время перезарядки (3000мс) + задержка (bot.spinDelay)
     if (bot.isInDuel && !bot.isEliminated && !bot.hasEndedTurn) {
-      const nextActionDelay = 3000 + bot.spinDelay; // 3 секунды перезарядки + задержка
+      const rechargeTime = 3000; // 3 секунды перезарядки
+      const totalDelay = rechargeTime + bot.spinDelay; // Перезарядка + задержка после окончания перезарядки
+      
       setTimeout(() => {
         handleBotSpin(botId, roomId);
-      }, nextActionDelay);
+      }, totalDelay);
     }
     
     console.log(`Бот ${bot.nickname} атакует ${opponent.nickname} на ${damage} урона (Временное: ${bot.temporaryGold}, Постоянное: ${bot.permanentGold})`);
@@ -1125,13 +1184,30 @@ io.on('connection', (socket) => {
     
     console.log(`Урон нанесен: ${attacker.nickname} -> ${target.nickname}, урон: ${finalDamage}, HP после: ${target.roundHp}`);
     
+    // Формируем информацию о комбинации
+    let comboInfo = null;
+    if (matches === 'bonus' && attacker.characterId) {
+      const character = CHARACTERS.find(c => c.id === attacker.characterId);
+      comboInfo = {
+        type: 'bonus',
+        text: `3+ БОНУСА`,
+        description: character ? character.description : 'Способность персонажа',
+        damage: finalDamage
+      };
+    } else if (finalDamage > 0 && data.comboInfo) {
+      // Используем информацию о комбинации от клиента
+      comboInfo = data.comboInfo;
+      comboInfo.damage = finalDamage;
+    }
+    
     // Отправляем атаку всем в комнате
     if (finalDamage > 0 || matches === 'bonus') {
       io.to(roomId).emit('attack', {
         fromPlayerSocketId: fromPlayerSocketId,
         targetPlayerSocketId: targetPlayerSocketId,
         damage: finalDamage,
-        matches: matches
+        matches: matches,
+        comboInfo: comboInfo
       });
     }
     

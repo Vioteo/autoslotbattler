@@ -301,15 +301,17 @@ socket.on('roomStateUpdate', (data) => {
         const player = roomState.players.find(p => p.socketId === playerState.socketId);
         if (player) {
             // Показываем статистику только если:
-            // 1. Игрок выбрал персонажа (characterId не null)
-            // 2. Игра началась (мы на игровом экране)
-            // 3. Прошел хотя бы один раунд (currentRound > 0)
-            // 4. Игрок закончил бой или раунд (не в дуэли или дуэль завершена)
+            // 1. Игрок в комнате (roomId не null)
+            // 2. Игрок выбрал персонажа (characterId не null)
+            // 3. Игра началась (мы на игровом экране)
+            // 4. Прошел хотя бы один раунд (currentRound > 0)
+            // 5. Игрок закончил бой или раунд (не в дуэли или дуэль завершена)
             const isInGame = gameScreen && gameScreen.classList.contains('active');
+            const hasRoom = playerState.roomId !== null;
             const hasCharacter = player.characterId !== null && player.characterId !== undefined;
             const hasCompletedRound = roomState.currentRound > 0;
             
-            if (isInGame && hasCharacter && hasCompletedRound && !player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
+            if (isInGame && hasRoom && hasCharacter && hasCompletedRound && !player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
                 // Показываем статистику, если закончил бой или раунд
                 showRoundStats();
             }
@@ -319,10 +321,27 @@ socket.on('roomStateUpdate', (data) => {
                 if (opponent) {
                     const enemyTempGold = document.getElementById('enemyTempGold');
                     const enemyPermGold = document.getElementById('enemyPermGold');
+                    const enemyName = document.querySelector('.enemy-character .character-name');
+                    const enemyAvatar = document.getElementById('enemyAvatar');
+                    
                     if (enemyTempGold) enemyTempGold.textContent = opponent.temporaryGold || 0;
                     if (enemyPermGold) enemyPermGold.textContent = opponent.permanentGold || 0;
+                    
+                    // Обновляем имя и аватар противника
+                    if (enemyName) {
+                        const character = CHARACTERS.find(c => c.id === opponent.characterId);
+                        enemyName.textContent = `${opponent.nickname}${opponent.isBot ? ' 🤖' : ''}`;
+                    }
+                    if (enemyAvatar && opponent.characterId) {
+                        const character = CHARACTERS.find(c => c.id === opponent.characterId);
+                        if (character) enemyAvatar.textContent = character.emoji;
+                    }
                 }
             }
+            
+            // Обновляем состояние кнопки spin
+            enableSpin();
+            updateBattlePhase();
         }
     }
     if (data.pairs) {
@@ -400,9 +419,17 @@ socket.on('attack', (data) => {
     if (data.targetPlayerSocketId === playerState.socketId) {
         // Мы получили урон
         takeDamage(data.damage);
+        // Показываем сообщение о комбинации противника
+        if (data.comboInfo) {
+            showComboMessage('enemy', data.comboInfo);
+        }
     } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
         showAttackAnimation(data.damage, true);
+        // Показываем сообщение о нашей комбинации
+        if (data.comboInfo) {
+            showComboMessage('player', data.comboInfo);
+        }
         // Обновляем состояние для отображения урона боту
         setTimeout(() => {
             updatePlayersListGame();
@@ -452,6 +479,17 @@ function initGame() {
     if (player) {
         gameState.roundHp = player.roundHp || 200;
         gameState.totalHp = player.totalHp || 100;
+        
+        // Обновляем аватар и имя игрока
+        const playerAvatar = document.getElementById('playerAvatar');
+        const playerName = document.querySelector('.player-character .character-name');
+        if (playerAvatar && player.characterId) {
+            const character = CHARACTERS.find(c => c.id === player.characterId);
+            if (character) playerAvatar.textContent = character.emoji;
+        }
+        if (playerName) {
+            playerName.textContent = `${player.nickname}${player.isBot ? ' 🤖' : ''}`;
+        }
     }
     
     // Находим противника
@@ -465,6 +503,21 @@ function initGame() {
         gameState.enemyTotalHp = opponent.totalHp || 100;
         playerState.currentOpponent = opponent.socketId;
         playerState.isInDuel = true;
+        
+        // Обновляем аватар и имя противника
+        const enemyAvatar = document.getElementById('enemyAvatar');
+        const enemyName = document.getElementById('enemyName');
+        if (enemyAvatar && opponent.characterId) {
+            const character = CHARACTERS.find(c => c.id === opponent.characterId);
+            if (character) enemyAvatar.textContent = character.emoji;
+        }
+        if (enemyName) {
+            enemyName.textContent = `${opponent.nickname}${opponent.isBot ? ' 🤖' : ''}`;
+        }
+    } else {
+        // Нет противника - скрываем информацию
+        const enemyName = document.getElementById('enemyName');
+        if (enemyName) enemyName.textContent = 'Противник';
     }
     
     gameState.maxHp = 200;
@@ -477,6 +530,7 @@ function initGame() {
     updateHpBars();
     generateInitialSymbols();
     enableSpin();
+    updateBattlePhase();
 }
 
 // Получение случайного символа с учетом весов
@@ -1176,6 +1230,42 @@ function checkMatches() {
         damage = baseDamage * totalMatches;
     }
     
+    // Формируем информацию о комбинации для отправки
+    let comboInfo = null;
+    if (bonusCount >= 3) {
+        const player = roomState.players.find(p => p.socketId === playerState.socketId);
+        const character = CHARACTERS.find(c => c.id === player?.characterId);
+        comboInfo = {
+            type: 'bonus',
+            text: `3+ БОНУСА`,
+            description: character ? character.description : 'Способность персонажа',
+            damage: 0
+        };
+    } else if (damage > 0 && matchDetails.length > 0) {
+        // Формируем информацию о первой комбинации
+        const firstMatch = matchDetails[0];
+        const symbolNames = {
+            'red': 'КРАСНЫХ',
+            'blue': 'СИНИХ',
+            'green': 'ЗЕЛЕНЫХ',
+            'yellow': 'ЖЕЛТЫХ',
+            'purple': 'ФИОЛЕТОВЫХ',
+            'wild': 'WILD'
+        };
+        const symbolName = symbolNames[firstMatch.symbol] || 'СИМВОЛОВ';
+        const lineDamage = 5 * firstMatch.matches;
+        const totalLines = matchDetails.length;
+        const comboText = totalLines > 1 
+            ? `${firstMatch.matches} ${symbolName} ШАРИКА (${totalLines} линии)`
+            : `${firstMatch.matches} ${symbolName} ШАРИКА`;
+        comboInfo = {
+            type: 'combo',
+            text: comboText,
+            damage: damage,
+            description: `Урон: ${damage}`
+        };
+    }
+    
     // Всегда отправляем атаку на сервер (золото тратится на сервере всегда, даже если нет комбинации)
     if (playerState.currentOpponent) {
         socket.emit('attack', {
@@ -1183,12 +1273,13 @@ function checkMatches() {
             fromPlayerSocketId: playerState.socketId,
             targetPlayerSocketId: playerState.currentOpponent,
             damage: damage,
-            matches: bonusCount >= 3 ? 'bonus' : 'normal'
+            matches: bonusCount >= 3 ? 'bonus' : 'normal',
+            comboInfo: comboInfo
         });
-    } else {
-        // Если нет противника, все равно начинаем перезарядку (деньги уже потрачены на клиенте)
-        startRecharge();
     }
+    
+    // Всегда начинаем перезарядку после спина
+    startRecharge();
 }
 
 // Начало перезарядки
@@ -1231,9 +1322,21 @@ function startRecharge() {
 
 // Включение спина
 function enableSpin() {
-    gameState.canSpin = true;
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) return;
+    
+    // Проверяем условия для доступности спина
+    const canSpinNow = 
+        !gameState.isSpinning && // Не крутится сейчас
+        !gameState.isRecharging && // Не на перезарядке
+        player.isInDuel && // В дуэли
+        !player.hasEndedTurn && // Не закончил ход
+        (player.temporaryGold >= 5 || player.permanentGold >= 5) && // Есть золото
+        (!player.duelStartTime || Date.now() >= player.duelStartTime + 3000); // Прошел таймер до боя
+    
+    gameState.canSpin = canSpinNow;
     if (spinBtn) {
-        spinBtn.disabled = false;
+        spinBtn.disabled = !canSpinNow;
     }
     if (rechargeFill) {
         rechargeFill.style.width = '100%';
@@ -1280,6 +1383,50 @@ function showAttackAnimation(damage, isMyAttack = false) {
     }
     
     // HP обновляется через gameState от другого игрока, здесь только анимация
+}
+
+// Показ всплывающего сообщения о комбинации
+function showComboMessage(target, comboInfo) {
+    if (!comboInfo) return;
+    
+    const containerId = target === 'player' ? 'playerComboMessages' : 'enemyComboMessages';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    // Создаем элемент сообщения
+    const messageEl = document.createElement('div');
+    messageEl.className = 'combo-message';
+    
+    if (comboInfo.type === 'bonus') {
+        messageEl.className += ' combo-bonus';
+        messageEl.innerHTML = `
+            <div class="combo-title">${comboInfo.text}</div>
+            <div class="combo-description">${comboInfo.description}</div>
+        `;
+    } else {
+        messageEl.className += ' combo-normal';
+        messageEl.innerHTML = `
+            <div class="combo-title">${comboInfo.text}</div>
+            <div class="combo-damage">Урон: ${comboInfo.damage}</div>
+        `;
+    }
+    
+    container.appendChild(messageEl);
+    
+    // Анимация появления
+    setTimeout(() => {
+        messageEl.classList.add('show');
+    }, 10);
+    
+    // Удаление через 3 секунды
+    setTimeout(() => {
+        messageEl.classList.add('hide');
+        setTimeout(() => {
+            if (messageEl.parentNode) {
+                messageEl.remove();
+            }
+        }, 500);
+    }, 3000);
 }
 
 // Показ результата игры (победа/поражение)
@@ -1485,15 +1632,25 @@ function updatePlayersListGame() {
         const roundHpPercent = (player.roundHp / 200) * 100;
         const totalHpPercent = (player.totalHp / 100) * 100;
         
+        // Находим персонажа
+        const character = CHARACTERS.find(c => c.id === player.characterId);
+        const characterEmoji = character ? character.emoji : '👤';
+        const characterName = character ? character.name : 'Без персонажа';
+        
         return `
             <div class="player-item-game ${statusClass}">
                 <div class="player-item-header">
-                    <span class="player-item-name">${player.nickname}${isMe ? ' (Вы)' : ''}${isBot ? ' 🤖' : ''}</span>
+                    <span class="player-item-name">
+                        ${characterEmoji} ${player.nickname}${isMe ? ' (Вы)' : ''}${isBot ? ' 🤖' : ''}
+                    </span>
                 </div>
-                <div class="player-item-hp">
+                <div class="player-item-character" style="font-size: 11px; color: #666; margin-top: 3px;">
+                    ${characterName}
+                </div>
+                <div class="player-item-hp" style="font-size: 11px;">
                     Раунд: ${player.roundHp} | Всего: ${player.totalHp}
                 </div>
-                <div class="player-item-gold" style="font-size: 12px; color: #ffd700; margin-top: 5px;">
+                <div class="player-item-gold" style="font-size: 11px; color: #ffd700; margin-top: 3px;">
                     💵 ${player.temporaryGold || 0} | 💰 ${player.permanentGold || 0}
                 </div>
                 <div class="player-hp-bars">
@@ -1807,6 +1964,30 @@ if (closeResultBtn) {
     });
 }
 
+// Обновление этапа боя
+function updateBattlePhase() {
+    const battlePhase = document.getElementById('battlePhase');
+    if (!battlePhase) return;
+    
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) {
+        battlePhase.textContent = 'Ожидание...';
+        battlePhase.className = 'battle-phase phase-waiting';
+        return;
+    }
+    
+    if (!player.isInDuel) {
+        battlePhase.textContent = 'Перерыв между боями';
+        battlePhase.className = 'battle-phase phase-break';
+    } else if (player.duelStartTime && Date.now() < player.duelStartTime + 3000) {
+        battlePhase.textContent = 'Подготовка к бою';
+        battlePhase.className = 'battle-phase phase-preparation';
+    } else {
+        battlePhase.textContent = 'Бой идет';
+        battlePhase.className = 'battle-phase phase-battle';
+    }
+}
+
 // Запуск таймера перед боем
 function startBattleTimer(duelStartTime) {
     const battleTimer = document.getElementById('battleTimer');
@@ -1832,6 +2013,8 @@ function startBattleTimer(duelStartTime) {
             battleTimerInterval = null;
             battleTimer.style.display = 'none';
             if (vsText) vsText.style.display = 'block';
+            updateBattlePhase();
+            enableSpin();
             return;
         }
         
@@ -1840,6 +2023,7 @@ function startBattleTimer(duelStartTime) {
         if (battleTimerCountdown) {
             battleTimerCountdown.textContent = seconds > 0 ? seconds : 1;
         }
+        updateBattlePhase();
     }, 100);
 }
 

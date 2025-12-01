@@ -89,16 +89,18 @@
             <div class="battle-area">
                 <div class="character-container player-character">
                     <div class="character-avatar" id="playerAvatar">👤</div>
-                    <div class="character-name">Вы</div>
+                    <div class="character-name" id="playerName">Вы</div>
                     <div class="hp-bar-container">
                         <div class="hp-bar" id="playerHpBar">
                             <div class="hp-fill" id="playerHpFill" style="width: 100%"></div>
                         </div>
                         <div class="hp-text" id="playerHpText">200 / 200</div>
                     </div>
+                    <div class="combo-messages" id="playerComboMessages"></div>
                 </div>
                 
                 <div class="vs-indicator">
+                    <div id="battlePhase" class="battle-phase">Подготовка к бою</div>
                     <div id="battleTimer" style="display: none; font-size: 24px; font-weight: bold; color: #ff6b6b; margin-top: 10px;">
                         Бой начнется через: <span id="battleTimerCountdown">3</span>
                     </div>
@@ -107,7 +109,7 @@
                 
                 <div class="character-container enemy-character">
                     <div class="character-avatar" id="enemyAvatar">👤</div>
-                    <div class="character-name">Противник</div>
+                    <div class="character-name" id="enemyName">Противник</div>
                     <div class="hp-bar-container">
                         <div class="hp-bar" id="enemyHpBar">
                             <div class="hp-fill" id="enemyHpFill" style="width: 100%"></div>
@@ -118,6 +120,7 @@
                         <div>💵 Временное: <span id="enemyTempGold">0</span></div>
                         <div>💰 Постоянное: <span id="enemyPermGold">0</span></div>
                     </div>
+                    <div class="combo-messages" id="enemyComboMessages"></div>
                 </div>
             </div>
 
