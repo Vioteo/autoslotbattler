@@ -67,7 +67,11 @@ let playerState = {
     roomId: null,
     isHost: false,
     currentOpponent: null,
-    isInDuel: false
+    isInDuel: false,
+    permanentGold: 0,
+    temporaryGold: 0,
+    winStreak: 0,
+    loseStreak: 0
 };
 
 // Состояние комнаты
@@ -117,6 +121,7 @@ const resultTitle = document.getElementById('resultTitle');
 const resultMessage = document.getElementById('resultMessage');
 const closeResultBtn = document.getElementById('closeResultBtn');
 const duelsContainer = document.getElementById('duelsContainer');
+const endTurnBtn = document.getElementById('endTurnBtn');
 
 // Получаем все линии слотов
 const slotLines = [
@@ -246,6 +251,7 @@ socket.on('roomStateUpdate', (data) => {
     if (data.players) {
         roomState.players = data.players;
         updatePlayersListGame();
+        updateGoldDisplay();
     }
     if (data.pairs) {
         roomState.pairs = data.pairs;
@@ -276,6 +282,7 @@ socket.on('roundStarted', (data) => {
     showScreen(gameScreen);
     updateDuelsDisplay();
     updatePlayersListGame();
+    updateGoldDisplay();
 });
 
 socket.on('gameEnded', (data) => {
@@ -318,6 +325,10 @@ socket.on('attack', (data) => {
     } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
         showAttackAnimation(data.damage, true);
+        // Обновляем состояние для отображения урона боту
+        setTimeout(() => {
+            updatePlayersListGame();
+        }, 100);
     } else {
         // Атака другого игрока, обновляем состояние комнаты
         updatePlayersListGame();
@@ -419,13 +430,22 @@ function generateInitialSymbols() {
 
 // Обновление состояния игры
 function updateGameState(data) {
-    if (data.playerNumber !== currentPlayerNumber) {
-        // Обновляем HP противника из его состояния
-        if (data.gameState && data.gameState.playerHp !== undefined) {
-            gameState.enemyHp = data.gameState.playerHp;
-            updateHpBars();
-        }
+    // Обновляем состояние из roomStateUpdate
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        gameState.roundHp = player.roundHp || 100;
+        gameState.totalHp = player.totalHp || 100;
     }
+    
+    const opponent = roomState.players.find(p => 
+        p.socketId === playerState.currentOpponent || 
+        (player && player.isInDuel && p.socketId === player.duelOpponent)
+    );
+    if (opponent) {
+        gameState.enemyRoundHp = opponent.roundHp || 100;
+        gameState.enemyTotalHp = opponent.totalHp || 100;
+    }
+    updateHpBars();
 }
 
 // Обновление HP баров
@@ -732,11 +752,12 @@ function checkMatches() {
         damage = baseDamage * totalMatches;
     }
     
-    if (damage > 0) {
-        // Отправляем атаку на сервер
+    if (damage > 0 && playerState.currentOpponent) {
+        // Отправляем атаку на сервер (золото тратится на сервере)
         socket.emit('attack', {
-            roomId: currentRoomId,
-            fromPlayer: currentPlayerNumber,
+            roomId: playerState.roomId,
+            fromPlayerSocketId: playerState.socketId,
+            targetPlayerSocketId: playerState.currentOpponent,
             damage: damage,
             matches: bonusCount >= 3 ? 'bonus' : 'normal'
         });
@@ -869,15 +890,22 @@ function updateRoomsList(rooms) {
         return;
     }
     
-    roomsList.innerHTML = rooms.map(room => `
-        <div class="room-item" data-room-id="${room.id}">
-            <div class="room-item-info">
-                <div class="room-item-id">${room.id}</div>
-                <div class="room-item-count">${room.playerCount} / ${room.maxPlayers} игроков</div>
+    roomsList.innerHTML = rooms.map(room => {
+        const realCount = room.realPlayerCount !== undefined ? room.realPlayerCount : room.playerCount;
+        const botCount = room.playerCount - realCount;
+        const botInfo = botCount > 0 ? ` (${botCount} ботов)` : '';
+        const noBotsBadge = room.noBots ? '<span style="color: #4caf50; font-weight: bold; margin-left: 10px;">🚫 Без ботов</span>' : '';
+        
+        return `
+            <div class="room-item" data-room-id="${room.id}">
+                <div class="room-item-info">
+                    <div class="room-item-id">${room.id}${noBotsBadge}</div>
+                    <div class="room-item-count">${realCount} реальных${botInfo} / ${room.maxPlayers} игроков</div>
+                </div>
+                <button class="btn btn-small" onclick="joinRoomById('${room.id}')">Присоединиться</button>
             </div>
-            <button class="btn btn-small" onclick="joinRoomById('${room.id}')">Присоединиться</button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Присоединение к комнате по ID
@@ -917,6 +945,28 @@ function updatePlayersListGame() {
     if (player) {
         gameState.roundHp = player.roundHp;
         gameState.totalHp = player.totalHp;
+        
+        // Обновляем золото
+        if (player.permanentGold !== undefined) {
+            playerState.permanentGold = player.permanentGold;
+        }
+        if (player.temporaryGold !== undefined) {
+            playerState.temporaryGold = player.temporaryGold;
+        }
+        updateGoldDisplay();
+        
+        // Обновляем состояние кнопки "Закончил ход"
+        if (endTurnBtn) {
+            if (player.hasEndedTurn) {
+                endTurnBtn.disabled = true;
+                endTurnBtn.textContent = 'Ход завершен';
+            } else if (player.isInDuel) {
+                endTurnBtn.disabled = false;
+                endTurnBtn.textContent = 'Закончил ход';
+            } else {
+                endTurnBtn.disabled = true;
+            }
+        }
         
         if (player.isInDuel && player.duelOpponent) {
             playerState.currentOpponent = player.duelOpponent;
@@ -1127,9 +1177,15 @@ function resetGame() {
 }
 
 // Обработчики кнопок
+const noBotsCheckbox = document.getElementById('noBotsCheckbox');
+
 createRoomBtn.addEventListener('click', () => {
     const nickname = nicknameInput ? nicknameInput.value.trim() : '';
-    socket.emit('createRoom', { nickname: nickname || undefined });
+    const noBots = noBotsCheckbox ? noBotsCheckbox.checked : false;
+    socket.emit('createRoom', { 
+        nickname: nickname || undefined,
+        noBots: noBots
+    });
     updateConnectionStatus('connecting', 'Создание комнаты...');
 });
 
@@ -1188,8 +1244,28 @@ if (leaveGameBtn) {
     });
 }
 
-spinBtn.addEventListener('click', () => {
-    spin();
+if (spinBtn) {
+    spinBtn.addEventListener('click', () => {
+        spin();
+    });
+}
+
+if (endTurnBtn) {
+    endTurnBtn.addEventListener('click', () => {
+        if (playerState.roomId && playerState.isInDuel) {
+            socket.emit('endTurn', { roomId: playerState.roomId });
+            if (endTurnBtn) {
+                endTurnBtn.disabled = true;
+                endTurnBtn.textContent = 'Ход завершен';
+            }
+        }
+    });
+}
+
+// Обработчик завершения хода
+socket.on('turnEnded', (data) => {
+    console.log('Ход завершен:', data);
+    updatePlayersListGame();
 });
 
 // Обработка Enter в поле ввода комнаты
@@ -1205,6 +1281,30 @@ if (closeResultBtn) {
         closeGameResult();
         resetToMenu();
     });
+}
+
+// Обновление отображения золота
+function updateGoldDisplay() {
+    const tempGoldEl = document.getElementById('tempGoldDisplay');
+    const permGoldEl = document.getElementById('permGoldDisplay');
+    
+    // Обновляем из состояния комнаты
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        if (player.temporaryGold !== undefined) {
+            playerState.temporaryGold = player.temporaryGold;
+        }
+        if (player.permanentGold !== undefined) {
+            playerState.permanentGold = player.permanentGold;
+        }
+    }
+    
+    if (tempGoldEl) {
+        tempGoldEl.textContent = playerState.temporaryGold || 0;
+    }
+    if (permGoldEl) {
+        permGoldEl.textContent = playerState.permanentGold || 0;
+    }
 }
 
 // Инициализация

@@ -52,7 +52,11 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     isBot: isBot,
     spinDelay: isBot ? getRandomSpinDelay() : 0, // Случайная задержка для бота
     lastSpinTime: 0,
-    rechargeEndTime: 0
+    rechargeEndTime: 0,
+    // Экономика
+    permanentGold: 0,
+    temporaryGold: 0,
+    hasEndedTurn: false // Закончил ли ход
   };
 }
 
@@ -89,10 +93,50 @@ function calculateBotDamage() {
   return matches * 5; // базовый урон 5
 }
 
+// Принятие решения ботом: делать ли еще спин или закончить ход
+function botDecideAction(bot, opponent) {
+  const spinCost = 5;
+  const botHpPercent = bot.roundHp / 100;
+  const opponentHpPercent = opponent.roundHp / 100;
+  
+  // Если у бота нет золота - заканчивает ход
+  if (bot.temporaryGold < spinCost && bot.permanentGold < spinCost) {
+    return 'endTurn';
+  }
+  
+  // Если противник почти мертв (HP < 20%) - пытаемся добить
+  if (opponentHpPercent < 0.2 && (bot.temporaryGold >= spinCost || bot.permanentGold >= spinCost)) {
+    return 'spin';
+  }
+  
+  // Если у бота мало HP (< 30%) и есть временное золото - пытаемся атаковать
+  if (botHpPercent < 0.3 && bot.temporaryGold >= spinCost) {
+    return 'spin';
+  }
+  
+  // Если у бота много временного золота (> 15) - делаем еще спин
+  if (bot.temporaryGold >= 15) {
+    return 'spin';
+  }
+  
+  // Если у бота есть временное золото и противник не слишком силен - спин
+  if (bot.temporaryGold >= spinCost && opponentHpPercent < 0.7) {
+    return 'spin';
+  }
+  
+  // Если у бота есть постоянное золото и ситуация критическая - тратим постоянное
+  if (bot.permanentGold >= spinCost && (botHpPercent < 0.4 || opponentHpPercent < 0.3)) {
+    return 'spin';
+  }
+  
+  // Иначе заканчиваем ход
+  return 'endTurn';
+}
+
 // Обработка спина бота
 function handleBotSpin(botId, roomId) {
   const bot = bots.get(botId);
-  if (!bot || !bot.isInDuel || bot.isEliminated) return;
+  if (!bot || !bot.isInDuel || bot.isEliminated || bot.hasEndedTurn) return;
   
   const room = rooms.get(roomId);
   if (!room || !room.gameInProgress) return;
@@ -102,6 +146,33 @@ function handleBotSpin(botId, roomId) {
   
   const opponent = players.get(opponentId);
   if (!opponent || opponent.isEliminated) return;
+  
+  const spinCost = 5;
+  
+  // Проверяем наличие золота
+  if (bot.temporaryGold < spinCost && bot.permanentGold < spinCost) {
+    // Нет золота - заканчиваем ход
+    botEndTurn(botId, roomId);
+    return;
+  }
+  
+  // Принимаем решение
+  const decision = botDecideAction(bot, opponent);
+  
+  if (decision === 'endTurn') {
+    botEndTurn(botId, roomId);
+    return;
+  }
+  
+  // Тратим золото (сначала временное, потом постоянное)
+  if (bot.temporaryGold >= spinCost) {
+    bot.temporaryGold -= spinCost;
+  } else if (bot.permanentGold >= spinCost) {
+    bot.permanentGold -= spinCost;
+  } else {
+    botEndTurn(botId, roomId);
+    return;
+  }
   
   // Генерируем урон
   const damage = calculateBotDamage();
@@ -122,6 +193,9 @@ function handleBotSpin(botId, roomId) {
   bot.lastSpinTime = now;
   bot.rechargeEndTime = now + 3000; // 3 секунды перезарядки
   
+  // Обновляем состояние
+  updateRoomState(roomId);
+  
   // Проверяем, закончился ли бой
   if (opponent.roundHp <= 0) {
     // Проигравший теряет 20% от общего HP
@@ -135,22 +209,37 @@ function handleBotSpin(botId, roomId) {
     
     bot.isInDuel = false;
     opponent.isInDuel = false;
+    bot.hasEndedTurn = false;
+    opponent.hasEndedTurn = false;
     
     updateRoomState(roomId);
     checkAllDuelsFinished(roomId);
-  } else {
-    updateRoomState(roomId);
+    return;
   }
   
-  // Планируем следующий спин бота (перезарядка + случайная задержка), только если бой еще идет
-  if (bot.isInDuel && !bot.isEliminated) {
-    const nextSpinDelay = 3000 + bot.spinDelay;
+  // Планируем следующее действие бота (перезарядка + случайная задержка)
+  if (bot.isInDuel && !bot.isEliminated && !bot.hasEndedTurn) {
+    const nextActionDelay = 3000 + bot.spinDelay;
     setTimeout(() => {
       handleBotSpin(botId, roomId);
-    }, nextSpinDelay);
+    }, nextActionDelay);
   }
   
-  console.log(`Бот ${bot.nickname} атакует ${opponent.nickname} на ${damage} урона`);
+  console.log(`Бот ${bot.nickname} атакует ${opponent.nickname} на ${damage} урона (Временное: ${bot.temporaryGold}, Постоянное: ${bot.permanentGold})`);
+}
+
+// Бот заканчивает ход
+function botEndTurn(botId, roomId) {
+  const bot = bots.get(botId);
+  if (!bot || !bot.isInDuel) return;
+  
+  bot.hasEndedTurn = true;
+  updateRoomState(roomId);
+  
+  // Проверяем, оба ли игрока закончили ход
+  checkBothEndedTurn(roomId, bot.duelOpponent, botId);
+  
+  console.log(`Бот ${bot.nickname} закончил ход`);
 }
 
 // Добавление ботов в комнату до 8 игроков
@@ -184,10 +273,18 @@ function getAvailableRooms() {
   const availableRooms = [];
   for (const [roomId, room] of rooms.entries()) {
     if (room.players.length < 8 && !room.gameInProgress) {
+      // Подсчитываем реальных игроков (не ботов)
+      const realPlayers = room.players.filter(id => {
+        const p = players.get(id);
+        return p && !p.isBot;
+      }).length;
+      
       availableRooms.push({
         id: roomId,
         playerCount: room.players.length,
-        maxPlayers: 8
+        realPlayerCount: realPlayers,
+        maxPlayers: 8,
+        noBots: room.noBots || false
       });
     }
   }
@@ -220,6 +317,7 @@ io.on('connection', (socket) => {
   // Создание новой комнаты
   socket.on('createRoom', (data) => {
     const nickname = data?.nickname || `Игрок ${socket.id.substring(0, 6)}`;
+    const noBots = data?.noBots || false; // Флаг "без ботов"
     const roomId = generateRoomId();
     
     const player = createPlayer(socket.id, nickname, roomId);
@@ -232,7 +330,8 @@ io.on('connection', (socket) => {
       gameState: null,
       gameInProgress: false,
       currentRound: null,
-      pairs: []
+      pairs: [],
+      noBots: noBots // Флаг "без ботов"
     });
     
     socket.join(roomId);
@@ -349,8 +448,27 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Наносим урон по HP раунда
+    // Проверяем, не закончил ли атакующий ход
+    if (attacker.hasEndedTurn) {
+      return;
+    }
+    
+    // Тратим золото на спин (5 золота)
+    const spinCost = 5;
+    if (attacker.temporaryGold >= spinCost) {
+      attacker.temporaryGold -= spinCost;
+    } else if (attacker.permanentGold >= spinCost) {
+      attacker.permanentGold -= spinCost;
+    } else {
+      // Нет золота - не можем атаковать
+      socket.emit('roomError', { message: 'Недостаточно золота для спина' });
+      return;
+    }
+    
+    // Наносим урон по HP раунда (боты получают урон так же, как и обычные игроки)
     target.roundHp = Math.max(0, target.roundHp - damage);
+    
+    console.log(`Урон нанесен: ${attacker.nickname} -> ${target.nickname}, урон: ${damage}, HP после: ${target.roundHp}`);
     
     // Отправляем атаку всем в комнате
     io.to(roomId).emit('attack', {
@@ -359,6 +477,9 @@ io.on('connection', (socket) => {
       damage: damage,
       matches: matches
     });
+    
+    // Обновляем состояние комнаты сразу после нанесения урона
+    updateRoomState(roomId);
     
     // Проверяем, закончился ли бой
     if (target.roundHp <= 0) {
@@ -388,6 +509,61 @@ io.on('connection', (socket) => {
     console.log(`Игрок ${attacker.nickname} атакует ${target.nickname} на ${damage} урона`);
   });
 
+  // Проверка, оба ли игрока закончили ход
+  function checkBothEndedTurn(roomId, player1Id, player2Id) {
+    const p1 = players.get(player1Id);
+    const p2 = players.get(player2Id);
+    
+    if (!p1 || !p2 || !p1.isInDuel || !p2.isInDuel) return;
+    
+    if (p1.hasEndedTurn && p2.hasEndedTurn) {
+      // Оба закончили ход - определяем победителя по HP
+      const winner = p1.roundHp >= p2.roundHp ? p1 : p2;
+      const loser = winner === p1 ? p2 : p1;
+      
+      // Проигравший теряет 20% от общего HP
+      loser.totalHp = Math.max(0, loser.totalHp - Math.floor(loser.totalHp * 0.2));
+      winner.duelStatus = 'winner';
+      loser.duelStatus = 'loser';
+      
+      if (loser.totalHp <= 0) {
+        loser.isEliminated = true;
+      }
+      
+      winner.isInDuel = false;
+      loser.isInDuel = false;
+      winner.hasEndedTurn = false;
+      loser.hasEndedTurn = false;
+      
+      updateRoomState(roomId);
+      checkAllDuelsFinished(roomId);
+      
+      console.log(`Оба игрока закончили ход. Победитель: ${winner.nickname} (HP: ${winner.roundHp} vs ${loser.roundHp})`);
+    }
+  }
+
+  // Обработка завершения хода
+  socket.on('endTurn', (data) => {
+    const { roomId } = data;
+    const room = rooms.get(roomId);
+    const player = players.get(socket.id);
+    
+    if (!room || !room.gameInProgress || !player || !player.isInDuel) {
+      socket.emit('roomError', { message: 'Нельзя закончить ход сейчас' });
+      return;
+    }
+    
+    player.hasEndedTurn = true;
+    updateRoomState(roomId);
+    
+    // Проверяем, оба ли игрока закончили ход
+    if (player.duelOpponent) {
+      checkBothEndedTurn(roomId, socket.id, player.duelOpponent);
+    }
+    
+    console.log(`Игрок ${player.nickname} закончил ход`);
+  });
+
   // Обновление состояния комнаты
   function updateRoomState(roomId) {
     const room = rooms.get(roomId);
@@ -405,7 +581,10 @@ io.on('connection', (socket) => {
         isInDuel: p.isInDuel,
         duelOpponent: p.duelOpponent,
         duelStatus: p.duelStatus,
-        isBot: p.isBot || false
+        isBot: p.isBot || false,
+        permanentGold: p.permanentGold || 0,
+        temporaryGold: p.temporaryGold || 0,
+        hasEndedTurn: p.hasEndedTurn || false
       };
     }).filter(p => p !== null);
     
@@ -481,7 +660,7 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Сбрасываем HP раунда для всех активных игроков
+    // Сбрасываем HP раунда и выдаем временное золото для всех активных игроков
     activePlayers.forEach(id => {
       const p = players.get(id);
       if (p) {
@@ -491,6 +670,8 @@ io.on('connection', (socket) => {
         p.duelStatus = null;
         p.lastSpinTime = 0;
         p.rechargeEndTime = 0;
+        p.temporaryGold = 30; // Выдаем 30 временного золота
+        p.hasEndedTurn = false;
       }
     });
     
@@ -552,8 +733,10 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Дозаполняем комнату ботами до 8 игроков
-    fillRoomWithBots(roomId);
+    // Дозаполняем комнату ботами до 8 игроков (только если не установлен флаг noBots)
+    if (!room.noBots) {
+      fillRoomWithBots(roomId);
+    }
     
     const activePlayers = room.players.filter(id => {
       const p = players.get(id);

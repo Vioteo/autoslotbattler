@@ -20,6 +20,12 @@
                     <label for="nicknameInput">Ваш ник:</label>
                     <input type="text" id="nicknameInput" placeholder="Введите ваш ник" maxlength="20" value="">
                 </div>
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" id="noBotsCheckbox">
+                        <span>Играть без ботов (только люди)</span>
+                    </label>
+                </div>
                 <button id="createRoomBtn" class="btn btn-primary">Создать комнату</button>
                 <div class="divider">
                     <span>или</span>
@@ -135,7 +141,14 @@
                         </div>
                     </div>
                     <div class="slot-controls">
-                        <button id="spinBtn" class="btn btn-spin">SPIN</button>
+                        <div class="spin-info">
+                            <button id="spinBtn" class="btn btn-spin">SPIN (5💰)</button>
+                            <button id="endTurnBtn" class="btn btn-secondary">Закончил ход</button>
+                            <div class="gold-display-spin">
+                                <div>💵 Временное: <span id="tempGoldDisplay">0</span></div>
+                                <div>💰 Постоянное: <span id="permGoldDisplay">0</span></div>
+                            </div>
+                        </div>
                         <div class="recharge-indicator">
                             <div class="recharge-bar" id="rechargeBar">
                                 <div class="recharge-fill" id="rechargeFill"></div>
