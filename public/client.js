@@ -585,7 +585,7 @@ function updateCardShop() {
                 <div class="card-description">${card.description}</div>
                 <div class="card-cost">💰 ${card.cost} золота</div>
                 ${ownedCount > 0 ? `<div class="card-owned">Куплено: ${ownedCount}/${maxCount}</div>` : ''}
-                <button class="card-buy-btn" ${!canBuy ? 'disabled' : ''} onclick="buyCard('${card.id}')">
+                <button class="card-buy-btn" ${!canBuy ? 'disabled' : ''} onclick="buyCard('${card.id.replace(/'/g, "\\'")}')">
                     ${canBuy ? 'Купить' : (ownedCount >= maxCount ? 'Лимит' : 'Недостаточно золота')}
                 </button>
             </div>
