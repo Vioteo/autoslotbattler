@@ -391,8 +391,15 @@ socket.on('roundStarted', (data) => {
         playerNickname.textContent = playerState.nickname;
     }
     
-    // Скрываем экран статистики и показываем игровой экран
+    // Останавливаем таймер перерыва
+    if (breakTimerInterval) {
+        clearInterval(breakTimerInterval);
+        breakTimerInterval = null;
+    }
+    
+    // Скрываем экран статистики и магазина, показываем игровой экран
     if (roundStatsScreen) roundStatsScreen.classList.remove('active');
+    if (cardShopScreen) cardShopScreen.classList.remove('active');
     initGame();
     showScreen(gameScreen);
     updateDuelsDisplay();
