@@ -1557,20 +1557,7 @@ function updateCharacterStats() {
     const finalCrit = crit + critBonus;
     const finalCritMult = critMult + critMultBonus * 0.25;
     
-    // Обновляем отображение
-    const playerAttackEl = document.getElementById('playerAttack');
-    const playerArmorEl = document.getElementById('playerArmor');
-    const playerDodgeEl = document.getElementById('playerDodge');
-    const playerCritEl = document.getElementById('playerCrit');
-    const playerCritMultEl = document.getElementById('playerCritMult');
-    
-    if (playerAttackEl) playerAttackEl.textContent = Math.round(finalAttack);
-    if (playerArmorEl) playerArmorEl.textContent = `${Math.round(finalArmor)}%`;
-    if (playerDodgeEl) playerDodgeEl.textContent = `${Math.round(finalDodge)}%`;
-    if (playerCritEl) playerCritEl.textContent = `${Math.round(finalCrit)}%`;
-    if (playerCritMultEl) playerCritMultEl.textContent = `x${finalCritMult.toFixed(1)}`;
-    
-    // Обновляем tooltip для игрока
+    // Обновляем tooltip для игрока (характеристики теперь только в tooltip)
     updateStatsTooltip('player', player, finalAttack, finalArmor, finalDodge, finalCrit, finalCritMult);
     
     // Обновляем статистику противника
@@ -1595,19 +1582,7 @@ function updateCharacterStats() {
             const finalOppCrit = oppCrit + oppCritBonus;
             const finalOppCritMult = oppCritMult + oppCritMultBonus * 0.25;
             
-            const enemyAttackEl = document.getElementById('enemyAttack');
-            const enemyArmorEl = document.getElementById('enemyArmor');
-            const enemyDodgeEl = document.getElementById('enemyDodge');
-            const enemyCritEl = document.getElementById('enemyCrit');
-            const enemyCritMultEl = document.getElementById('enemyCritMult');
-            
-            if (enemyAttackEl) enemyAttackEl.textContent = Math.round(finalOppAttack);
-            if (enemyArmorEl) enemyArmorEl.textContent = `${Math.round(finalOppArmor)}%`;
-            if (enemyDodgeEl) enemyDodgeEl.textContent = `${Math.round(finalOppDodge)}%`;
-            if (enemyCritEl) enemyCritEl.textContent = `${Math.round(finalOppCrit)}%`;
-            if (enemyCritMultEl) enemyCritMultEl.textContent = `x${finalOppCritMult.toFixed(1)}`;
-            
-            // Обновляем tooltip для противника
+            // Обновляем tooltip для противника (характеристики теперь только в tooltip)
             updateStatsTooltip('enemy', opponent, finalOppAttack, finalOppArmor, finalOppDodge, finalOppCrit, finalOppCritMult);
         }
     }
