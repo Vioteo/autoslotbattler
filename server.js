@@ -439,11 +439,28 @@ io.on('connection', (socket) => {
       }, 3000); // 3 секунды задержки перед следующим раундом
     } else if (activePlayers.length <= 1) {
       // Остался один игрок - игра окончена
-      const winner = activePlayers.length === 1 ? players.get(activePlayers[0]) : null;
-      room.gameInProgress = false;
-      io.to(roomId).emit('gameEnded', {
-        winner: winner ? { socketId: winner.socketId, nickname: winner.nickname } : null
+      // Проверяем, что это не бот
+      const realPlayers = activePlayers.filter(id => {
+        const p = players.get(id);
+        return p && !p.isBot;
       });
+      
+      if (realPlayers.length <= 1) {
+        const winner = activePlayers.length === 1 ? players.get(activePlayers[0]) : null;
+        // Игра окончена только если остался один реальный игрок (не бот)
+        if (winner && !winner.isBot) {
+          room.gameInProgress = false;
+          io.to(roomId).emit('gameEnded', {
+            winner: { socketId: winner.socketId, nickname: winner.nickname }
+          });
+        } else if (realPlayers.length === 0) {
+          // Все реальные игроки выбыли
+          room.gameInProgress = false;
+          io.to(roomId).emit('gameEnded', {
+            winner: null
+          });
+        }
+      }
     }
   }
 

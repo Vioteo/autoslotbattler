@@ -11,7 +11,24 @@ const socket = io(getServerUrl(), {
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5
+    reconnectionAttempts: 5,
+    timeout: 20000
+});
+
+// Обработка ошибок
+window.addEventListener('error', (event) => {
+    console.error('Ошибка в коде:', event.error);
+    if (gameScreen && gameScreen.classList.contains('active')) {
+        showError('Произошла ошибка. Игра продолжается...');
+    }
+});
+
+// Обработка необработанных промисов
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Необработанная ошибка промиса:', event.reason);
+    if (gameScreen && gameScreen.classList.contains('active')) {
+        showError('Произошла ошибка. Игра продолжается...');
+    }
 });
 
 // Символы для игрового автомата (цветные фигуры) - уменьшенное количество
@@ -116,15 +133,50 @@ socket.on('connect', () => {
     console.log('Подключено к серверу');
     updateConnectionStatus('connected', 'Подключено');
     playerState.socketId = socket.id;
+    
+    // Отменяем таймер отключения, если был
+    if (disconnectTimeout) {
+        clearTimeout(disconnectTimeout);
+        disconnectTimeout = null;
+    }
+    
     // Запрашиваем список комнат
     socket.emit('getRooms');
+    
+    // Если мы были в игре, пытаемся восстановить состояние
+    if (playerState.roomId && gameScreen && gameScreen.classList.contains('active')) {
+        // Запрашиваем обновление состояния комнаты
+        socket.emit('getRooms');
+    }
 });
 
-socket.on('disconnect', () => {
-    console.log('Отключено от сервера');
+let disconnectTimeout = null;
+socket.on('disconnect', (reason) => {
+    console.log('Отключено от сервера, причина:', reason);
     updateConnectionStatus('disconnected', 'Отключено');
-    showScreen(menuScreen);
-    resetGame();
+    
+    // Если это не намеренное отключение и игра идет, не возвращаем в меню сразу
+    // Socket.io попытается переподключиться автоматически
+    if (reason === 'io server disconnect' || reason === 'transport close') {
+        // Сервер отключил или потеря соединения - ждем переподключения
+        if (gameScreen && gameScreen.classList.contains('active')) {
+            showError('Потеряно соединение. Попытка переподключения...');
+            // Даем время на переподключение (10 секунд)
+            disconnectTimeout = setTimeout(() => {
+                if (!socket.connected) {
+                    showError('Не удалось переподключиться');
+                    resetToMenu();
+                }
+            }, 10000);
+        } else {
+            showScreen(menuScreen);
+            resetGame();
+        }
+    } else {
+        // Намеренное отключение
+        showScreen(menuScreen);
+        resetGame();
+    }
 });
 
 socket.on('connect_error', () => {
@@ -278,7 +330,13 @@ socket.on('playerLeft', (data) => {
         playersCount.textContent = data.playerCount;
     }
     
-    if (data.playerCount < 2 && gameScreen && gameScreen.classList.contains('active')) {
+    // Проверяем, остались ли реальные игроки (не боты) в комнате
+    // Не возвращаем в меню, если игра в процессе и есть другие игроки
+    const activePlayers = roomState.players.filter(p => !p.isEliminated);
+    const realPlayers = activePlayers.filter(p => !p.isBot);
+    
+    // Возвращаем в меню только если нет реальных игроков (кроме себя) и игра не идет
+    if (realPlayers.length < 2 && gameScreen && gameScreen.classList.contains('active') && !roomState.currentRound) {
         showError('Другой игрок покинул игру');
         setTimeout(() => {
             resetToMenu();
@@ -729,9 +787,15 @@ function startRecharge() {
 // Включение спина
 function enableSpin() {
     gameState.canSpin = true;
-    spinBtn.disabled = false;
-    rechargeFill.style.width = '100%';
-    rechargeText.textContent = 'Готово';
+    if (spinBtn) {
+        spinBtn.disabled = false;
+    }
+    if (rechargeFill) {
+        rechargeFill.style.width = '100%';
+    }
+    if (rechargeText) {
+        rechargeText.textContent = 'Готово';
+    }
 }
 
 // Получение урона
