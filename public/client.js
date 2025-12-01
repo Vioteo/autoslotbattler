@@ -1,7 +1,6 @@
 // Константы
 const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
 const BREAK_DURATION = 120000; // 2 минуты между боями
-const BREAK_DURATION = 120000; // 2 минуты между боями
 
 // Автоматическое определение сервера
 const getServerUrl = () => {
