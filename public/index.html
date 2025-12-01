@@ -272,6 +272,24 @@
             </div>
         </div>
 
+        <!-- Экран покупки карточек -->
+        <div id="cardShopScreen" class="screen">
+            <div class="card-shop-content">
+                <h2>Магазин карточек</h2>
+                <div class="shop-header">
+                    <div class="gold-display-shop">
+                        <div>💰 Постоянное золото: <strong id="permGoldShop">0</strong></div>
+                        <div>💵 Временное золото: <strong id="tempGoldShop">0</strong></div>
+                    </div>
+                    <button id="refreshShopBtn" class="btn btn-small">Обновить магазин (2💰)</button>
+                </div>
+                <div id="cardsShopList" class="cards-shop-list"></div>
+                <div class="shop-footer">
+                    <div id="breakTimer" class="break-timer">Перерыв: <span id="breakTimerCountdown">120</span> сек</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Модальное окно победы/поражения -->
         <div id="gameResultModal" class="modal">
             <div class="modal-content">

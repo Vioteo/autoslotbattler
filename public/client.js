@@ -165,6 +165,12 @@ const duelsContainer = document.getElementById('duelsContainer');
 const endTurnBtn = document.getElementById('endTurnBtn');
 const roundStatsScreen = document.getElementById('roundStatsScreen');
 const roundStatsContent = document.getElementById('roundStatsContent');
+const cardShopScreen = document.getElementById('cardShopScreen');
+const cardsShopList = document.getElementById('cardsShopList');
+const refreshShopBtn = document.getElementById('refreshShopBtn');
+const permGoldShop = document.getElementById('permGoldShop');
+const tempGoldShop = document.getElementById('tempGoldShop');
+const breakTimerCountdown = document.getElementById('breakTimerCountdown');
 
 // Получаем все линии слотов (старая структура для обратной совместимости)
 const slotLines = [
@@ -481,6 +487,62 @@ socket.on('heal', (data) => {
         updateHpBars();
     }
 });
+
+// Обработка начала перерыва между боями
+let breakTimerInterval = null;
+socket.on('breakStarted', (data) => {
+    console.log('Начался перерыв между боями:', data);
+    
+    // Скрываем экран боя и статистику
+    if (gameScreen) gameScreen.classList.remove('active');
+    if (roundStatsScreen) roundStatsScreen.classList.remove('active');
+    
+    // Показываем экран покупки карточек
+    if (cardShopScreen) {
+        cardShopScreen.classList.add('active');
+        updateCardShop();
+        startBreakTimer(data.duration);
+    }
+});
+
+// Запуск таймера перерыва
+function startBreakTimer(duration) {
+    if (breakTimerInterval) {
+        clearInterval(breakTimerInterval);
+    }
+    
+    const startTime = Date.now();
+    breakTimerInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, duration - elapsed);
+        const seconds = Math.ceil(remaining / 1000);
+        
+        if (breakTimerCountdown) {
+            breakTimerCountdown.textContent = seconds;
+        }
+        
+        if (remaining <= 0) {
+            clearInterval(breakTimerInterval);
+            breakTimerInterval = null;
+        }
+    }, 100);
+}
+
+// Обновление магазина карточек
+function updateCardShop() {
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) return;
+    
+    // Обновляем золото
+    if (permGoldShop) permGoldShop.textContent = player.permanentGold || 0;
+    if (tempGoldShop) tempGoldShop.textContent = player.temporaryGold || 0;
+    
+    // TODO: Здесь будет генерация и отображение карточек
+    // Пока заглушка
+    if (cardsShopList) {
+        cardsShopList.innerHTML = '<p style="text-align: center; color: #666;">Система карточек в разработке...</p>';
+    }
+}
 
 socket.on('playerLeft', (data) => {
     console.log('Игрок покинул комнату:', data);

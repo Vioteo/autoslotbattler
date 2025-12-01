@@ -1457,3 +1457,125 @@ h1 {
     display: flex;
 }
 
+#cardShopScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 999;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+#cardShopScreen.active {
+    display: flex;
+}
+
+.card-shop-content {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 1200px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #ddd;
+}
+
+.gold-display-shop {
+    display: flex;
+    gap: 20px;
+    font-size: 16px;
+}
+
+.gold-display-shop strong {
+    color: #667eea;
+    font-size: 18px;
+}
+
+.cards-shop-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.card-shop-item {
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.card-shop-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    border-color: #667eea;
+}
+
+.card-shop-item.rare {
+    border-color: #4caf50;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, white 100%);
+}
+
+.card-shop-item.legendary {
+    border-color: #ff9800;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, white 100%);
+}
+
+.card-shop-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.card-shop-item.disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.card-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.card-description {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.card-cost {
+    font-size: 18px;
+    font-weight: bold;
+    color: #667eea;
+    margin-top: 10px;
+}
+
+.break-timer {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #667eea;
+    padding: 10px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+}
+
