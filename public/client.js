@@ -1,5 +1,6 @@
 // Константы
 const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
+const BREAK_DURATION = 120000; // 2 минуты между боями
 
 // Автоматическое определение сервера
 const getServerUrl = () => {
@@ -352,6 +353,7 @@ socket.on('roomStateUpdate', (data) => {
             // Обновляем состояние кнопки spin
             enableSpin();
             updateBattlePhase();
+            updateCharacterStats();
             
             // Если duelStartTime только что обновился и игрок в дуэли, запускаем таймер
             if (player.isInDuel && player.duelStartTime && !battleTimerInterval) {
@@ -452,14 +454,14 @@ socket.on('attack', (data) => {
     console.log('Получена атака:', data);
     if (data.targetPlayerSocketId === playerState.socketId) {
         // Мы получили урон
-        takeDamage(data.damage);
+        takeDamage(data.damage, data.dodged || false);
         // Показываем сообщение о комбинации противника
         if (data.comboInfo) {
             showComboMessage('enemy', data.comboInfo);
         }
     } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
-        showAttackAnimation(data.damage, true);
+        showAttackAnimation(data.damage, true, data.dodged || false, data.crit || false);
         // Сообщение о комбинации уже показано в checkMatches, не дублируем
         // Обновляем состояние для отображения урона боту
         setTimeout(() => {
@@ -1414,8 +1416,129 @@ function enableSpin() {
     }
 }
 
+// Показ плавающего сообщения
+function showFloatingMessage(target, text, type = 'damage', value = null) {
+    const container = target === 'player' 
+        ? document.getElementById('playerFloatingMessages')
+        : document.getElementById('enemyFloatingMessages');
+    
+    if (!container) return;
+    
+    const message = document.createElement('div');
+    message.className = `floating-message ${type}`;
+    
+    // Размер текста зависит от значения
+    let fontSize = 16;
+    if (value !== null) {
+        fontSize = Math.min(24, Math.max(14, 14 + Math.log10(Math.abs(value) + 1) * 3));
+    }
+    message.style.fontSize = `${fontSize}px`;
+    
+    // Случайный сдвиг по X
+    const offsetX = (Math.random() - 0.5) * 40;
+    message.style.setProperty('--offset-x', offsetX);
+    
+    message.textContent = text;
+    container.appendChild(message);
+    
+    // Удаляем через 1.5 секунды
+    setTimeout(() => {
+        if (message.parentNode) {
+            message.parentNode.removeChild(message);
+        }
+    }, 1500);
+}
+
+// Обновление статистики персонажа
+function updateCharacterStats() {
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) return;
+    
+    // Получаем статистику из карточек (пока заглушка, потом добавим реальную логику)
+    const attack = 10 + (player.attackStyle || 0);
+    const armor = 25 + (player.armorStyle || 0);
+    const dodge = 15 + (player.dodgeStyle || 0);
+    const crit = 10 + (player.critStyle || 0);
+    const critMult = 1.5 + (player.critMultiplierStyle || 0);
+    
+    // Применяем пороговые бонусы
+    const attackBonus = getStyleBonus(player.attackStyle || 0);
+    const armorBonus = getStyleBonus(player.armorStyle || 0);
+    const dodgeBonus = getStyleBonus(player.dodgeStyle || 0);
+    const critBonus = getStyleBonus(player.critStyle || 0);
+    const critMultBonus = getStyleBonus(player.critMultiplierStyle || 0);
+    
+    const finalAttack = attack + attackBonus;
+    const finalArmor = armor + armorBonus;
+    const finalDodge = dodge + dodgeBonus;
+    const finalCrit = crit + critBonus;
+    const finalCritMult = critMult + critMultBonus * 0.25;
+    
+    // Обновляем отображение
+    const playerAttackEl = document.getElementById('playerAttack');
+    const playerArmorEl = document.getElementById('playerArmor');
+    const playerDodgeEl = document.getElementById('playerDodge');
+    const playerCritEl = document.getElementById('playerCrit');
+    const playerCritMultEl = document.getElementById('playerCritMult');
+    
+    if (playerAttackEl) playerAttackEl.textContent = Math.round(finalAttack);
+    if (playerArmorEl) playerArmorEl.textContent = `${Math.round(finalArmor)}%`;
+    if (playerDodgeEl) playerDodgeEl.textContent = `${Math.round(finalDodge)}%`;
+    if (playerCritEl) playerCritEl.textContent = `${Math.round(finalCrit)}%`;
+    if (playerCritMultEl) playerCritMultEl.textContent = `x${finalCritMult.toFixed(1)}`;
+    
+    // Обновляем статистику противника
+    if (player.isInDuel && player.duelOpponent) {
+        const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+        if (opponent) {
+            const oppAttack = 10 + (opponent.attackStyle || 0);
+            const oppArmor = 25 + (opponent.armorStyle || 0);
+            const oppDodge = 15 + (opponent.dodgeStyle || 0);
+            const oppCrit = 10 + (opponent.critStyle || 0);
+            const oppCritMult = 1.5 + (opponent.critMultiplierStyle || 0);
+            
+            const oppAttackBonus = getStyleBonus(opponent.attackStyle || 0);
+            const oppArmorBonus = getStyleBonus(opponent.armorStyle || 0);
+            const oppDodgeBonus = getStyleBonus(opponent.dodgeStyle || 0);
+            const oppCritBonus = getStyleBonus(opponent.critStyle || 0);
+            const oppCritMultBonus = getStyleBonus(opponent.critMultiplierStyle || 0);
+            
+            const finalOppAttack = oppAttack + oppAttackBonus;
+            const finalOppArmor = oppArmor + oppArmorBonus;
+            const finalOppDodge = oppDodge + oppDodgeBonus;
+            const finalOppCrit = oppCrit + oppCritBonus;
+            const finalOppCritMult = oppCritMult + oppCritMultBonus * 0.25;
+            
+            const enemyAttackEl = document.getElementById('enemyAttack');
+            const enemyArmorEl = document.getElementById('enemyArmor');
+            const enemyDodgeEl = document.getElementById('enemyDodge');
+            const enemyCritEl = document.getElementById('enemyCrit');
+            const enemyCritMultEl = document.getElementById('enemyCritMult');
+            
+            if (enemyAttackEl) enemyAttackEl.textContent = Math.round(finalOppAttack);
+            if (enemyArmorEl) enemyArmorEl.textContent = `${Math.round(finalOppArmor)}%`;
+            if (enemyDodgeEl) enemyDodgeEl.textContent = `${Math.round(finalOppDodge)}%`;
+            if (enemyCritEl) enemyCritEl.textContent = `${Math.round(finalOppCrit)}%`;
+            if (enemyCritMultEl) enemyCritMultEl.textContent = `x${finalOppCritMult.toFixed(1)}`;
+        }
+    }
+}
+
+// Получение бонуса за пороги стиля
+function getStyleBonus(stylePoints) {
+    if (stylePoints >= 20) return 15;
+    if (stylePoints >= 10) return 10;
+    if (stylePoints >= 4) return 5;
+    return 0;
+}
+
 // Получение урона
-function takeDamage(damage) {
+function takeDamage(damage, dodged = false) {
+    if (dodged) {
+        showFloatingMessage('player', 'Уклонение!', 'dodge');
+        return;
+    }
+    
     gameState.roundHp = Math.max(0, gameState.roundHp - damage);
     
     // Обновляем из состояния комнаты
@@ -1426,6 +1549,9 @@ function takeDamage(damage) {
     }
     
     updateHpBars();
+    
+    // Показываем урон
+    showFloatingMessage('player', `-${damage}`, 'damage', damage);
     
     // Анимация получения урона
     const playerContainer = document.querySelector('.player-character');
@@ -1438,16 +1564,29 @@ function takeDamage(damage) {
 }
 
 // Показ анимации атаки
-function showAttackAnimation(damage, isMyAttack = false) {
+function showAttackAnimation(damage, isMyAttack = false, dodged = false, crit = false) {
+    const target = isMyAttack ? 'enemy' : 'player';
     const targetContainer = isMyAttack 
         ? document.querySelector('.enemy-character')
         : document.querySelector('.player-character');
+    
+    if (dodged) {
+        showFloatingMessage(target, 'Уклонение!', 'dodge');
+        return;
+    }
     
     if (targetContainer) {
         targetContainer.classList.add('taking-damage');
         setTimeout(() => {
             targetContainer.classList.remove('taking-damage');
         }, 500);
+    }
+    
+    // Показываем урон
+    if (crit) {
+        showFloatingMessage(target, `КРИТ! -${damage}`, 'crit', damage);
+    } else {
+        showFloatingMessage(target, `-${damage}`, 'damage', damage);
     }
     
     // HP обновляется через gameState от другого игрока, здесь только анимация

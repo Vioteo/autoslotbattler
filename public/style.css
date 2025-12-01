@@ -1241,6 +1241,71 @@ h1 {
     min-height: 200px;
 }
 
+.character-stats {
+    margin-top: 10px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    font-size: 12px;
+    min-width: 180px;
+}
+
+.stat-item {
+    margin: 3px 0;
+    color: #333;
+    font-weight: 500;
+}
+
+.stat-item span {
+    font-weight: bold;
+    color: #667eea;
+}
+
+.floating-messages {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 100;
+}
+
+.floating-message {
+    position: absolute;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    animation: floatUp 1.5s ease-out forwards;
+    pointer-events: none;
+}
+
+.floating-message.dodge {
+    color: #4caf50;
+}
+
+.floating-message.heal {
+    color: #2196f3;
+}
+
+.floating-message.crit {
+    color: #ff9800;
+}
+
+.floating-message.damage {
+    color: #f44336;
+}
+
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translateY(0) translateX(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-80px) translateX(calc(var(--offset-x, 0) * 1px));
+    }
+}
+
 /* Модальное окно результата */
 .modal {
     display: none;
