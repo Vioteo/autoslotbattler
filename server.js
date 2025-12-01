@@ -96,39 +96,55 @@ const CARD_RARITIES = {
 
 // Определение карточек
 const CARDS = [
-  // Common карточки (5 золота, +1 очко стиля)
-  { id: 'health_common', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Здоровье', description: '+1 очко стиля здоровья' },
-  { id: 'dodge_common', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Уклонение', description: '+1 очко стиля уклонения' },
-  { id: 'critical_common', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Крит', description: '+1 очко стиля крита' },
-  { id: 'healing_common', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Лечение', description: '+1 очко стиля лечения' },
-  { id: 'armor_common', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Броня', description: '+1 очко стиля брони' },
-  { id: 'freeze_common', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Заморозка', description: '+1 очко стиля заморозки' },
-  { id: 'attack_common', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Атака', description: '+1 очко стиля атаки' },
+  // Комбинированные карточки (5 золота, до 5 раз)
+  { id: 'health_dodge_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Уклонение', description: '+30 HP, +2% уклонения' },
+  { id: 'health_armor_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Броня', description: '+30 HP, +2% брони' },
+  { id: 'dodge_critical_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Уклонение-Крит', description: '+2% уклонения, +2% крита, +0.1 к множителю' },
+  { id: 'armor_healing_combined', type: CARD_TYPES.ARMOR, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Броня-Лечение', description: '+2% брони, +10 HP при спине' },
+  { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Крит-Заморозка', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки' },
+  { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Лечение', description: '+30 HP, +10 HP при спине' },
+  { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Уклонение-Броня', description: '+2% уклонения, +2% брони' },
+  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Крит', description: '+2 к урону, +2% крита, +0.1 к множителю' },
+  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Уклонение', description: '+2 к урону, +2% уклонения' },
+  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Броня', description: '+2 к урону, +2% брони' },
+  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Здоровье', description: '+2 к урону, +30 HP' },
+  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Лечение', description: '+2 к урону, +10 HP при спине' },
+  { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Крит-Лечение', description: '+2% крита, +0.1 к множителю, +10 HP при спине' },
+  { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Заморозка-Броня', description: '+0.3 сек заморозки, +2% брони' },
+  { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Заморозка-Уклонение', description: '+0.3 сек заморозки, +2% уклонения' },
+  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Заморозка', description: '+2 к урону, +0.3 сек заморозки' },
+  { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Крит-Броня', description: '+2% крита, +0.1 к множителю, +2% брони' },
+  { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Крит', description: '+30 HP, +2% крита, +0.1 к множителю' },
   
-  // Гибридные карточки (5 золота, +1 очко обоим стилям)
-  { id: 'health_dodge_hybrid', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Уклонение', description: '+1 очко стиля здоровья и уклонения' },
-  { id: 'health_armor_hybrid', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Броня', description: '+1 очко стиля здоровья и брони' },
-  { id: 'dodge_critical_hybrid', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Уклонение-Крит', description: '+1 очко стиля уклонения и крита' },
-  { id: 'attack_critical_hybrid', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Крит', description: '+1 очко стиля атаки и крита' },
-  { id: 'healing_health_hybrid', type: CARD_TYPES.HEALING, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Лечение-Здоровье', description: '+1 очко стиля лечения и здоровья' },
+  // Редкие карточки (10 золота, до 3 раз)
+  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленное здоровье', description: '+100 HP' },
+  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленное уклонение', description: '+4% уклонения' },
+  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленный крит', description: '+4% крита, +0.2 к множителю' },
+  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленная броня', description: '+4% снижение урона' },
+  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленное лечение', description: '+20 HP при спине' },
+  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленная заморозка', description: '+0.6 сек к перезарядке противника' },
+  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленная атака', description: '+4 к базовому урону' },
   
-  // Rare карточки (10 золота, +2 очка стиля, значения увеличены в 1.5 раза)
-  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Здоровье+', description: '+2 очка стиля здоровья' },
-  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Уклонение+', description: '+2 очка стиля уклонения' },
-  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Крит+', description: '+2 очка стиля крита' },
-  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Лечение+', description: '+2 очка стиля лечения' },
-  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня+', description: '+2 очка стиля брони' },
-  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Заморозка+', description: '+2 очка стиля заморозки' },
-  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Атака+', description: '+2 очка стиля атаки' },
+  // Легендарные карточки (20 золота, 1 раз, требуют 10 очков стиля)
+  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Быстрый удар', description: '+4 атака, 50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike' },
+  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Живучесть', description: '+4 здоровье, +40% к макс. HP', requiresStyle: 10, legendaryEffect: 'vitality' },
+  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Регенерация', description: '+4 лечение, полное восстановление HP при бонусе', requiresStyle: 10, legendaryEffect: 'regeneration' },
+  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Ледяная кара', description: '+4 заморозка, 25 урона в секунду врагу', requiresStyle: 10, legendaryEffect: 'icePunishment' },
+  { id: 'health_legendary2', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Мстительное здоровье', description: '+4 здоровье, 10% от потерянного HP врагу', requiresStyle: 10, legendaryEffect: 'vengefulHealth' },
+  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Отражение', description: '+4 уклонение, 50% уклоненного урона врагу', requiresStyle: 10, legendaryEffect: 'reflection' },
   
-  // Legendary карточки (20 золота, +4 очка стиля, требуют 10 очков стиля)
-  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Живучесть', description: '+40% макс. HP', requiresStyle: 10 },
-  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Отражение', description: '50% уклоненного урона отражается врагу', requiresStyle: 10 },
-  { id: 'critical_legendary', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Критический удар', description: 'Увеличенный шанс и множитель крита', requiresStyle: 10 },
-  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Регенерация', description: 'Полное восстановление HP при бонусе', requiresStyle: 10 },
-  { id: 'armor_legendary', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Броня', description: 'Усиленная защита', requiresStyle: 10 },
-  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Ледяная кара', description: '25 урона в секунду врагу', requiresStyle: 10 },
-  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Быстрый удар', description: '50% сокращение перезарядки', requiresStyle: 10 }
+  // Антикарты (5 золота, до 5 раз)
+  { id: 'anti_dodge', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение уклонения', description: '-2% уклонения противника', isAnti: true },
+  { id: 'anti_armor', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение брони', description: '-2% брони противника', isAnti: true },
+  { id: 'anti_critical', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение крита', description: '-2% крита, -0.1 к множителю противника', isAnti: true },
+  { id: 'anti_freeze', type: 'anti', antiType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Разморозка', description: '-0.3 сек к перезарядке противника', isAnti: true },
+  { id: 'anti_attack', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение атаки', description: '-2 к базовому урону противника', isAnti: true },
+  
+  // Редкие антикарты (10 золота, до 3 раз)
+  { id: 'anti_dodge_rare', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение уклонения', description: '-4% уклонения противника', isAnti: true },
+  { id: 'anti_armor_rare', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение брони', description: '-4% брони противника', isAnti: true },
+  { id: 'anti_critical_rare', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение крита', description: '-4% крита, -0.2 к множителю противника', isAnti: true },
+  { id: 'anti_attack_rare', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение атаки', description: '-4 к базовому урону противника', isAnti: true }
 ];
 
 // Структура данных игрока
@@ -174,7 +190,9 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
       attack: 0
     },
     cardsOwned: {}, // { cardId: count } - количество купленных карточек
-    cardShopOffers: [] // Текущие предложения в магазине
+    cardShopOffers: [], // Текущие предложения в магазине
+    antiCards: {}, // { antiType: value } - антикарты, снижающие характеристики противника
+    legendaryEffects: {} // { effectType: true } - активные эффекты легендарных карт
   };
 }
 
@@ -753,12 +771,42 @@ function buyCard(player, cardId) {
   player.permanentGold -= card.cost;
   player.cardsOwned[cardId] = (player.cardsOwned[cardId] || 0) + 1;
   
+  // Обрабатываем антикарты
+  if (card.isAnti) {
+    if (!player.antiCards) player.antiCards = {};
+    const antiValue = card.rarity === CARD_RARITIES.RARE ? -4 : -2;
+    const currentValue = player.antiCards[card.antiType] || 0;
+    
+    if (card.antiType === CARD_TYPES.CRITICAL) {
+      // Для крита снижаем и шанс, и множитель
+      if (!player.antiCards.critChance) player.antiCards.critChance = 0;
+      if (!player.antiCards.critMultiplier) player.antiCards.critMultiplier = 0;
+      player.antiCards.critChance += antiValue;
+      player.antiCards.critMultiplier += (card.rarity === CARD_RARITIES.RARE ? -0.2 : -0.1);
+    } else {
+      player.antiCards[card.antiType] = currentValue + antiValue;
+    }
+    
+    return { success: true, message: `Антикарта "${card.name}" куплена!` };
+  }
+  
   // Добавляем очки стиля
   player.stylePoints[card.type] = (player.stylePoints[card.type] || 0) + card.stylePoints;
   
-  // Если это гибридная карта, добавляем очки и второму стилю
+  // Если это комбинированная карта, добавляем очки и второму стилю
   if (card.isHybrid && card.secondaryType) {
     player.stylePoints[card.secondaryType] = (player.stylePoints[card.secondaryType] || 0) + card.stylePoints;
+  }
+  
+  // Активируем легендарные эффекты
+  if (card.legendaryEffect) {
+    if (!player.legendaryEffects) player.legendaryEffects = {};
+    player.legendaryEffects[card.legendaryEffect] = true;
+    
+    // Применяем эффект живучести сразу (увеличиваем макс. HP)
+    if (card.legendaryEffect === 'vitality') {
+      player.totalHp = Math.floor(player.totalHp * 1.4);
+    }
   }
   
   return { success: true, message: `Карточка "${card.name}" куплена!` };
@@ -779,6 +827,96 @@ function refreshCardShop(player) {
   
   player.cardShopOffers = generateCardShopOffers(player);
   return { success: true, message: 'Магазин обновлен!' };
+}
+
+// Расчет пороговых бонусов для стиля
+function getStyleThresholdBonus(stylePoints) {
+  let bonus = 0;
+  if (stylePoints >= 20) {
+    bonus = 15; // 20 единиц: +15
+  } else if (stylePoints >= 10) {
+    bonus = 10; // 10 единиц: +10
+  } else if (stylePoints >= 4) {
+    bonus = 5; // 4 единицы: +5
+  }
+  return bonus;
+}
+
+// Расчет характеристик игрока с учетом карточек
+function calculatePlayerStats(player) {
+  const stylePoints = player.stylePoints || {};
+  
+  // Базовые значения
+  let baseAttack = 10;
+  let baseArmor = 25;
+  let baseDodge = 15;
+  let baseCritChance = 10;
+  let baseCritMultiplier = 1.5;
+  let baseFreeze = 0;
+  let baseHealing = 0;
+  let maxHp = 100;
+  
+  // Применяем очки стиля (1 единица = базовый эффект)
+  baseAttack += stylePoints.attack || 0;
+  baseArmor += stylePoints.armor || 0;
+  baseDodge += stylePoints.dodge || 0;
+  baseCritChance += stylePoints.critical || 0;
+  baseCritMultiplier += (stylePoints.critical || 0) * 0.1; // +0.1 за единицу крита
+  baseFreeze += (stylePoints.freeze || 0) * 0.3; // +0.3 сек за единицу заморозки
+  baseHealing += (stylePoints.healing || 0) * 10; // +10 HP за единицу лечения
+  maxHp += (stylePoints.health || 0) * 30; // +30 HP за единицу здоровья
+  
+  // Применяем пороговые бонусы
+  const attackBonus = getStyleThresholdBonus(stylePoints.attack || 0);
+  const armorBonus = getStyleThresholdBonus(stylePoints.armor || 0);
+  const dodgeBonus = getStyleThresholdBonus(stylePoints.dodge || 0);
+  const critBonus = getStyleThresholdBonus(stylePoints.critical || 0);
+  const freezeBonus = getStyleThresholdBonus(stylePoints.freeze || 0);
+  const healingBonus = getStyleThresholdBonus(stylePoints.healing || 0);
+  
+  // Специальные пороговые эффекты для крита
+  let critChanceBonus = critBonus;
+  let critMultBonus = 0;
+  if ((stylePoints.critical || 0) >= 20) {
+    critMultBonus = 0.75;
+  } else if ((stylePoints.critical || 0) >= 10) {
+    critMultBonus = 0.5;
+  } else if ((stylePoints.critical || 0) >= 4) {
+    critMultBonus = 0.25;
+  }
+  
+  // Специальные пороговые эффекты для заморозки
+  let freezeTimeBonus = 0;
+  if ((stylePoints.freeze || 0) >= 20) {
+    freezeTimeBonus = 5;
+  } else if ((stylePoints.freeze || 0) >= 10) {
+    freezeTimeBonus = 3;
+  } else if ((stylePoints.freeze || 0) >= 4) {
+    freezeTimeBonus = 2;
+  }
+  
+  // Специальные пороговые эффекты для лечения
+  let healingHpBonus = healingBonus;
+  
+  // Применяем эффекты легендарных карт
+  const legendaryEffects = player.legendaryEffects || {};
+  if (legendaryEffects.vitality) {
+    maxHp = Math.floor(maxHp * 1.4); // +40% к макс. HP
+  }
+  if (legendaryEffects.fastStrike) {
+    // 50% сокращение перезарядки обрабатывается отдельно
+  }
+  
+  return {
+    attack: baseAttack + attackBonus,
+    armor: baseArmor + armorBonus,
+    dodge: baseDodge + dodgeBonus,
+    critChance: baseCritChance + critChanceBonus,
+    critMultiplier: baseCritMultiplier + critMultBonus,
+    freeze: baseFreeze + freezeTimeBonus,
+    healing: baseHealing + healingHpBonus,
+    maxHp: maxHp
+  };
 }
 
 // Обработка покупки карточек ботом
