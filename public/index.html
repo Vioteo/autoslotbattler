@@ -87,7 +87,7 @@
                     
                     <!-- Боевая зона с персонажами -->
             <div class="battle-area">
-                <div class="character-container player-character">
+                <div class="character-container player-character" id="playerCharacterContainer">
                     <div class="character-avatar" id="playerAvatar">👤</div>
                     <div class="character-name" id="playerName">Вы</div>
                     <div class="hp-bar-container">
@@ -104,6 +104,7 @@
                     </div>
                     <div class="combo-messages" id="playerComboMessages"></div>
                     <div class="floating-messages" id="playerFloatingMessages"></div>
+                    <div class="stats-tooltip" id="playerStatsTooltip"></div>
                 </div>
                 
                 <div class="vs-indicator">
@@ -114,7 +115,7 @@
                     <div id="vsText">VS</div>
                 </div>
                 
-                <div class="character-container enemy-character">
+                <div class="character-container enemy-character" id="enemyCharacterContainer">
                     <div class="character-avatar" id="enemyAvatar">👤</div>
                     <div class="character-name" id="enemyName">Противник</div>
                     <div class="hp-bar-container">
@@ -135,6 +136,7 @@
                     </div>
                     <div class="combo-messages" id="enemyComboMessages"></div>
                     <div class="floating-messages" id="enemyFloatingMessages"></div>
+                    <div class="stats-tooltip" id="enemyStatsTooltip"></div>
                 </div>
             </div>
 

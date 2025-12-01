@@ -1239,6 +1239,56 @@ h1 {
 .character-container {
     position: relative;
     min-height: 200px;
+    cursor: pointer;
+}
+
+.stats-tooltip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.95);
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    min-width: 200px;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    margin-top: 10px;
+    pointer-events: none;
+}
+
+.character-container:hover .stats-tooltip {
+    display: block;
+}
+
+.stats-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.95);
+}
+
+.stats-tooltip .tooltip-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+.stats-tooltip .tooltip-stat {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.stats-tooltip .tooltip-stat strong {
+    color: #667eea;
 }
 
 .character-stats {

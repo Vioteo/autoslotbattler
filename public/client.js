@@ -1570,6 +1570,9 @@ function updateCharacterStats() {
     if (playerCritEl) playerCritEl.textContent = `${Math.round(finalCrit)}%`;
     if (playerCritMultEl) playerCritMultEl.textContent = `x${finalCritMult.toFixed(1)}`;
     
+    // Обновляем tooltip для игрока
+    updateStatsTooltip('player', player, finalAttack, finalArmor, finalDodge, finalCrit, finalCritMult);
+    
     // Обновляем статистику противника
     if (player.isInDuel && player.duelOpponent) {
         const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
@@ -1603,8 +1606,34 @@ function updateCharacterStats() {
             if (enemyDodgeEl) enemyDodgeEl.textContent = `${Math.round(finalOppDodge)}%`;
             if (enemyCritEl) enemyCritEl.textContent = `${Math.round(finalOppCrit)}%`;
             if (enemyCritMultEl) enemyCritMultEl.textContent = `x${finalOppCritMult.toFixed(1)}`;
+            
+            // Обновляем tooltip для противника
+            updateStatsTooltip('enemy', opponent, finalOppAttack, finalOppArmor, finalOppDodge, finalOppCrit, finalOppCritMult);
         }
     }
+}
+
+// Обновление tooltip с характеристиками
+function updateStatsTooltip(target, player, attack, armor, dodge, crit, critMult) {
+    const tooltipId = target === 'player' ? 'playerStatsTooltip' : 'enemyStatsTooltip';
+    const tooltip = document.getElementById(tooltipId);
+    if (!tooltip) return;
+    
+    const character = CHARACTERS.find(c => c.id === player.characterId);
+    const characterName = character ? character.name : 'Без персонажа';
+    
+    tooltip.innerHTML = `
+        <div class="tooltip-title">${player.nickname}${player.isBot ? ' 🤖' : ''}</div>
+        <div class="tooltip-stat">Персонаж: <strong>${characterName}</strong></div>
+        <div class="tooltip-stat">⚔️ Атака: <strong>${Math.round(attack)}</strong></div>
+        <div class="tooltip-stat">🛡️ Броня: <strong>${Math.round(armor)}%</strong></div>
+        <div class="tooltip-stat">💨 Уклонение: <strong>${Math.round(dodge)}%</strong></div>
+        <div class="tooltip-stat">⚡ Крит: <strong>${Math.round(crit)}%</strong> (x${critMult.toFixed(1)})</div>
+        <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
+        <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
+        <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
+        <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>
+    `;
 }
 
 // Получение бонуса за пороги стиля
@@ -1931,8 +1960,27 @@ function updatePlayersListGame() {
         const characterEmoji = character ? character.emoji : '👤';
         const characterName = character ? character.name : 'Без персонажа';
         
+        // Вычисляем статистику для tooltip
+        const attack = 10 + (player.attackStyle || 0);
+        const armor = 25 + (player.armorStyle || 0);
+        const dodge = 15 + (player.dodgeStyle || 0);
+        const crit = 10 + (player.critStyle || 0);
+        const critMult = 1.5 + (player.critMultiplierStyle || 0);
+        
+        const attackBonus = getStyleBonus(player.attackStyle || 0);
+        const armorBonus = getStyleBonus(player.armorStyle || 0);
+        const dodgeBonus = getStyleBonus(player.dodgeStyle || 0);
+        const critBonus = getStyleBonus(player.critStyle || 0);
+        const critMultBonus = getStyleBonus(player.critMultiplierStyle || 0);
+        
+        const finalAttack = attack + attackBonus;
+        const finalArmor = armor + armorBonus;
+        const finalDodge = dodge + dodgeBonus;
+        const finalCrit = crit + critBonus;
+        const finalCritMult = critMult + critMultBonus * 0.25;
+        
         return `
-            <div class="player-item-game ${statusClass}">
+            <div class="player-item-game ${statusClass}" data-player-id="${player.socketId}" style="position: relative; cursor: pointer;">
                 <div class="player-item-header">
                     <span class="player-item-name">
                         ${characterEmoji} ${player.nickname}${isMe ? ' (Вы)' : ''}${isBot ? ' 🤖' : ''}
@@ -1952,6 +2000,19 @@ function updatePlayersListGame() {
                         <div class="player-hp-fill-mini ${roundHpPercent <= 25 ? 'low' : roundHpPercent <= 50 ? 'medium' : ''}" 
                              style="width: ${roundHpPercent}%"></div>
                     </div>
+                </div>
+                <div class="stats-tooltip player-list-tooltip">
+                    <div class="tooltip-title">${player.nickname}${player.isBot ? ' 🤖' : ''}</div>
+                    <div class="tooltip-stat">Персонаж: <strong>${characterName}</strong></div>
+                    <div class="tooltip-stat">⚔️ Атака: <strong>${Math.round(finalAttack)}</strong></div>
+                    <div class="tooltip-stat">🛡️ Броня: <strong>${Math.round(finalArmor)}%</strong></div>
+                    <div class="tooltip-stat">💨 Уклонение: <strong>${Math.round(finalDodge)}%</strong></div>
+                    <div class="tooltip-stat">⚡ Крит: <strong>${Math.round(finalCrit)}%</strong> (x${finalCritMult.toFixed(1)})</div>
+                    <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
+                    <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
+                    <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
+                    <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>
+                </div>
                     <div class="player-hp-bar-mini">
                         <div class="player-hp-fill-mini ${totalHpPercent <= 25 ? 'low' : totalHpPercent <= 50 ? 'medium' : ''}" 
                              style="width: ${totalHpPercent}%"></div>
@@ -2280,12 +2341,16 @@ function updateBattlePhase() {
     if (!player.isInDuel) {
         battlePhase.textContent = 'Перерыв между боями';
         battlePhase.className = 'battle-phase phase-break';
-    } else if (player.duelStartTime && Date.now() < player.duelStartTime + PRE_BATTLE_DELAY) {
-        battlePhase.textContent = 'Подготовка к бою';
-        battlePhase.className = 'battle-phase phase-preparation';
     } else {
-        battlePhase.textContent = 'Бой идет';
-        battlePhase.className = 'battle-phase phase-battle';
+        const now = Date.now();
+        // Проверяем, прошел ли таймер подготовки к бою
+        if (player.duelStartTime && now < player.duelStartTime + PRE_BATTLE_DELAY) {
+            battlePhase.textContent = 'Подготовка к бою';
+            battlePhase.className = 'battle-phase phase-preparation';
+        } else {
+            battlePhase.textContent = 'Бой идет';
+            battlePhase.className = 'battle-phase phase-battle';
+        }
     }
 }
 
