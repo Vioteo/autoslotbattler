@@ -1543,9 +1543,35 @@ io.on('connection', (socket) => {
     
     // Обновляем время последнего спина и перезарядки
     attacker.lastSpinTime = now;
-    attacker.rechargeEndTime = now + 3000; // 3 секунды перезарядки
+    let rechargeTime = 3000; // 3 секунды перезарядки
+    // Эффект быстрого удара (50% сокращение перезарядки)
+    if (attacker.legendaryEffects && attacker.legendaryEffects.fastStrike) {
+      rechargeTime = Math.floor(rechargeTime * 0.5);
+    }
+    attacker.rechargeEndTime = now + rechargeTime;
     
-    let finalDamage = damage;
+    // Рассчитываем характеристики игроков
+    const attackerStats = calculatePlayerStats(attacker);
+    const targetStats = calculatePlayerStats(target);
+    
+    // Применяем антикарты противника к атакующему
+    const targetAntiCards = target.antiCards || {};
+    let effectiveAttack = attackerStats.attack;
+    if (targetAntiCards[CARD_TYPES.ATTACK]) {
+      effectiveAttack = Math.max(0, effectiveAttack + targetAntiCards[CARD_TYPES.ATTACK]);
+    }
+    
+    // Базовый урон = урон от комбинации + базовый урон за спин (10) + бонус атаки
+    const baseSpinDamage = 10;
+    let finalDamage = damage + baseSpinDamage + (effectiveAttack - 10); // effectiveAttack уже включает базовые 10
+    
+    // Проверяем крит
+    let isCrit = false;
+    const critRoll = Math.random() * 100;
+    if (critRoll < attackerStats.critChance) {
+      isCrit = true;
+      finalDamage = Math.floor(finalDamage * attackerStats.critMultiplier);
+    }
     
     // Если 3+ бонусных символа - используем способность персонажа
     if (matches === 'bonus' && attacker.characterId) {
@@ -1555,6 +1581,17 @@ io.on('connection', (socket) => {
           finalDamage = abilityResult.damage;
         } else {
           finalDamage = 0;
+        }
+        
+        // Эффект регенерации при бонусе
+        if (attacker.legendaryEffects && attacker.legendaryEffects.regeneration) {
+          attacker.roundHp = attackerStats.maxHp;
+          attacker.totalHp = attackerStats.maxHp;
+          io.to(roomId).emit('heal', {
+            playerSocketId: fromPlayerSocketId,
+            amount: attackerStats.maxHp - attacker.roundHp,
+            isFull: true
+          });
         }
         
         // Отправляем информацию о способности
@@ -1580,7 +1617,104 @@ io.on('connection', (socket) => {
           damage: 0
         });
       } else if (finalDamage > 0) {
-        target.roundHp = Math.max(0, target.roundHp - finalDamage);
+        // Проверяем уклонение (считается для каждого источника урона отдельно)
+        let dodged = false;
+        const dodgeRoll = Math.random() * 100;
+        let effectiveDodge = targetStats.dodge;
+        if (targetAntiCards[CARD_TYPES.DODGE]) {
+          effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
+        }
+        
+        if (dodgeRoll < effectiveDodge) {
+          dodged = true;
+          const originalDamage = finalDamage;
+          finalDamage = 0;
+          
+          // Эффект отражения при уклонении (50% от исходного урона)
+          if (target.legendaryEffects && target.legendaryEffects.reflection) {
+            const reflectedDamage = Math.floor(originalDamage * 0.5);
+            attacker.roundHp = Math.max(0, attacker.roundHp - reflectedDamage);
+            io.to(roomId).emit('attack', {
+              fromPlayerSocketId: targetPlayerSocketId,
+              targetPlayerSocketId: fromPlayerSocketId,
+              damage: reflectedDamage,
+              matches: 'reflection',
+              comboInfo: { type: 'reflection', text: 'Отражение', description: '50% уклоненного урона' }
+            });
+          }
+        } else {
+          // Применяем броню
+          const armorReduction = targetStats.armor / 100;
+          if (targetAntiCards[CARD_TYPES.ARMOR]) {
+            const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
+            finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
+          } else {
+            finalDamage = Math.floor(finalDamage * (1 - armorReduction));
+          }
+          
+          // Эффект мстительного здоровья
+          if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
+            const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
+            const revengeDamage = Math.floor(lostHp * 0.1);
+            attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
+            if (revengeDamage > 0) {
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: targetPlayerSocketId,
+                targetPlayerSocketId: fromPlayerSocketId,
+                damage: revengeDamage,
+                matches: 'revenge',
+                comboInfo: { type: 'revenge', text: 'Мщение', description: '10% от потерянного HP' }
+              });
+            }
+          }
+          
+          target.roundHp = Math.max(0, target.roundHp - finalDamage);
+        }
+      }
+      
+      // Применяем лечение при спине
+      if (attackerStats.healing > 0) {
+        const healAmount = attackerStats.healing;
+        attacker.roundHp = Math.min(attackerStats.maxHp, attacker.roundHp + healAmount);
+        io.to(roomId).emit('heal', {
+          playerSocketId: fromPlayerSocketId,
+          amount: healAmount
+        });
+      }
+      
+      // Применяем заморозку (увеличиваем перезарядку противника)
+      if (attackerStats.freeze > 0) {
+        const freezeTime = attackerStats.freeze * 1000; // в миллисекундах
+        if (target.rechargeEndTime > now) {
+          target.rechargeEndTime += freezeTime;
+        } else {
+          target.rechargeEndTime = now + freezeTime;
+        }
+      }
+      
+      // Эффект ледяной кары (25 урона в секунду)
+      if (attacker.legendaryEffects && attacker.legendaryEffects.icePunishment) {
+        // Применяем урон каждую секунду
+        const iceDamage = 25;
+        const iceInterval = setInterval(() => {
+          const currentTarget = players.get(targetPlayerSocketId);
+          if (!currentTarget || currentTarget.roundHp <= 0 || !currentTarget.isInDuel) {
+            clearInterval(iceInterval);
+            return;
+          }
+          currentTarget.roundHp = Math.max(0, currentTarget.roundHp - iceDamage);
+          io.to(roomId).emit('attack', {
+            fromPlayerSocketId: fromPlayerSocketId,
+            targetPlayerSocketId: targetPlayerSocketId,
+            damage: iceDamage,
+            matches: 'ice',
+            comboInfo: { type: 'ice', text: 'Ледяная кара', description: '25 урона в секунду' }
+          });
+          updateRoomState(roomId);
+        }, 1000);
+        
+        // Останавливаем через 10 секунд
+        setTimeout(() => clearInterval(iceInterval), 10000);
       }
     }
     
