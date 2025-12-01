@@ -48,7 +48,7 @@ const SYMBOLS = [
 const WILD_SYMBOL = { emoji: '⭐', color: '#ffd700', name: 'wild', weight: 5 };
 
 // Бонус символ
-const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 3 };
+const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 13 };
 
 // Персонажи (должны совпадать с сервером)
 const CHARACTERS = [
@@ -88,11 +88,12 @@ const CHARACTERS = [
 
 // Игровое состояние
 let gameState = {
-    roundHp: 200,
+    roundHp: 100,
     totalHp: 100,
-    enemyRoundHp: 200,
+    enemyRoundHp: 100,
     enemyTotalHp: 100,
-    maxHp: 200,
+    maxHp: 100,
+    enemyMaxHp: 100,
     isRecharging: false,
     rechargeTime: 0,
     canSpin: true,
@@ -123,6 +124,15 @@ let roomState = {
     players: [],
     pairs: [],
     currentRound: 0
+};
+
+// Состояние игры (контроллер состояний)
+let gameStateController = {
+    currentState: null,
+    stateStartTime: 0,
+    roundStartTime: 0,
+    breakStartTime: 0,
+    preBattleEndTime: 0
 };
 
 // Элементы DOM
@@ -170,6 +180,8 @@ const refreshShopBtn = document.getElementById('refreshShopBtn');
 const permGoldShop = document.getElementById('permGoldShop');
 const tempGoldShop = document.getElementById('tempGoldShop');
 const breakTimerCountdown = document.getElementById('breakTimerCountdown');
+const readyBtn = document.getElementById('readyBtn');
+const roundStatsInShop = document.getElementById('roundStatsInShop');
 
 // Получаем все линии слотов (старая структура для обратной совместимости)
 const slotLines = [
@@ -362,14 +374,10 @@ socket.on('roomStateUpdate', (data) => {
             updateBattlePhase();
             updateCharacterStats();
             
-            // Если duelStartTime только что обновился и игрок в дуэли, запускаем таймер
-            if (player.isInDuel && player.duelStartTime) {
-                // Проверяем, не запущен ли уже таймер с этим же временем
-                // Если это новое время начала дуэли, запускаем таймер
-                if (lastDuelStartTime !== player.duelStartTime) {
-                    lastDuelStartTime = player.duelStartTime;
-                    startBattleTimer(player.duelStartTime);
-                }
+            // Если игрок в дуэли и есть общее состояние подготовки, запускаем таймер
+            if (player.isInDuel && gameStateController.currentState === 'preparation' && 
+                gameStateController.preBattleEndTime > 0) {
+                startBattleTimerFromState(gameStateController.preBattleEndTime);
             } else if (!player.isInDuel) {
                 // Если игрок больше не в дуэли, сбрасываем
                 lastDuelStartTime = null;
@@ -385,6 +393,12 @@ socket.on('roomStateUpdate', (data) => {
         if (currentRound) {
             currentRound.textContent = data.currentRound;
         }
+    }
+    
+    // Обновляем магазин и статистику, если экран магазина активен
+    if (cardShopScreen && cardShopScreen.classList.contains('active')) {
+        updateCardShop();
+        updateReadyCount();
     }
 });
 
@@ -417,36 +431,11 @@ socket.on('roundStarted', (data) => {
     updateStatsDisplay();
     updateRoundRewardDisplay();
     
-    // Запускаем таймер перед боем, если игрок в дуэли
-    // НЕ запускаем здесь, т.к. таймер уже должен быть запущен в roomStateUpdate
-    // Это предотвращает дублирование таймеров
+    // Запускаем таймер перед боем, если игрок в дуэли и есть общее состояние
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
-    if (player && player.isInDuel && player.duelStartTime) {
-        // Проверяем, запущен ли уже таймер с этим временем
-        if (lastDuelStartTime !== player.duelStartTime) {
-            lastDuelStartTime = player.duelStartTime;
-            startBattleTimer(player.duelStartTime);
-        }
-    } else if (player && player.isInDuel && !player.duelStartTime) {
-        // Если игрок в дуэли, но duelStartTime еще не пришел, проверяем периодически
-        const checkTimer = setInterval(() => {
-            const currentPlayer = roomState.players.find(p => p.socketId === playerState.socketId);
-            if (currentPlayer && currentPlayer.duelStartTime) {
-                clearInterval(checkTimer);
-                if (lastDuelStartTime !== currentPlayer.duelStartTime) {
-                    lastDuelStartTime = currentPlayer.duelStartTime;
-                    startBattleTimer(currentPlayer.duelStartTime);
-                }
-            } else if (!currentPlayer || !currentPlayer.isInDuel) {
-                clearInterval(checkTimer);
-                lastDuelStartTime = null;
-            }
-        }, 100);
-        
-        // Останавливаем проверку через 2 секунды, если duelStartTime не пришел
-        setTimeout(() => {
-            clearInterval(checkTimer);
-        }, 2000);
+    if (player && player.isInDuel && gameStateController.currentState === 'preparation' && 
+        gameStateController.preBattleEndTime > 0) {
+        startBattleTimerFromState(gameStateController.preBattleEndTime);
     } else if (!player || !player.isInDuel) {
         lastDuelStartTime = null;
     }
@@ -495,14 +484,14 @@ socket.on('attack', (data) => {
     console.log('Получена атака:', data);
     if (data.targetPlayerSocketId === playerState.socketId) {
         // Мы получили урон
-        takeDamage(data.damage, data.dodged || false);
+        takeDamage(data.damage, data.dodged || false, data.crit || false, data.armorReduced || false);
         // Показываем всплывающую табличку урона у противника с комбинацией
         if (data.comboInfo) {
             showEnemyDamagePopup(data.comboInfo, data.damage);
         }
     } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
-        showAttackAnimation(data.damage, true, data.dodged || false, data.crit || false);
+        showAttackAnimation(data.damage, true, data.dodged || false, data.crit || false, data.armorReduced || false);
         // Сообщение о комбинации уже показано в checkMatches, не дублируем
         // Обновляем состояние для отображения урона боту
         setTimeout(() => {
@@ -516,8 +505,9 @@ socket.on('attack', (data) => {
 
 // Обработка лечения при спине
 socket.on('heal', (data) => {
-    if (data.playerSocketId === playerState.socketId && data.healAmount > 0) {
-        showFloatingMessage('player', `+${data.healAmount} HP`, 'heal', data.healAmount);
+    const healAmount = data.amount || data.healAmount || 0;
+    if (data.playerSocketId === playerState.socketId && healAmount > 0) {
+        showFloatingMessage('player', `+${healAmount} HP`, 'heal', healAmount);
         updateHpBars();
     }
 });
@@ -537,7 +527,42 @@ socket.on('breakStarted', (data) => {
         // Ждем обновления состояния с предложениями карт
         // Предложения должны быть сгенерированы на сервере в checkAllDuelsFinished
         updateCardShop();
+        updateRoundStatsInShop();
         startBreakTimer(data.duration);
+    }
+});
+
+// Обработка изменения состояния игры
+socket.on('gameStateChanged', (data) => {
+    console.log('Состояние игры изменилось:', data);
+    
+    // Обновляем состояние контроллера
+    gameStateController.currentState = data.state;
+    gameStateController.stateStartTime = data.stateStartTime;
+    gameStateController.preBattleEndTime = data.preBattleEndTime || 0;
+    gameStateController.roundStartTime = data.roundStartTime || 0;
+    gameStateController.breakStartTime = data.breakStartTime || 0;
+    
+    // Обрабатываем в зависимости от состояния
+    if (data.state === 'preparation') {
+        // Состояние подготовки к бою - запускаем таймер
+        if (data.preBattleEndTime) {
+            startBattleTimerFromState(data.preBattleEndTime);
+        }
+    } else if (data.state === 'battle') {
+        // Бой начался - скрываем таймер и разблокируем кнопку
+        const battleTimer = document.getElementById('battleTimer');
+        const vsText = document.getElementById('vsText');
+        if (battleTimer) battleTimer.style.display = 'none';
+        if (vsText) vsText.style.display = 'block';
+        updateBattlePhase();
+        enableSpin();
+    } else if (data.state === 'break') {
+        // Перерыв - запускаем таймер перерыва
+        if (data.breakStartTime) {
+            const duration = BREAK_DURATION;
+            startBreakTimer(duration);
+        }
     }
 });
 
@@ -564,6 +589,172 @@ function startBreakTimer(duration) {
     }, 100);
 }
 
+// Обновление счетчика готовности игроков
+function updateReadyCount() {
+    const readyCount = document.getElementById('readyCount');
+    if (!readyCount) return;
+    
+    if (!roomState.players || roomState.players.length === 0) {
+        readyCount.textContent = '';
+        return;
+    }
+    
+    // Подсчитываем живых игроков (totalHp > 0)
+    const alivePlayers = roomState.players.filter(p => p && p.totalHp > 0);
+    const readyPlayers = alivePlayers.filter(p => p.isReady === true);
+    
+    const totalAlive = alivePlayers.length;
+    const totalReady = readyPlayers.length;
+    
+    readyCount.textContent = `${totalReady}/${totalAlive} готовы`;
+}
+
+// Обновление уровней стиля игроков в магазине
+function updatePlayersStatsInShop() {
+    const playersStatsInShop = document.getElementById('playersStatsInShop');
+    if (!playersStatsInShop) return;
+    
+    if (!roomState.players || roomState.players.length === 0) {
+        playersStatsInShop.innerHTML = '';
+        return;
+    }
+    
+    // Названия стилей
+    const styleNames = {
+        health: '❤️ Здоровье',
+        dodge: '💨 Уклонение',
+        critical: '⚡ Крит',
+        healing: '💚 Лечение',
+        armor: '🛡️ Броня',
+        freeze: '❄️ Заморозка',
+        attack: '⚔️ Атака'
+    };
+    
+    let html = '<div class="players-stats-section"><h3>Уровни стиля игроков</h3>';
+    html += '<div class="players-stats-grid">';
+    
+    roomState.players.forEach(player => {
+        if (!player) return;
+        
+        const char = CHARACTERS.find(c => c.id === player.characterId);
+        const emoji = char ? char.emoji : '👤';
+        const name = player.nickname + (player.isBot ? ' 🤖' : '');
+        const stylePoints = player.stylePoints || {};
+        
+        html += `
+            <div class="player-stats-card">
+                <div class="player-stats-header">
+                    <span class="player-stats-emoji">${emoji}</span>
+                    <span class="player-stats-name">${name}</span>
+                </div>
+                <div class="player-stats-list">
+                    <div class="stat-row"><span>${styleNames.health}:</span> <strong>${stylePoints.health || 0}</strong></div>
+                    <div class="stat-row"><span>${styleNames.dodge}:</span> <strong>${stylePoints.dodge || 0}</strong></div>
+                    <div class="stat-row"><span>${styleNames.critical}:</span> <strong>${stylePoints.critical || 0}</strong></div>
+                    <div class="stat-row"><span>${styleNames.healing}:</span> <strong>${stylePoints.healing || 0}</strong></div>
+                    <div class="stat-row"><span>${styleNames.armor}:</span> <strong>${stylePoints.armor || 0}</strong></div>
+                    <div class="stat-row"><span>${styleNames.freeze}:</span> <strong>${stylePoints.freeze || 0}</strong></div>
+                    <div class="stat-row"><span>${styleNames.attack}:</span> <strong>${stylePoints.attack || 0}</strong></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div></div>';
+    playersStatsInShop.innerHTML = html;
+}
+
+// Обновление статистики раунда в магазине
+function updateRoundStatsInShop() {
+    if (!roundStatsInShop) return;
+    
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player || !roomState.pairs || roomState.pairs.length === 0) {
+        roundStatsInShop.innerHTML = '';
+        return;
+    }
+    
+    // Формируем статистику всех пар раунда
+    let pairsHtml = '<div class="round-stats-section"><h3>Результаты прошлого боя</h3>';
+    
+    roomState.pairs.forEach((pair, index) => {
+        const player1 = roomState.players.find(p => p.socketId === pair[0]);
+        const player2 = pair[1] ? roomState.players.find(p => p.socketId === pair[1]) : null;
+        
+        if (player1) {
+            const char1 = CHARACTERS.find(c => c.id === player1.characterId);
+            const emoji1 = char1 ? char1.emoji : '👤';
+            const name1 = player1.nickname + (player1.isBot ? ' 🤖' : '');
+            const hp1 = player1.roundHp || 0;
+            const maxHp1 = 100;
+            const hpPercent1 = Math.max(0, (hp1 / maxHp1) * 100);
+            
+            let status1 = '';
+            if (player1.duelStatus === 'winner') {
+                status1 = '<span style="color: #4caf50; font-weight: bold;">🏆 Победитель</span>';
+            } else if (player1.duelStatus === 'loser') {
+                status1 = '<span style="color: #f44336; font-weight: bold;">💀 Проиграл</span>';
+            } else {
+                status1 = '<span style="color: #9e9e9e;">⏳ Ожидание</span>';
+            }
+            
+            if (player2) {
+                const char2 = CHARACTERS.find(c => c.id === player2.characterId);
+                const emoji2 = char2 ? char2.emoji : '👤';
+                const name2 = player2.nickname + (player2.isBot ? ' 🤖' : '');
+                const hp2 = player2.roundHp || 0;
+                const maxHp2 = 100;
+                const hpPercent2 = Math.max(0, (hp2 / maxHp2) * 100);
+                
+                let status2 = '';
+                if (player2.duelStatus === 'winner') {
+                    status2 = '<span style="color: #4caf50; font-weight: bold;">🏆 Победитель</span>';
+                } else if (player2.duelStatus === 'loser') {
+                    status2 = '<span style="color: #f44336; font-weight: bold;">💀 Проиграл</span>';
+                } else {
+                    status2 = '<span style="color: #9e9e9e;">⏳ Ожидание</span>';
+                }
+                
+                pairsHtml += `
+                    <div class="duel-pair-shop" style="margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 8px; border: 2px solid ${player1.duelStatus === 'winner' || player2.duelStatus === 'winner' ? '#4caf50' : '#ddd'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 18px; margin-bottom: 3px;">${emoji1} ${name1}</div>
+                                <div style="margin-bottom: 3px; font-size: 12px;">${status1}</div>
+                                <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 15px; margin-bottom: 3px;">
+                                    <div style="width: ${hpPercent1}%; background: ${hp1 > 0 ? '#4caf50' : '#f44336'}; height: 15px; border-radius: 4px;"></div>
+                                </div>
+                                <div style="font-size: 11px; color: #666;">HP: ${hp1} / ${maxHp1}</div>
+                            </div>
+                            <div style="margin: 0 15px; font-size: 18px; font-weight: bold;">VS</div>
+                            <div style="flex: 1; text-align: right;">
+                                <div style="font-size: 18px; margin-bottom: 3px;">${emoji2} ${name2}</div>
+                                <div style="margin-bottom: 3px; font-size: 12px;">${status2}</div>
+                                <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 15px; margin-bottom: 3px;">
+                                    <div style="width: ${hpPercent2}%; background: ${hp2 > 0 ? '#4caf50' : '#f44336'}; height: 15px; border-radius: 4px;"></div>
+                                </div>
+                                <div style="font-size: 11px; color: #666;">HP: ${hp2} / ${maxHp2}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                pairsHtml += `
+                    <div class="duel-pair-shop" style="margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 8px; border: 2px solid #4caf50;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 18px; margin-bottom: 5px;">${emoji1} ${name1}</div>
+                            <div style="color: #4caf50; font-weight: bold; font-size: 12px;">🏆 Прошел автоматически</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    });
+    
+    pairsHtml += '</div>';
+    roundStatsInShop.innerHTML = pairsHtml;
+}
+
 // Обновление магазина карточек
 function updateCardShop() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
@@ -574,6 +765,29 @@ function updateCardShop() {
     const tempGoldEl = document.getElementById('tempGoldShop');
     if (permGoldEl) permGoldEl.textContent = player.permanentGold || 0;
     if (tempGoldEl) tempGoldEl.textContent = player.temporaryGold || 0;
+    
+    // Обновляем состояние кнопки готовности
+    if (readyBtn) {
+        if (player.totalHp <= 0) {
+            readyBtn.disabled = true;
+            readyBtn.textContent = 'Выбыл';
+        } else if (player.isReady) {
+            readyBtn.disabled = true;
+            readyBtn.textContent = 'Готов ✓';
+        } else {
+            readyBtn.disabled = false;
+            readyBtn.textContent = 'Готов';
+        }
+    }
+    
+    // Обновляем уровни стиля игроков
+    updatePlayersStatsInShop();
+    
+    // Обновляем статистику раунда
+    updateRoundStatsInShop();
+    
+    // Обновляем счетчик готовности
+    updateReadyCount();
     
     // Отображаем карточки
     const cardsShopList = document.getElementById('cardsShopList');
@@ -596,8 +810,14 @@ function updateCardShop() {
             : 'common';
         const isAnti = card.isAnti || false;
         
+        // Визуальные индикаторы редкости
+        const rarityBadge = card.rarity === 'legendary' ? '<span class="rarity-badge legendary-badge">⭐ Легендарная</span>' 
+            : card.rarity === 'rare' ? '<span class="rarity-badge rare-badge">💜 Редкая</span>' 
+            : '';
+        
         return `
             <div class="card-offer ${rarityClass} ${isAnti ? 'anti' : ''}" data-card-id="${card.id}">
+                ${rarityBadge}
                 <div class="card-title">${card.name}</div>
                 <div class="card-description">${card.description}</div>
                 <div class="card-cost">💰 ${card.cost} золота</div>
@@ -626,6 +846,28 @@ function refreshCardShop() {
 if (refreshShopBtn) {
     refreshShopBtn.addEventListener('click', () => {
         refreshCardShop();
+    });
+}
+
+// Обработчик кнопки готовности
+if (readyBtn) {
+    readyBtn.addEventListener('click', () => {
+        if (!playerState.roomId) return;
+        const player = roomState.players.find(p => p.socketId === playerState.socketId);
+        if (!player) return;
+        
+        // Проверяем, что игрок жив (totalHp > 0)
+        if (player.totalHp <= 0) {
+            showError('Вы выбыли из турнира');
+            return;
+        }
+        
+        // Отправляем событие готовности
+        socket.emit('playerReady', { roomId: playerState.roomId });
+        
+        // Обновляем состояние кнопки
+        readyBtn.disabled = true;
+        readyBtn.textContent = 'Готов ✓';
     });
 }
 
@@ -691,8 +933,9 @@ socket.on('characterSelected', (data) => {
 function initGame() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player) {
-        gameState.roundHp = player.roundHp || 200;
+        gameState.roundHp = player.roundHp || 100;
         gameState.totalHp = player.totalHp || 100;
+        gameState.maxHp = player.maxHp || 100; // Используем динамическое maxHp от сервера
         
         // Обновляем аватар и имя игрока
         const playerAvatar = document.getElementById('playerAvatar');
@@ -713,8 +956,9 @@ function initGame() {
     );
     
     if (opponent) {
-        gameState.enemyRoundHp = opponent.roundHp || 200;
+        gameState.enemyRoundHp = opponent.roundHp || 100;
         gameState.enemyTotalHp = opponent.totalHp || 100;
+        gameState.enemyMaxHp = opponent.maxHp || 100; // Используем динамическое maxHp для противника
         playerState.currentOpponent = opponent.socketId;
         playerState.isInDuel = true;
         
@@ -733,8 +977,6 @@ function initGame() {
         const enemyName = document.getElementById('enemyName');
         if (enemyName) enemyName.textContent = 'Противник';
     }
-    
-    gameState.maxHp = 200;
     gameState.isRecharging = false;
     gameState.rechargeTime = 0;
     gameState.canSpin = true;
@@ -802,8 +1044,9 @@ function updateGameState(data) {
     // Обновляем состояние из roomStateUpdate
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player) {
-        gameState.roundHp = player.roundHp || 200;
+        gameState.roundHp = player.roundHp || 100;
         gameState.totalHp = player.totalHp || 100;
+        gameState.maxHp = player.maxHp || 100; // Обновляем динамическое maxHp
     }
     
     const opponent = roomState.players.find(p => 
@@ -811,8 +1054,9 @@ function updateGameState(data) {
         (player && player.isInDuel && p.socketId === player.duelOpponent)
     );
     if (opponent) {
-        gameState.enemyRoundHp = opponent.roundHp || 200;
+        gameState.enemyRoundHp = opponent.roundHp || 100;
         gameState.enemyTotalHp = opponent.totalHp || 100;
+        gameState.enemyMaxHp = opponent.maxHp || 100; // Обновляем динамическое maxHp для противника
     }
     updateHpBars();
 }
@@ -839,12 +1083,13 @@ function updateHpBars() {
     }
     
     // Противник - показываем HP раунда
-    const enemyHpPercent = (gameState.enemyRoundHp / gameState.maxHp) * 100;
+    const enemyMaxHp = gameState.enemyMaxHp || gameState.maxHp || 100; // Используем enemyMaxHp если доступен
+    const enemyHpPercent = (gameState.enemyRoundHp / enemyMaxHp) * 100;
     if (enemyHpFill) {
         enemyHpFill.style.width = `${enemyHpPercent}%`;
     }
     if (enemyHpText) {
-        enemyHpText.textContent = `Раунд: ${gameState.enemyRoundHp} / ${gameState.maxHp} | Всего: ${gameState.enemyTotalHp}`;
+        enemyHpText.textContent = `Раунд: ${gameState.enemyRoundHp} / ${enemyMaxHp} | Всего: ${gameState.enemyTotalHp}`;
     }
     
     if (enemyHpPercent <= 25) {
@@ -898,9 +1143,16 @@ function spin() {
         return;
     }
     
-    // Проверяем таймер перед боем (10 секунд)
-    if (player.duelStartTime) {
-        const now = Date.now();
+    // Проверяем таймер перед боем (10 секунд) - используем общее состояние
+    const now = Date.now();
+    if (gameStateController.currentState === 'preparation' && 
+        gameStateController.preBattleEndTime > 0 && 
+        now < gameStateController.preBattleEndTime) {
+        const remaining = Math.ceil((gameStateController.preBattleEndTime - now) / 1000);
+        showError(`Бой еще не начался! Подождите ${remaining} секунд`);
+        return;
+    } else if (player.duelStartTime) {
+        // Fallback на старый способ для обратной совместимости
         if (now < player.duelStartTime + PRE_BATTLE_DELAY) {
             const remaining = Math.ceil((player.duelStartTime + PRE_BATTLE_DELAY - now) / 1000);
             showError(`Бой еще не начался! Подождите ${remaining} секунд`);
@@ -1588,8 +1840,16 @@ function enableSpin() {
     
     const now = Date.now();
     
-    // Проверяем условия для доступности спина
-    const hasPassedPreBattleTimer = !player.duelStartTime || now >= player.duelStartTime + PRE_BATTLE_DELAY;
+    // Проверяем условия для доступности спина - используем общее состояние
+    let hasPassedPreBattleTimer = true;
+    if (gameStateController.currentState === 'preparation' && gameStateController.preBattleEndTime > 0) {
+        hasPassedPreBattleTimer = now >= gameStateController.preBattleEndTime;
+    } else if (gameStateController.currentState === 'battle') {
+        hasPassedPreBattleTimer = true;
+    } else if (player.duelStartTime) {
+        // Fallback на старый способ для обратной совместимости
+        hasPassedPreBattleTimer = now >= player.duelStartTime + PRE_BATTLE_DELAY;
+    }
     
     // Проверяем перезарядку - если она уже закончилась, сбрасываем флаг
     const isRecharging = gameState.isRecharging && now < gameState.rechargeEndTime;
@@ -1604,10 +1864,11 @@ function enableSpin() {
         }
     }
     
-    // Кнопка доступна если: идет бой И нет перезарядки
-    // Дополнительные проверки (золото, таймер, hasEndedTurn) делаются при нажатии
+    // Кнопка доступна если: идет бой И нет перезарядки И прошел таймер подготовки
+    // Дополнительные проверки (золото, hasEndedTurn) делаются при нажатии
     const canSpinNow = 
         player.isInDuel && // В дуэли (идет бой)
+        hasPassedPreBattleTimer && // Прошел таймер подготовки
         !isRecharging; // Нет перезарядки
     
     gameState.canSpin = canSpinNow;
@@ -1784,7 +2045,7 @@ function updateStatsTooltip(target, player, attack, armor, dodge, crit, critMult
         </div>
         ${styleList}
         <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
-            <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
+            <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 100</strong> (Раунд)</div>
             <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
             <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
             <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>
@@ -1801,7 +2062,7 @@ function getStyleBonus(stylePoints) {
 }
 
 // Получение урона
-function takeDamage(damage, dodged = false) {
+function takeDamage(damage, dodged = false, crit = false, armorReduced = false) {
     if (dodged) {
         showFloatingMessage('player', 'Уклонение!', 'dodge');
         return;
@@ -1814,12 +2075,27 @@ function takeDamage(damage, dodged = false) {
     if (player) {
         gameState.roundHp = player.roundHp;
         gameState.totalHp = player.totalHp;
+        gameState.maxHp = player.maxHp || 100; // Обновляем динамическое maxHp
     }
     
     updateHpBars();
     
-    // Показываем урон
-    showFloatingMessage('player', `-${damage}`, 'damage', damage);
+    // Показываем урон (после снижения броней, если было)
+    if (armorReduced) {
+        // Урон был снижен броней - показываем финальный урон
+        if (crit) {
+            showFloatingMessage('player', `КРИТ! -${damage}`, 'crit', damage);
+        } else {
+            showFloatingMessage('player', `-${damage}`, 'damage', damage);
+        }
+    } else {
+        // Обычный урон
+        if (crit) {
+            showFloatingMessage('player', `КРИТ! -${damage}`, 'crit', damage);
+        } else {
+            showFloatingMessage('player', `-${damage}`, 'damage', damage);
+        }
+    }
     
     // Анимация получения урона
     const playerContainer = document.querySelector('.player-character');
@@ -1832,7 +2108,7 @@ function takeDamage(damage, dodged = false) {
 }
 
 // Показ анимации атаки
-function showAttackAnimation(damage, isMyAttack = false, dodged = false, crit = false) {
+function showAttackAnimation(damage, isMyAttack = false, dodged = false, crit = false, armorReduced = false) {
     const target = isMyAttack ? 'enemy' : 'player';
     const targetContainer = isMyAttack 
         ? document.querySelector('.enemy-character')
@@ -1850,11 +2126,21 @@ function showAttackAnimation(damage, isMyAttack = false, dodged = false, crit = 
         }, 500);
     }
     
-    // Показываем урон
-    if (crit) {
-        showFloatingMessage(target, `КРИТ! -${damage}`, 'crit', damage);
+    // Показываем урон (после снижения броней, если было)
+    if (armorReduced) {
+        // Урон был снижен броней - показываем финальный урон
+        if (crit) {
+            showFloatingMessage(target, `КРИТ! -${damage}`, 'crit', damage);
+        } else {
+            showFloatingMessage(target, `-${damage}`, 'damage', damage);
+        }
     } else {
-        showFloatingMessage(target, `-${damage}`, 'damage', damage);
+        // Обычный урон
+        if (crit) {
+            showFloatingMessage(target, `КРИТ! -${damage}`, 'crit', damage);
+        } else {
+            showFloatingMessage(target, `-${damage}`, 'damage', damage);
+        }
     }
     
     // HP обновляется через gameState от другого игрока, здесь только анимация
@@ -2148,6 +2434,7 @@ function updatePlayersListGame() {
             if (opponent) {
                 gameState.enemyRoundHp = opponent.roundHp;
                 gameState.enemyTotalHp = opponent.totalHp;
+                gameState.enemyMaxHp = opponent.maxHp || 100; // Обновляем динамическое maxHp для противника
                 
                 // Обновляем баланс противника
                 const enemyGoldDisplay = document.getElementById('enemyGoldDisplay');
@@ -2185,7 +2472,7 @@ function updatePlayersListGame() {
                           player.duelStatus === 'loser' ? 'loser' :
                           player.isInDuel ? 'in-duel' : '';
         
-        const roundHpPercent = (player.roundHp / 200) * 100;
+        const roundHpPercent = (player.roundHp / 100) * 100;
         const totalHpPercent = (player.totalHp / 100) * 100;
         
         // Находим персонажа
@@ -2276,7 +2563,7 @@ function updatePlayersListGame() {
                     </div>
                     ${styleList}
                     <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
-                        <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
+                        <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 100</strong> (Раунд)</div>
                     <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
                     <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
                     <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>
@@ -2490,11 +2777,12 @@ function resetGame() {
     if (roundStatsScreen) roundStatsScreen.classList.remove('active');
     
     gameState = {
-        roundHp: 200,
+        roundHp: 100,
         totalHp: 100,
-        enemyRoundHp: 200,
+        enemyRoundHp: 100,
         enemyTotalHp: 100,
-        maxHp: 200,
+        maxHp: 100,
+        enemyMaxHp: 100,
         isRecharging: false,
         rechargeTime: 0,
         canSpin: true,
@@ -2613,20 +2901,101 @@ function updateBattlePhase() {
         battlePhase.textContent = 'Перерыв между боями';
         battlePhase.className = 'battle-phase phase-break';
     } else {
+        // Используем общее состояние игры
         const now = Date.now();
-        // Проверяем, прошел ли таймер подготовки к бою
-        if (player.duelStartTime && now < player.duelStartTime + PRE_BATTLE_DELAY) {
+        if (gameStateController.currentState === 'preparation' && 
+            gameStateController.preBattleEndTime > 0 && 
+            now < gameStateController.preBattleEndTime) {
             battlePhase.textContent = 'Подготовка к бою';
             battlePhase.className = 'battle-phase phase-preparation';
-        } else {
+        } else if (gameStateController.currentState === 'battle' || 
+                   (gameStateController.currentState === 'preparation' && 
+                    gameStateController.preBattleEndTime > 0 && 
+                    now >= gameStateController.preBattleEndTime)) {
             battlePhase.textContent = 'Бой идет';
             battlePhase.className = 'battle-phase phase-battle';
+        } else {
+            // Fallback на старый способ для обратной совместимости
+            if (player.duelStartTime && now < player.duelStartTime + PRE_BATTLE_DELAY) {
+                battlePhase.textContent = 'Подготовка к бою';
+                battlePhase.className = 'battle-phase phase-preparation';
+            } else {
+                battlePhase.textContent = 'Бой идет';
+                battlePhase.className = 'battle-phase phase-battle';
+            }
         }
     }
 }
 
-// Запуск таймера перед боем
+// Запуск таймера перед боем из общего состояния (новый способ)
+function startBattleTimerFromState(preBattleEndTime) {
+    const battleTimer = document.getElementById('battleTimer');
+    const battleTimerCountdown = document.getElementById('battleTimerCountdown');
+    const vsText = document.getElementById('vsText');
+    
+    if (!battleTimer || !battleTimerCountdown) return;
+    
+    // Очищаем предыдущий таймер, если он запущен
+    if (battleTimerInterval) {
+        clearInterval(battleTimerInterval);
+        battleTimerInterval = null;
+    }
+    
+    // Проверяем, что preBattleEndTime валидный
+    if (!preBattleEndTime || preBattleEndTime <= 0) {
+        console.warn('Invalid preBattleEndTime:', preBattleEndTime);
+        return;
+    }
+    
+    const now = Date.now();
+    const remaining = preBattleEndTime - now;
+    
+    // Если таймер уже прошел, сразу разблокируем кнопку
+    if (remaining <= 0) {
+        battleTimer.style.display = 'none';
+        if (vsText) vsText.style.display = 'block';
+        updateBattlePhase();
+        enableSpin();
+        return;
+    }
+    
+    battleTimer.style.display = 'block';
+    if (vsText) vsText.style.display = 'none';
+    
+    battleTimerInterval = setInterval(() => {
+        const now = Date.now();
+        const remaining = Math.max(0, preBattleEndTime - now);
+        
+        if (remaining <= 0) {
+            clearInterval(battleTimerInterval);
+            battleTimerInterval = null;
+            battleTimer.style.display = 'none';
+            if (vsText) vsText.style.display = 'block';
+            updateBattlePhase();
+            enableSpin();
+            return;
+        }
+        
+        // Показываем секунды
+        const seconds = Math.ceil(remaining / 1000);
+        if (battleTimerCountdown) {
+            battleTimerCountdown.textContent = seconds;
+        }
+        updateBattlePhase();
+        // Периодически проверяем, можно ли разблокировать кнопку
+        enableSpin();
+    }, 100);
+}
+
+// Запуск таймера перед боем (старый способ для обратной совместимости)
 function startBattleTimer(duelStartTime) {
+    // Если есть общее состояние, используем его
+    if (gameStateController.preBattleEndTime > 0) {
+        startBattleTimerFromState(gameStateController.preBattleEndTime);
+        return;
+    }
+    
+    // Иначе используем старый способ (для обратной совместимости)
     const battleTimer = document.getElementById('battleTimer');
     const battleTimerCountdown = document.getElementById('battleTimerCountdown');
     const vsText = document.getElementById('vsText');
@@ -2822,7 +3191,7 @@ function showRoundStats() {
                 const emoji1 = char1 ? char1.emoji : '👤';
                 const name1 = player1.nickname + (player1.isBot ? ' 🤖' : '');
                 const hp1 = player1.roundHp || 0;
-                const maxHp1 = 200;
+                const maxHp1 = 100;
                 const hpPercent1 = Math.max(0, (hp1 / maxHp1) * 100);
                 
                 let status1 = '';
@@ -2843,7 +3212,7 @@ function showRoundStats() {
                     const emoji2 = char2 ? char2.emoji : '👤';
                     const name2 = player2.nickname + (player2.isBot ? ' 🤖' : '');
                     const hp2 = player2.roundHp || 0;
-                    const maxHp2 = 200;
+                    const maxHp2 = 100;
                     const hpPercent2 = Math.max(0, (hp2 / maxHp2) * 100);
                     
                     let status2 = '';

@@ -17,7 +17,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Константы
 const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
-const BREAK_DURATION = 120000; // 2 минуты между боями
+const BREAK_DURATION = 60000; // 1 минута между боями
+
+// Состояния игры
+const GAME_STATES = {
+  PREPARATION: 'preparation', // Подготовка к бою
+  BATTLE: 'battle', // Бой идет
+  BREAK: 'break', // Перерыв между раундами
+  ROUND_END: 'round_end' // Конец раунда
+};
 
 // Хранилище комнат
 const rooms = new Map();
@@ -97,54 +105,54 @@ const CARD_RARITIES = {
 // Определение карточек
 const CARDS = [
   // Комбинированные карточки (5 золота, до 5 раз)
-  { id: 'health_dodge_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Уклонение', description: '+30 HP, +2% уклонения' },
-  { id: 'health_armor_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Броня', description: '+30 HP, +2% брони' },
-  { id: 'dodge_critical_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Уклонение-Крит', description: '+2% уклонения, +2% крита, +0.1 к множителю' },
-  { id: 'armor_healing_combined', type: CARD_TYPES.ARMOR, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Броня-Лечение', description: '+2% брони, +10 HP при спине' },
-  { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Крит-Заморозка', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки' },
-  { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Лечение', description: '+30 HP, +10 HP при спине' },
-  { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Уклонение-Броня', description: '+2% уклонения, +2% брони' },
-  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Крит', description: '+2 к урону, +2% крита, +0.1 к множителю' },
-  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Уклонение', description: '+2 к урону, +2% уклонения' },
-  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Броня', description: '+2 к урону, +2% брони' },
-  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Здоровье', description: '+2 к урону, +30 HP' },
-  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Лечение', description: '+2 к урону, +10 HP при спине' },
-  { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Крит-Лечение', description: '+2% крита, +0.1 к множителю, +10 HP при спине' },
-  { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Заморозка-Броня', description: '+0.3 сек заморозки, +2% брони' },
-  { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Заморозка-Уклонение', description: '+0.3 сек заморозки, +2% уклонения' },
-  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Заморозка', description: '+2 к урону, +0.3 сек заморозки' },
-  { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Крит-Броня', description: '+2% крита, +0.1 к множителю, +2% брони' },
-  { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Крит', description: '+30 HP, +2% крита, +0.1 к множителю' },
+  { id: 'health_dodge_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ёжик в тумане', description: '+20 HP, +2% уклонения' },
+  { id: 'health_armor_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бронированный хомяк', description: '+20 HP, +2% брони' },
+  { id: 'dodge_critical_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ниндзя-снайпер', description: '+2% уклонения, +2% крита, +0.1 к множителю' },
+  { id: 'armor_healing_combined', type: CARD_TYPES.ARMOR, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Черепаха-медсестра', description: '+2% брони, +10 HP при спине' },
+  { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар в сердце', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки' },
+  { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бессмертный регенератор', description: '+20 HP, +10 HP при спине' },
+  { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Невидимая стена', description: '+2% уклонения, +2% брони' },
+  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+2 к урону, +2% крита, +0.1 к множителю' },
+  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+2 к урону, +2% уклонения' },
+  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+2 к урону, +2% брони' },
+  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+2 к урону, +20 HP' },
+  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+2 к урону, +10 HP при спине' },
+  { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическое исцеление', description: '+2% крита, +0.1 к множителю, +10 HP при спине' },
+  { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной щит', description: '+0.3 сек заморозки, +2% брони' },
+  { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Морозный призрак', description: '+0.3 сек заморозки, +2% уклонения' },
+  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+2 к урону, +0.3 сек заморозки' },
+  { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическая защита', description: '+2% крита, +0.1 к множителю, +2% брони' },
+  { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровый крит', description: '+20 HP, +2% крита, +0.1 к множителю' },
   
   // Редкие карточки (10 золота, до 3 раз)
-  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленное здоровье', description: '+100 HP' },
-  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленное уклонение', description: '+4% уклонения' },
-  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленный крит', description: '+4% крита, +0.2 к множителю' },
-  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленная броня', description: '+4% снижение урона' },
-  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленное лечение', description: '+20 HP при спине' },
-  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленная заморозка', description: '+0.6 сек к перезарядке противника' },
-  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Усиленная атака', description: '+4 к базовому урону' },
+  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Сердце терминатора', description: '+67 HP' },
+  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Мастер побега', description: '+4% уклонения' },
+  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Убийственный взгляд', description: '+4% крита, +0.2 к множителю' },
+  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня бога войны', description: '+4% снижение урона' },
+  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Аптечка самурая', description: '+20 HP при спине' },
+  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Вечная мерзлота', description: '+0.6 сек к перезарядке противника' },
+  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+4 к базовому урону' },
   
   // Легендарные карточки (20 золота, 1 раз, требуют 10 очков стиля)
-  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Быстрый удар', description: '+4 атака, 50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike' },
-  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Живучесть', description: '+4 здоровье, +40% к макс. HP', requiresStyle: 10, legendaryEffect: 'vitality' },
-  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Регенерация', description: '+4 лечение, полное восстановление HP при бонусе', requiresStyle: 10, legendaryEffect: 'regeneration' },
-  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Ледяная кара', description: '+4 заморозка, 25 урона в секунду врагу', requiresStyle: 10, legendaryEffect: 'icePunishment' },
-  { id: 'health_legendary2', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Мстительное здоровье', description: '+4 здоровье, 10% от потерянного HP врагу', requiresStyle: 10, legendaryEffect: 'vengefulHealth' },
-  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Отражение', description: '+4 уклонение, 50% уклоненного урона врагу', requiresStyle: 10, legendaryEffect: 'reflection' },
+  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '⚡ Молния-убийца', description: '+4 атака, 50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike' },
+  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '💎 Бессмертие дракона', description: '+4 здоровье, +40% к макс. HP', requiresStyle: 10, legendaryEffect: 'vitality' },
+  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '✨ Феникс возрождения', description: '+4 лечение, полное восстановление HP при бонусе', requiresStyle: 10, legendaryEffect: 'regeneration' },
+  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '❄️ Абсолютный ноль', description: '+4 заморозка, 25 урона в секунду во время перезарядки врага', requiresStyle: 10, legendaryEffect: 'icePunishment' },
+  { id: 'health_legendary2', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '🔥 Мстительная кровь', description: '+4 здоровье, 10% от потерянного HP врагу', requiresStyle: 10, legendaryEffect: 'vengefulHealth' },
+  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '🛡️ Зеркало богов', description: '+4 уклонение, 50% уклоненного урона врагу', requiresStyle: 10, legendaryEffect: 'reflection' },
   
   // Антикарты (5 золота, до 5 раз)
-  { id: 'anti_dodge', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение уклонения', description: '-2% уклонения противника', isAnti: true },
-  { id: 'anti_armor', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение брони', description: '-2% брони противника', isAnti: true },
-  { id: 'anti_critical', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение крита', description: '-2% крита, -0.1 к множителю противника', isAnti: true },
-  { id: 'anti_freeze', type: 'anti', antiType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Разморозка', description: '-0.3 сек к перезарядке противника', isAnti: true },
-  { id: 'anti_attack', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Снижение атаки', description: '-2 к базовому урону противника', isAnti: true },
+  { id: 'anti_dodge', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Клей для ног', description: '-2% уклонения противника', isAnti: true },
+  { id: 'anti_armor', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Ржавчина щита', description: '-2% брони противника', isAnti: true },
+  { id: 'anti_critical', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Слепота удачи', description: '-2% крита, -0.1 к множителю противника', isAnti: true },
+  { id: 'anti_freeze', type: 'anti', antiType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Горячий чай', description: '-0.3 сек к перезарядке противника', isAnti: true },
+  { id: 'anti_attack', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Размягчение кулака', description: '-2 к базовому урону противника', isAnti: true },
   
   // Редкие антикарты (10 золота, до 3 раз)
-  { id: 'anti_dodge_rare', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение уклонения', description: '-4% уклонения противника', isAnti: true },
-  { id: 'anti_armor_rare', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение брони', description: '-4% брони противника', isAnti: true },
-  { id: 'anti_critical_rare', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение крита', description: '-4% крита, -0.2 к множителю противника', isAnti: true },
-  { id: 'anti_attack_rare', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Сильное снижение атаки', description: '-4 к базовому урону противника', isAnti: true }
+  { id: 'anti_dodge_rare', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Цементные ботинки', description: '-4% уклонения противника', isAnti: true },
+  { id: 'anti_armor_rare', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Растворитель брони', description: '-4% брони противника', isAnti: true },
+  { id: 'anti_critical_rare', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Проклятие неудачи', description: '-4% крита, -0.2 к множителю противника', isAnti: true },
+  { id: 'anti_attack_rare', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Ослабление воина', description: '-4 к базовому урону противника', isAnti: true }
 ];
 
 // Структура данных игрока
@@ -154,7 +162,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     nickname: nickname || `Игрок ${socketId.substring(0, 6)}`,
     roomId: roomId,
     totalHp: 100,
-    roundHp: 200,
+    roundHp: 100,
     isEliminated: false,
     isInDuel: false,
     duelOpponent: null,
@@ -163,11 +171,11 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     spinDelay: isBot ? getRandomSpinDelay() : 0, // Случайная задержка для бота
     lastSpinTime: 0,
     rechargeEndTime: 0,
-    duelStartTime: 0, // Время начала дуэли (для таймера 10 секунд)
     // Экономика
     permanentGold: 0,
     temporaryGold: 0,
     hasEndedTurn: false, // Закончил ли ход
+    isReady: isBot, // Готовность к следующему раунду (боты всегда готовы)
     // Серии побед/поражений
     winStreak: 0,
     loseStreak: 0,
@@ -192,7 +200,8 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     cardsOwned: {}, // { cardId: count } - количество купленных карточек
     cardShopOffers: [], // Текущие предложения в магазине
     antiCards: {}, // { antiType: value } - антикарты, снижающие характеристики противника
-    legendaryEffects: {} // { effectType: true } - активные эффекты легендарных карт
+    legendaryEffects: {}, // { effectType: true } - активные эффекты легендарных карт
+    icePunishmentIntervals: {} // { targetSocketId: intervalId } - активные интервалы ледяной кары
   };
 }
 
@@ -233,7 +242,7 @@ function simulateBotSpin() {
     { name: 'purple', weight: 20 }
   ];
   const WILD_SYMBOL = { name: 'wild', weight: 5 };
-  const BONUS_SYMBOL = { name: 'bonus', weight: 3 };
+  const BONUS_SYMBOL = { name: 'bonus', weight: 13 };
   
   // Генерация случайного символа с учетом весов
   function getRandomSymbol() {
@@ -348,8 +357,8 @@ function simulateBotSpin() {
 // БОТЫ ДОЛЖНЫ РЕДКО ДЕЛАТЬ СПИНЫ - ТОЛЬКО ЕСЛИ ЕСТЬ ВРЕМЕННОЕ ЗОЛОТО ИЛИ КРИТИЧЕСКАЯ СИТУАЦИЯ
 function botDecideAction(bot, opponent) {
   const spinCost = 5;
-  const botHpPercent = bot.roundHp / 200;
-  const opponentHpPercent = opponent.roundHp / 200;
+  const botHpPercent = bot.roundHp / 100;
+  const opponentHpPercent = opponent.roundHp / 100;
   
   // Если есть временное золото - крутим (но редко, с вероятностью 20%)
   if (bot.temporaryGold >= spinCost) {
@@ -408,8 +417,8 @@ function useCharacterAbility(player, opponent, roomId) {
       
     case 'heal':
       // Восстановление текущего здоровья
-      const healAmount = Math.min(character.abilityValue, 200 - player.roundHp);
-      player.roundHp = Math.min(200, player.roundHp + character.abilityValue);
+      const healAmount = Math.min(character.abilityValue, 100 - player.roundHp);
+      player.roundHp = Math.min(100, player.roundHp + character.abilityValue);
       result.message = `${character.name}: восстановлено ${healAmount} HP`;
       result.healAmount = healAmount;
       break;
@@ -421,16 +430,13 @@ function useCharacterAbility(player, opponent, roomId) {
       break;
       
     case 'damage':
-      // Нанесение 50 урона
+      // Нанесение 50 урона (урон применяется в основной логике после проверки крита)
       if (opponent && opponent.hasBlock) {
         opponent.hasBlock = false;
         result.message = `${character.name}: урон заблокирован защитой противника`;
         result.damage = 0;
       } else {
         const damage = character.abilityValue;
-        if (opponent) {
-          opponent.roundHp = Math.max(0, opponent.roundHp - damage);
-        }
         result.message = `${character.name}: нанесено ${damage} урона`;
         result.damage = damage;
       }
@@ -457,19 +463,23 @@ function handleBotSpin(botId, roomId) {
   
   const now = Date.now();
   
-  // СТРОГАЯ ПРОВЕРКА: Проверяем таймер перед боем (10 секунд) - боты НЕ должны атаковать до старта
-  if (bot.duelStartTime > 0) {
-    const timeSinceStart = now - bot.duelStartTime;
-    if (timeSinceStart < PRE_BATTLE_DELAY) {
-      // Еще не прошло 10 секунд, планируем повторную попытку
-      const remaining = PRE_BATTLE_DELAY - timeSinceStart;
-      setTimeout(() => {
-        handleBotSpin(botId, roomId);
-      }, remaining + 100); // Добавляем задержку для надежности
-      return;
+  // СТРОГАЯ ПРОВЕРКА: Проверяем общее состояние боя - боты НЕ должны атаковать до старта
+  if (!isBattleActive(roomId)) {
+    // Бой еще не начался, планируем повторную попытку
+    const room = rooms.get(roomId);
+    if (room && room.gameStateController) {
+      const controller = room.gameStateController;
+      if (controller.currentState === GAME_STATES.PREPARATION && controller.preBattleEndTime > 0) {
+        const remaining = controller.preBattleEndTime - now;
+        if (remaining > 0) {
+          setTimeout(() => {
+            handleBotSpin(botId, roomId);
+          }, remaining + 100); // Добавляем задержку для надежности
+          return;
+        }
+      }
     }
-  } else {
-    // Если duelStartTime еще не установлен, ждем и повторяем
+    // Если состояние еще не установлено, ждем и повторяем
     setTimeout(() => {
       handleBotSpin(botId, roomId);
     }, 200);
@@ -640,6 +650,10 @@ function handleBotSpin(botId, roomId) {
       bot.hasEndedTurn = false;
       opponent.hasEndedTurn = false;
       
+      // Очищаем интервалы ледяной кары при завершении дуэли
+      clearIcePunishmentIntervals(bot);
+      clearIcePunishmentIntervals(opponent);
+      
       updateRoomState(roomId);
       checkAllDuelsFinished(roomId);
       
@@ -800,7 +814,20 @@ function generateCardShopOffers(player) {
     }
     
     if (card) {
-      offers.push(card);
+      // Проверяем, что карта еще не добавлена в offers и не достигнут лимит покупки
+      const alreadyInOffers = offers.some(offer => offer.id === card.id);
+      const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+      const maxCount = card.rarity === CARD_RARITIES.LEGENDARY ? 1 
+        : card.rarity === CARD_RARITIES.RARE ? 3 
+        : 5;
+      
+      if (!alreadyInOffers && ownedCount < maxCount) {
+        offers.push(card);
+      } else if (i < 4) {
+        // Если карта уже добавлена или достигнут лимит, пытаемся найти другую
+        // (только если еще не достигли лимита в 5 карт)
+        i--; // Повторяем итерацию
+      }
     }
   }
   
@@ -887,6 +914,17 @@ function buyCard(player, cardId) {
     }
   }
   
+  // Удаляем купленную карту из магазина
+  if (player.cardShopOffers && Array.isArray(player.cardShopOffers)) {
+    player.cardShopOffers = player.cardShopOffers.filter(offer => offer.id !== cardId);
+  }
+  
+  // Проверяем, остались ли доступные карты в магазине
+  // Если магазин пуст или все карты куплены, автоматически обновляем его
+  if (!player.cardShopOffers || player.cardShopOffers.length === 0) {
+    player.cardShopOffers = generateCardShopOffers(player);
+  }
+  
   return { success: true, message: `Карточка "${card.name}" куплена!` };
 }
 
@@ -920,6 +958,23 @@ function getStyleThresholdBonus(stylePoints) {
   return bonus;
 }
 
+// Применение крита к урону
+function applyCritToDamage(damage, attackerStats) {
+  if (!damage || damage <= 0) {
+    return { damage: damage, isCrit: false };
+  }
+  
+  const critRoll = Math.random() * 100;
+  if (critRoll < attackerStats.critChance) {
+    return {
+      damage: Math.floor(damage * attackerStats.critMultiplier),
+      isCrit: true
+    };
+  }
+  
+  return { damage: damage, isCrit: false };
+}
+
 // Расчет характеристик игрока с учетом карточек
 function calculatePlayerStats(player) {
   const stylePoints = player.stylePoints || {};
@@ -932,7 +987,7 @@ function calculatePlayerStats(player) {
   let baseCritMultiplier = 1.5;
   let baseFreeze = 0;
   let baseHealing = 0;
-  let maxHp = 100;
+  let maxHp = 50;
   
   // Применяем очки стиля (1 единица = базовый эффект)
   baseAttack += stylePoints.attack || 0;
@@ -942,7 +997,7 @@ function calculatePlayerStats(player) {
   baseCritMultiplier += (stylePoints.critical || 0) * 0.1; // +0.1 за единицу крита
   baseFreeze += (stylePoints.freeze || 0) * 0.3; // +0.3 сек за единицу заморозки
   baseHealing += (stylePoints.healing || 0) * 10; // +10 HP за единицу лечения
-  maxHp += (stylePoints.health || 0) * 30; // +30 HP за единицу здоровья
+  maxHp += (stylePoints.health || 0) * 20; // +20 HP за единицу здоровья (ослаблено в 1.5 раза)
   
   // Применяем пороговые бонусы
   const attackBonus = getStyleThresholdBonus(stylePoints.attack || 0);
@@ -1106,6 +1161,102 @@ function createPairs(playerIds) {
   return pairs;
 }
 
+// Инициализация контроллера состояний игры
+function initGameStateController() {
+  return {
+    currentState: null,
+    stateStartTime: 0,
+    roundStartTime: 0,
+    breakStartTime: 0,
+    preBattleEndTime: 0
+  };
+}
+
+// Установка состояния игры
+function setGameState(roomId, newState) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  
+  if (!room.gameStateController) {
+    room.gameStateController = initGameStateController();
+  }
+  
+  const now = Date.now();
+  const controller = room.gameStateController;
+  const oldState = controller.currentState;
+  controller.currentState = newState;
+  controller.stateStartTime = now;
+  
+  // Устанавливаем специфичные таймеры в зависимости от состояния
+  switch (newState) {
+    case GAME_STATES.PREPARATION:
+      controller.preBattleEndTime = now + PRE_BATTLE_DELAY;
+      controller.roundStartTime = now;
+      break;
+    case GAME_STATES.BATTLE:
+      controller.preBattleEndTime = 0; // Бой начался, таймер больше не нужен
+      break;
+    case GAME_STATES.BREAK:
+      controller.breakStartTime = now;
+      break;
+    case GAME_STATES.ROUND_END:
+      break;
+  }
+  
+  // Отправляем событие о смене состояния всем клиентам
+  io.to(roomId).emit('gameStateChanged', {
+    state: newState,
+    stateStartTime: controller.stateStartTime,
+    preBattleEndTime: controller.preBattleEndTime,
+    roundStartTime: controller.roundStartTime,
+    breakStartTime: controller.breakStartTime
+  });
+  
+  console.log(`Комната ${roomId}: состояние изменено с ${oldState} на ${newState}`);
+}
+
+// Получение текущего состояния игры
+function getGameState(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || !room.gameStateController) {
+    return null;
+  }
+  return room.gameStateController.currentState;
+}
+
+// Проверка, активен ли бой (прошло ли 10 секунд подготовки)
+function isBattleActive(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || !room.gameStateController) {
+    return false;
+  }
+  
+  const controller = room.gameStateController;
+  const now = Date.now();
+  
+  // Если состояние BATTLE, бой активен
+  if (controller.currentState === GAME_STATES.BATTLE) {
+    return true;
+  }
+  
+  // Если состояние PREPARATION, проверяем таймер
+  if (controller.currentState === GAME_STATES.PREPARATION) {
+    return now >= controller.preBattleEndTime;
+  }
+  
+  return false;
+}
+
+// Очистка интервалов ледяной кары для игрока
+function clearIcePunishmentIntervals(player) {
+  if (player && player.icePunishmentIntervals) {
+    Object.values(player.icePunishmentIntervals).forEach(intervalId => {
+      clearInterval(intervalId);
+    });
+    player.icePunishmentIntervals = {};
+  }
+}
+
 // Обновление состояния комнаты
 function updateRoomState(roomId) {
   const room = rooms.get(roomId);
@@ -1114,11 +1265,14 @@ function updateRoomState(roomId) {
   const playersInRoom = room.players.map(id => {
     const p = players.get(id);
     if (!p) return null;
+    // Рассчитываем максимальное HP с учетом эффектов карт
+    const stats = calculatePlayerStats(p);
     return {
       socketId: id,
       nickname: p.nickname,
       totalHp: p.totalHp,
       roundHp: p.roundHp,
+      maxHp: stats.maxHp, // Добавляем динамическое максимальное HP
       isEliminated: p.isEliminated,
       isInDuel: p.isInDuel,
       duelOpponent: p.duelOpponent,
@@ -1128,7 +1282,7 @@ function updateRoomState(roomId) {
       permanentGold: p.permanentGold || 0,
       temporaryGold: p.temporaryGold || 0,
       hasEndedTurn: p.hasEndedTurn || false,
-      duelStartTime: p.duelStartTime || 0,
+      isReady: p.isReady || false,
       winStreak: p.winStreak || 0,
       loseStreak: p.loseStreak || 0,
       wins: p.wins || 0,
@@ -1148,6 +1302,44 @@ function updateRoomState(roomId) {
     pairs: room.pairs,
     currentRound: room.currentRound
   });
+}
+
+// Проверка готовности всех живых игроков (totalHp > 0)
+function checkAllPlayersReady(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || !room.gameInProgress) return;
+  
+  // Проверяем, что сейчас перерыв
+  if (!room.gameStateController || room.gameStateController.currentState !== GAME_STATES.BREAK) {
+    return;
+  }
+  
+  // Получаем всех живых игроков (totalHp > 0)
+  const alivePlayers = room.players.filter(id => {
+    const p = players.get(id);
+    return p && p.totalHp > 0;
+  });
+  
+  if (alivePlayers.length < 2) {
+    return; // Недостаточно игроков
+  }
+  
+  // Проверяем, все ли живые игроки готовы
+  const allReady = alivePlayers.every(id => {
+    const p = players.get(id);
+    return p && p.isReady === true;
+  });
+  
+  if (allReady) {
+    console.log(`Все живые игроки готовы, начинаем следующий раунд`);
+    // Отменяем таймер перерыва, если он есть
+    if (room.breakTimeout) {
+      clearTimeout(room.breakTimeout);
+      room.breakTimeout = null;
+    }
+    // Сразу начинаем следующий раунд
+    startNextRound(roomId);
+  }
 }
 
 // Проверка, все ли дуэли закончились
@@ -1181,15 +1373,30 @@ function checkAllDuelsFinished(roomId) {
         }
       });
       
-      // Отправляем событие о начале перерыва перед следующим раундом
+      // Сбрасываем готовность всех игроков (кроме ботов, которые всегда готовы)
+      activePlayers.forEach(id => {
+        const p = players.get(id);
+        if (p && !p.isBot) {
+          p.isReady = false;
+        }
+      });
+      
+      // Устанавливаем состояние BREAK с таймером 1 минута
+      setGameState(roomId, GAME_STATES.BREAK);
+      
+      // Отправляем событие о начале перерыва перед следующим раундом (для обратной совместимости)
       io.to(roomId).emit('breakStarted', {
         duration: BREAK_DURATION,
         round: room.currentRound
       });
       
-      // Запускаем следующий раунд после перерыва
-      setTimeout(() => {
-        startNextRound(roomId);
+      // Автоматический переход к следующему раунду после перерыва (если все не готовы)
+      room.breakTimeout = setTimeout(() => {
+        const currentRoom = rooms.get(roomId);
+        if (currentRoom && currentRoom.gameStateController && 
+            currentRoom.gameStateController.currentState === GAME_STATES.BREAK) {
+          startNextRound(roomId);
+        }
       }, BREAK_DURATION);
     } else {
       // Первый раунд - начинаем сразу без перерыва
@@ -1321,13 +1528,17 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
       loser.isEliminated = true;
     }
     
-    winner.isInDuel = false;
-    loser.isInDuel = false;
-    winner.hasEndedTurn = false;
-    loser.hasEndedTurn = false;
-    
-    updateRoomState(roomId);
-    checkAllDuelsFinished(roomId);
+      winner.isInDuel = false;
+      loser.isInDuel = false;
+      winner.hasEndedTurn = false;
+      loser.hasEndedTurn = false;
+      
+      // Очищаем интервалы ледяной кары при завершении дуэли
+      clearIcePunishmentIntervals(winner);
+      clearIcePunishmentIntervals(loser);
+      
+      updateRoomState(roomId);
+      checkAllDuelsFinished(roomId);
     
     console.log(`Оба игрока закончили ход. Победитель: ${winner.nickname} (HP: ${winner.roundHp} vs ${loser.roundHp}). Золото: ${winner.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%) + украдено ${stolenGold}, ${loser.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
   }
@@ -1358,6 +1569,8 @@ function startNextRound(roomId) {
       // Сбрасываем информацию о последнем раунде (будет обновлена в следующем раунде)
       p.lastRoundGoldBonus = 0;
       p.lastRoundGoldEarned = 0;
+      // Сбрасываем готовность (боты всегда готовы)
+      p.isReady = p.isBot;
       
       // Начисляем 20% от постоянного золота в конце раунда
       const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
@@ -1367,15 +1580,17 @@ function startNextRound(roomId) {
         p.lastRoundGoldBonus = 20; // 20% проценты
       }
       
-      p.roundHp = 200;
+      p.roundHp = 100;
       p.isInDuel = false;
       p.duelOpponent = null;
       p.duelStatus = null;
       p.lastSpinTime = 0;
       p.rechargeEndTime = 0;
-      p.duelStartTime = 0;
       p.temporaryGold = 30; // Выдаем 30 временного золота
       p.hasEndedTurn = false;
+      
+      // Очищаем интервалы ледяной кары при начале нового раунда
+      clearIcePunishmentIntervals(p);
       
       // Генерируем предложения карточек для всех игроков (для следующего раунда)
       // Предложения для текущего перерыва уже были сгенерированы в checkAllDuelsFinished
@@ -1396,6 +1611,18 @@ function startNextRound(roomId) {
   room.pairs = createPairs(activePlayers);
   room.currentRound = (room.currentRound || 0) + 1;
   
+  // Устанавливаем состояние PREPARATION с таймером 10 секунд
+  setGameState(roomId, GAME_STATES.PREPARATION);
+  
+  // Автоматический переход в BATTLE через 10 секунд
+  setTimeout(() => {
+    const currentRoom = rooms.get(roomId);
+    if (currentRoom && currentRoom.gameStateController && 
+        currentRoom.gameStateController.currentState === GAME_STATES.PREPARATION) {
+      setGameState(roomId, GAME_STATES.BATTLE);
+    }
+  }, PRE_BATTLE_DELAY);
+  
   // Назначаем дуэли
   const now = Date.now();
   room.pairs.forEach(pair => {
@@ -1405,10 +1632,8 @@ function startNextRound(roomId) {
       if (p1 && p2) {
         p1.isInDuel = true;
         p1.duelOpponent = pair[1];
-        p1.duelStartTime = now; // Устанавливаем время начала дуэли
         p2.isInDuel = true;
         p2.duelOpponent = pair[0];
-        p2.duelStartTime = now; // Устанавливаем время начала дуэли
         
         // Запускаем ботов, если они в дуэли
         // handleBotSpin сам проверит таймер PRE_BATTLE_DELAY внутри
@@ -1468,7 +1693,8 @@ io.on('connection', (socket) => {
       gameInProgress: false,
       currentRound: null,
       pairs: [],
-      noBots: noBots // Флаг "без ботов"
+      noBots: noBots, // Флаг "без ботов"
+      gameStateController: initGameStateController()
     });
     
     socket.join(roomId);
@@ -1608,11 +1834,19 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Проверяем таймер перед боем (10 секунд) - строгая проверка
+    // Проверяем общее состояние боя - строгая проверка
     const now = Date.now();
-    if (attacker.duelStartTime > 0 && now < attacker.duelStartTime + PRE_BATTLE_DELAY) {
-      const remaining = Math.ceil((attacker.duelStartTime + PRE_BATTLE_DELAY - now) / 1000);
-      socket.emit('roomError', { message: `Бой еще не начался! Подождите ${remaining} секунд` });
+    if (!isBattleActive(roomId)) {
+      const room = rooms.get(roomId);
+      if (room && room.gameStateController) {
+        const controller = room.gameStateController;
+        if (controller.currentState === GAME_STATES.PREPARATION && controller.preBattleEndTime > 0) {
+          const remaining = Math.ceil((controller.preBattleEndTime - now) / 1000);
+          socket.emit('roomError', { message: `Бой еще не начался! Подождите ${remaining} секунд` });
+          return;
+        }
+      }
+      socket.emit('roomError', { message: 'Бой еще не начался!' });
       return;
     }
     
@@ -1659,21 +1893,27 @@ io.on('connection', (socket) => {
     let finalDamage = damage + baseSpinDamage + (effectiveAttack - 10); // effectiveAttack уже включает базовые 10
     
     // Проверяем крит
-    let isCrit = false;
-    const critRoll = Math.random() * 100;
-    if (critRoll < attackerStats.critChance) {
-      isCrit = true;
-      finalDamage = Math.floor(finalDamage * attackerStats.critMultiplier);
-    }
+    const critResult = applyCritToDamage(finalDamage, attackerStats);
+    finalDamage = critResult.damage;
+    let isCrit = critResult.isCrit;
+    
+    // Флаг для отслеживания снижения урона броней
+    let armorReduced = false;
+    // Флаг для отслеживания уклонения
+    let dodged = false;
     
     // Если 3+ бонусных символа - используем способность персонажа
     if (matches === 'bonus' && attacker.characterId) {
       const abilityResult = useCharacterAbility(attacker, target, roomId);
       if (abilityResult) {
         if (abilityResult.ability === 'damage' && abilityResult.damage) {
-          finalDamage = abilityResult.damage;
+          // Применяем крит к урону от способности
+          const critResult = applyCritToDamage(abilityResult.damage, attackerStats);
+          finalDamage = critResult.damage;
+          isCrit = critResult.isCrit;
         } else {
           finalDamage = 0;
+          isCrit = false;
         }
         
         // Эффект регенерации при бонусе
@@ -1696,6 +1936,78 @@ io.on('connection', (socket) => {
           damage: abilityResult.damage || 0,
           healAmount: abilityResult.healAmount || 0
         });
+        
+        // Применяем урон от способности с учетом всех проверок
+        if (abilityResult.ability === 'damage' && finalDamage > 0) {
+          // Проверяем уклонение
+          const dodgeRoll = Math.random() * 100;
+          let effectiveDodge = targetStats.dodge;
+          if (targetAntiCards[CARD_TYPES.DODGE]) {
+            effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
+          }
+          
+          if (dodgeRoll < effectiveDodge) {
+            dodged = true;
+            const originalDamage = finalDamage;
+            finalDamage = 0;
+            
+            // Эффект отражения при уклонении
+            // ВАЖНО: Отражённый урон наносится напрямую без проверки уклонения/отражения,
+            // чтобы исключить бесконечные циклы отражения
+            if (target.legendaryEffects && target.legendaryEffects.reflection) {
+              let reflectedDamage = Math.floor(originalDamage * 0.5);
+              const critResult = applyCritToDamage(reflectedDamage, targetStats);
+              reflectedDamage = critResult.damage;
+              // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+              attacker.roundHp = Math.max(0, attacker.roundHp - reflectedDamage);
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: targetPlayerSocketId,
+                targetPlayerSocketId: fromPlayerSocketId,
+                damage: reflectedDamage,
+                matches: 'reflection',
+                crit: critResult.isCrit,
+                isReflected: true, // Флаг, что это отражённый урон (не может быть снова отражён)
+                comboInfo: { type: 'reflection', text: 'Отражение', description: '50% уклоненного урона' }
+              });
+            }
+          } else {
+            // Применяем броню
+            const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
+            const armorReduction = targetStats.armor / 100;
+            if (targetAntiCards[CARD_TYPES.ARMOR]) {
+              const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
+              finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
+            } else {
+              finalDamage = Math.floor(finalDamage * (1 - armorReduction));
+            }
+            // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
+            if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
+              armorReduced = true;
+            }
+            
+            // Эффект мстительного здоровья
+            if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
+              const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
+              let revengeDamage = Math.floor(lostHp * 0.1);
+              const critResult = applyCritToDamage(revengeDamage, targetStats);
+              revengeDamage = critResult.damage;
+              attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
+              if (revengeDamage > 0) {
+                io.to(roomId).emit('attack', {
+                  fromPlayerSocketId: targetPlayerSocketId,
+                  targetPlayerSocketId: fromPlayerSocketId,
+                  damage: revengeDamage,
+                  matches: 'revenge',
+                  crit: critResult.isCrit,
+                  comboInfo: { type: 'revenge', text: 'Мщение', description: '10% от потерянного HP' }
+                });
+              }
+            }
+            
+            // Применяем урон
+            target.roundHp = Math.max(0, target.roundHp - finalDamage);
+          }
+        }
       }
     } else if (damage > 0) {
       // Обычный урон - проверяем блок противника
@@ -1711,7 +2023,6 @@ io.on('connection', (socket) => {
         });
       } else if (finalDamage > 0) {
         // Проверяем уклонение (считается для каждого источника урона отдельно)
-        let dodged = false;
         const dodgeRoll = Math.random() * 100;
         let effectiveDodge = targetStats.dodge;
         if (targetAntiCards[CARD_TYPES.DODGE]) {
@@ -1724,19 +2035,28 @@ io.on('connection', (socket) => {
           finalDamage = 0;
           
           // Эффект отражения при уклонении (50% от исходного урона)
+          // ВАЖНО: Отражённый урон наносится напрямую без проверки уклонения/отражения,
+          // чтобы исключить бесконечные циклы отражения
           if (target.legendaryEffects && target.legendaryEffects.reflection) {
-            const reflectedDamage = Math.floor(originalDamage * 0.5);
+            let reflectedDamage = Math.floor(originalDamage * 0.5);
+            // Применяем крит к отражённому урону (крит применяется от того, кто отражает)
+            const critResult = applyCritToDamage(reflectedDamage, targetStats);
+            reflectedDamage = critResult.damage;
+            // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
             attacker.roundHp = Math.max(0, attacker.roundHp - reflectedDamage);
             io.to(roomId).emit('attack', {
               fromPlayerSocketId: targetPlayerSocketId,
               targetPlayerSocketId: fromPlayerSocketId,
               damage: reflectedDamage,
               matches: 'reflection',
+              crit: critResult.isCrit,
+              isReflected: true, // Флаг, что это отражённый урон (не может быть снова отражён)
               comboInfo: { type: 'reflection', text: 'Отражение', description: '50% уклоненного урона' }
             });
           }
         } else {
           // Применяем броню
+          const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
           const armorReduction = targetStats.armor / 100;
           if (targetAntiCards[CARD_TYPES.ARMOR]) {
             const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
@@ -1744,11 +2064,18 @@ io.on('connection', (socket) => {
           } else {
             finalDamage = Math.floor(finalDamage * (1 - armorReduction));
           }
+          // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
+          if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
+            armorReduced = true;
+          }
           
           // Эффект мстительного здоровья
           if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
             const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
-            const revengeDamage = Math.floor(lostHp * 0.1);
+            let revengeDamage = Math.floor(lostHp * 0.1);
+            // Применяем крит к мстительному урону (крит применяется от того, кто мстит)
+            const critResult = applyCritToDamage(revengeDamage, targetStats);
+            revengeDamage = critResult.damage;
             attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
             if (revengeDamage > 0) {
               io.to(roomId).emit('attack', {
@@ -1756,6 +2083,7 @@ io.on('connection', (socket) => {
                 targetPlayerSocketId: fromPlayerSocketId,
                 damage: revengeDamage,
                 matches: 'revenge',
+                crit: critResult.isCrit,
                 comboInfo: { type: 'revenge', text: 'Мщение', description: '10% от потерянного HP' }
               });
             }
@@ -1776,38 +2104,80 @@ io.on('connection', (socket) => {
       }
       
       // Применяем заморозку (увеличиваем перезарядку противника)
+      // Заморозка добавляется к базовому времени перезарядки (3000ms)
       if (attackerStats.freeze > 0) {
         const freezeTime = attackerStats.freeze * 1000; // в миллисекундах
+        const baseRechargeTime = 3000; // Базовое время перезарядки
         if (target.rechargeEndTime > now) {
+          // Если уже идет перезарядка, добавляем время заморозки
           target.rechargeEndTime += freezeTime;
         } else {
-          target.rechargeEndTime = now + freezeTime;
+          // Если перезарядка не идет, устанавливаем базовое время + заморозка
+          target.rechargeEndTime = now + baseRechargeTime + freezeTime;
         }
       }
       
-      // Эффект ледяной кары (25 урона в секунду)
+      // Эффект ледяной кары (25 урона в секунду во время перезарядки спина противника)
       if (attacker.legendaryEffects && attacker.legendaryEffects.icePunishment) {
-        // Применяем урон каждую секунду
-        const iceDamage = 25;
-        const iceInterval = setInterval(() => {
-          const currentTarget = players.get(targetPlayerSocketId);
-          if (!currentTarget || currentTarget.roundHp <= 0 || !currentTarget.isInDuel) {
-            clearInterval(iceInterval);
-            return;
-          }
-          currentTarget.roundHp = Math.max(0, currentTarget.roundHp - iceDamage);
-          io.to(roomId).emit('attack', {
-            fromPlayerSocketId: fromPlayerSocketId,
-            targetPlayerSocketId: targetPlayerSocketId,
-            damage: iceDamage,
-            matches: 'ice',
-            comboInfo: { type: 'ice', text: 'Ледяная кара', description: '25 урона в секунду' }
-          });
-          updateRoomState(roomId);
-        }, 1000);
+        // Инициализируем хранилище интервалов, если его нет
+        if (!attacker.icePunishmentIntervals) {
+          attacker.icePunishmentIntervals = {};
+        }
         
-        // Останавливаем через 10 секунд
-        setTimeout(() => clearInterval(iceInterval), 10000);
+        // Проверяем, не запущен ли уже интервал для этого противника
+        if (!attacker.icePunishmentIntervals[targetPlayerSocketId]) {
+          const iceDamage = 25;
+          const iceInterval = setInterval(() => {
+            const currentTarget = players.get(targetPlayerSocketId);
+            const currentAttacker = players.get(fromPlayerSocketId);
+            const now = Date.now();
+            
+            // Проверяем, жив ли противник и в дуэли
+            if (!currentTarget || currentTarget.roundHp <= 0 || !currentTarget.isInDuel || 
+                !currentAttacker || !currentAttacker.isInDuel) {
+              // Очищаем интервал
+              if (currentAttacker && currentAttacker.icePunishmentIntervals) {
+                clearInterval(currentAttacker.icePunishmentIntervals[targetPlayerSocketId]);
+                delete currentAttacker.icePunishmentIntervals[targetPlayerSocketId];
+              }
+              return;
+            }
+            
+            // Проверяем, идет ли перезарядка спина у противника
+            if (currentTarget.rechargeEndTime > now) {
+              // Перезарядка идет - наносим урон
+              // Пересчитываем статистику атакующего для проверки крита
+              const currentAttackerStats = calculatePlayerStats(currentAttacker);
+              let actualIceDamage = iceDamage;
+              // Применяем крит к урону от ледяной кары
+              const critResult = applyCritToDamage(actualIceDamage, currentAttackerStats);
+              actualIceDamage = critResult.damage;
+              
+              currentTarget.roundHp = Math.max(0, currentTarget.roundHp - actualIceDamage);
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: fromPlayerSocketId,
+                targetPlayerSocketId: targetPlayerSocketId,
+                damage: actualIceDamage,
+                matches: 'ice',
+                crit: critResult.isCrit,
+                comboInfo: { type: 'ice', text: '❄️ Абсолютный ноль', description: '25 урона в секунду во время перезарядки' }
+              });
+              updateRoomState(roomId);
+              
+              // Проверяем, не умер ли противник
+              if (currentTarget.roundHp <= 0) {
+                if (currentAttacker && currentAttacker.icePunishmentIntervals) {
+                  clearInterval(currentAttacker.icePunishmentIntervals[targetPlayerSocketId]);
+                  delete currentAttacker.icePunishmentIntervals[targetPlayerSocketId];
+                }
+              }
+            }
+            // Если перезарядка не идет, просто пропускаем цикл - не наносим урон
+          }, 1000);
+          
+          // Сохраняем интервал
+          attacker.icePunishmentIntervals[targetPlayerSocketId] = iceInterval;
+        }
       }
     }
     
@@ -1829,13 +2199,17 @@ io.on('connection', (socket) => {
       comboInfo.damage = finalDamage;
     }
     
-    // Отправляем атаку всем в комнате
-    if (finalDamage > 0 || matches === 'bonus') {
+    // Отправляем атаку всем в комнате (включая уклонение)
+    // Отправляем если есть урон, или это бонус, или было уклонение
+    if (finalDamage > 0 || matches === 'bonus' || dodged) {
       io.to(roomId).emit('attack', {
         fromPlayerSocketId: fromPlayerSocketId,
         targetPlayerSocketId: targetPlayerSocketId,
         damage: finalDamage,
         matches: matches,
+        crit: isCrit,
+        dodged: dodged, // Флаг уклонения
+        armorReduced: armorReduced, // Флаг снижения урона броней
         comboInfo: comboInfo
       });
     }
@@ -1873,6 +2247,10 @@ io.on('connection', (socket) => {
       // Обновляем статусы
       attacker.isInDuel = false;
       target.isInDuel = false;
+      
+      // Очищаем интервалы ледяной кары при завершении дуэли
+      clearIcePunishmentIntervals(attacker);
+      clearIcePunishmentIntervals(target);
       
       // Отправляем обновление состояния всем
       updateRoomState(roomId);
@@ -1950,6 +2328,33 @@ io.on('connection', (socket) => {
     } else {
       socket.emit('cardShopRefreshed', { success: false, message: result.message });
     }
+  });
+  
+  // Обработка готовности игрока к следующему раунду
+  socket.on('playerReady', (data) => {
+    const { roomId } = data;
+    const player = players.get(socket.id);
+    const room = rooms.get(roomId);
+    
+    if (!player || !room) {
+      socket.emit('roomError', { message: 'Игрок или комната не найдены' });
+      return;
+    }
+    
+    // Проверяем, что сейчас перерыв
+    if (!room.gameStateController || room.gameStateController.currentState !== GAME_STATES.BREAK) {
+      socket.emit('roomError', { message: 'Сейчас не перерыв' });
+      return;
+    }
+    
+    // Устанавливаем готовность игрока
+    player.isReady = true;
+    updateRoomState(roomId);
+    
+    console.log(`Игрок ${player.nickname} готов к следующему раунду`);
+    
+    // Проверяем, все ли живые игроки готовы
+    checkAllPlayersReady(roomId);
   });
   
   // Начало игры (только хост может запустить)
@@ -2034,6 +2439,11 @@ io.on('connection', (socket) => {
     
     const player = players.get(socket.id);
     
+    // Очищаем интервалы ледяной кары при отключении
+    if (player) {
+      clearIcePunishmentIntervals(player);
+    }
+    
     // Удаляем игрока из всех комнат
     for (const [roomId, room] of rooms.entries()) {
       const playerIndex = room.players.indexOf(socket.id);
@@ -2047,6 +2457,19 @@ io.on('connection', (socket) => {
             opponent.duelStatus = 'winner';
             opponent.isInDuel = false;
             opponent.duelOpponent = null;
+            // Очищаем интервалы ледяной кары у противника для отключившегося игрока
+            if (opponent.icePunishmentIntervals && opponent.icePunishmentIntervals[socket.id]) {
+              clearInterval(opponent.icePunishmentIntervals[socket.id]);
+              delete opponent.icePunishmentIntervals[socket.id];
+            }
+          }
+        }
+        
+        // Очищаем все интервалы ледяной кары, где отключившийся игрок был целью
+        for (const [otherPlayerId, otherPlayer] of players.entries()) {
+          if (otherPlayer && otherPlayer.icePunishmentIntervals && otherPlayer.icePunishmentIntervals[socket.id]) {
+            clearInterval(otherPlayer.icePunishmentIntervals[socket.id]);
+            delete otherPlayer.icePunishmentIntervals[socket.id];
           }
         }
         

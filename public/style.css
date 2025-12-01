@@ -11,17 +11,17 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 0 20px;
 }
 
 .container {
     background: white;
     border-radius: 20px;
-    padding: 20px;
+    padding: 10px;
     max-width: 1600px;
     width: 100%;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-height: calc(100vh - 40px);
+    max-height: 100vh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -346,7 +346,8 @@ h1 {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    max-height: calc(100vh - 140px);
+    max-height: 100vh;
+    padding: 5px;
 }
 
 .duels-container {
@@ -528,7 +529,7 @@ h1 {
     padding: 10px 15px;
     background: #f8f9fa;
     border-radius: 10px;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
 }
 
 .player-info {
@@ -699,7 +700,7 @@ h1 {
     padding: 25px;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     border-radius: 15px;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
     min-height: 350px;
 }
 
@@ -842,14 +843,22 @@ h1 {
 
 /* Игровой автомат */
 .slot-machine-container {
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .slot-machine {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 15px;
-    padding: 20px;
+    padding: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .slot-lines {
@@ -868,12 +877,13 @@ h1 {
 /* Новая структура с рельсами (столбцами) */
 .slot-reels-wrapper {
     position: relative;
-    margin-bottom: 15px;
+    margin-bottom: 5px;
     overflow: hidden;
     border-radius: 15px;
     background: rgba(0, 0, 0, 0.2);
     padding: 0;
-    min-height: 180px;
+    flex: 1;
+    min-height: 200px;
 }
 
 .slot-border {
@@ -1047,7 +1057,8 @@ h1 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
+    flex-shrink: 0;
 }
 
 #spinBtn {
@@ -1059,7 +1070,7 @@ h1 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
     width: 100%;
 }
 
@@ -1415,6 +1426,7 @@ h1 {
 
 .floating-message.crit {
     color: #ff9800;
+    font-weight: bold;
 }
 
 .floating-message.damage {
@@ -1675,17 +1687,42 @@ h1 {
     box-shadow: none;
 }
 
-.card-name {
+.card-name,
+.card-title {
     font-size: 16px;
     font-weight: bold;
     margin-bottom: 8px;
     color: #333;
+    position: relative;
+    z-index: 1;
+}
+
+.card-offer.rare .card-title {
+    color: #7b1fa2;
+    text-shadow: 0 0 10px rgba(156, 39, 176, 0.5);
+}
+
+.card-offer.legendary .card-title {
+    color: #ff6f00;
+    text-shadow: 0 0 15px rgba(255, 152, 0, 0.7),
+                 0 0 10px rgba(255, 215, 0, 0.5);
+    font-size: 17px;
 }
 
 .card-description {
     font-size: 12px;
     color: #666;
     margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.card-offer.rare .card-description {
+    color: #6a1b9a;
+}
+
+.card-offer.legendary .card-description {
+    color: #e65100;
 }
 
 .card-cost {
@@ -1693,6 +1730,118 @@ h1 {
     font-weight: bold;
     color: #667eea;
     margin-top: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.card-offer.rare .card-cost {
+    color: #9c27b0;
+}
+
+.card-offer.legendary .card-cost {
+    color: #ff9800;
+    text-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
+}
+
+/* Стили для кнопки покупки */
+.card-buy-btn {
+    margin-top: 10px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.card-buy-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.card-buy-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #ccc;
+}
+
+.card-offer.rare .card-buy-btn {
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+}
+
+.card-offer.rare .card-buy-btn:hover:not(:disabled) {
+    box-shadow: 0 4px 15px rgba(156, 39, 176, 0.5);
+}
+
+.card-offer.legendary .card-buy-btn {
+    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
+}
+
+.card-offer.legendary .card-buy-btn:hover:not(:disabled) {
+    box-shadow: 0 4px 20px rgba(255, 152, 0, 0.6);
+}
+
+.card-owned {
+    font-size: 11px;
+    color: #888;
+    margin-top: 5px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Бейджи редкости */
+.rarity-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 2;
+}
+
+.rarity-badge.rare-badge {
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(156, 39, 176, 0.4);
+}
+
+.rarity-badge.legendary-badge {
+    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(255, 152, 0, 0.5);
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% { 
+        box-shadow: 0 2px 10px rgba(255, 152, 0, 0.5);
+    }
+    50% { 
+        box-shadow: 0 2px 15px rgba(255, 152, 0, 0.8);
+    }
+}
+
+/* Стили для анти-карт */
+.card-offer.anti {
+    border-style: dashed;
+}
+
+.card-offer.anti.common {
+    border-color: #f44336;
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, white 100%);
+}
+
+.card-offer.anti.rare {
+    border-color: #e91e63;
+    background: linear-gradient(135deg, rgba(233, 30, 99, 0.15) 0%, rgba(233, 30, 99, 0.05) 100%);
 }
 
 .break-timer {
@@ -1703,5 +1852,124 @@ h1 {
     padding: 10px;
     background: rgba(102, 126, 234, 0.1);
     border-radius: 8px;
+}
+
+.shop-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 2px solid #ddd;
+}
+
+#readyBtn {
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+.round-stats-in-shop {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+}
+
+.round-stats-in-shop .round-stats-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 18px;
+    text-align: center;
+}
+
+.duel-pair-shop {
+    transition: all 0.3s ease;
+}
+
+.duel-pair-shop:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+}
+
+.players-stats-in-shop {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+}
+
+.players-stats-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 18px;
+    text-align: center;
+}
+
+.players-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.player-stats-card {
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.3s ease;
+}
+
+.player-stats-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.player-stats-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.player-stats-emoji {
+    font-size: 20px;
+}
+
+.player-stats-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+}
+
+.player-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+}
+
+.stat-row strong {
+    color: #667eea;
+    font-weight: bold;
+}
+
+.ready-count {
+    font-size: 16px;
+    font-weight: bold;
+    color: #667eea;
+    padding: 8px 12px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    flex-shrink: 0;
 }
 
