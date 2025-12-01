@@ -306,6 +306,195 @@ function createPairs(playerIds) {
   return pairs;
 }
 
+// Обновление состояния комнаты
+function updateRoomState(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  
+  const playersInRoom = room.players.map(id => {
+    const p = players.get(id);
+    if (!p) return null;
+    return {
+      socketId: id,
+      nickname: p.nickname,
+      totalHp: p.totalHp,
+      roundHp: p.roundHp,
+      isEliminated: p.isEliminated,
+      isInDuel: p.isInDuel,
+      duelOpponent: p.duelOpponent,
+      duelStatus: p.duelStatus,
+      isBot: p.isBot || false,
+      permanentGold: p.permanentGold || 0,
+      temporaryGold: p.temporaryGold || 0,
+      hasEndedTurn: p.hasEndedTurn || false
+    };
+  }).filter(p => p !== null);
+  
+  io.to(roomId).emit('roomStateUpdate', {
+    players: playersInRoom,
+    pairs: room.pairs,
+    currentRound: room.currentRound
+  });
+}
+
+// Проверка, все ли дуэли закончились
+function checkAllDuelsFinished(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || !room.gameInProgress) return;
+  
+  const activePlayers = room.players.filter(id => {
+    const p = players.get(id);
+    return p && !p.isEliminated;
+  });
+  
+  // Проверяем, все ли бои закончились
+  const allDuelsFinished = activePlayers.every(id => {
+    const p = players.get(id);
+    return !p.isInDuel || p.duelStatus !== null;
+  });
+  
+  if (allDuelsFinished && activePlayers.length > 1) {
+    // Все бои закончились, начинаем следующий раунд
+    setTimeout(() => {
+      startNextRound(roomId);
+    }, 3000); // 3 секунды задержки перед следующим раундом
+  } else if (activePlayers.length <= 1) {
+    // Остался один игрок - игра окончена
+    // Проверяем, что это не бот
+    const realPlayers = activePlayers.filter(id => {
+      const p = players.get(id);
+      return p && !p.isBot;
+    });
+    
+    if (realPlayers.length <= 1) {
+      const winner = activePlayers.length === 1 ? players.get(activePlayers[0]) : null;
+      // Игра окончена только если остался один реальный игрок (не бот)
+      if (winner && !winner.isBot) {
+        room.gameInProgress = false;
+        io.to(roomId).emit('gameEnded', {
+          winner: { socketId: winner.socketId, nickname: winner.nickname }
+        });
+      } else if (realPlayers.length === 0) {
+        // Все реальные игроки выбыли
+        room.gameInProgress = false;
+        io.to(roomId).emit('gameEnded', {
+          winner: null
+        });
+      }
+    }
+  }
+}
+
+// Проверка, оба ли игрока закончили ход
+function checkBothEndedTurn(roomId, player1Id, player2Id) {
+  const p1 = players.get(player1Id);
+  const p2 = players.get(player2Id);
+  
+  if (!p1 || !p2 || !p1.isInDuel || !p2.isInDuel) return;
+  
+  if (p1.hasEndedTurn && p2.hasEndedTurn) {
+    // Оба закончили ход - определяем победителя по HP
+    const winner = p1.roundHp >= p2.roundHp ? p1 : p2;
+    const loser = winner === p1 ? p2 : p1;
+    
+    // Проигравший теряет 20% от общего HP
+    loser.totalHp = Math.max(0, loser.totalHp - Math.floor(loser.totalHp * 0.2));
+    winner.duelStatus = 'winner';
+    loser.duelStatus = 'loser';
+    
+    if (loser.totalHp <= 0) {
+      loser.isEliminated = true;
+    }
+    
+    winner.isInDuel = false;
+    loser.isInDuel = false;
+    winner.hasEndedTurn = false;
+    loser.hasEndedTurn = false;
+    
+    updateRoomState(roomId);
+    checkAllDuelsFinished(roomId);
+    
+    console.log(`Оба игрока закончили ход. Победитель: ${winner.nickname} (HP: ${winner.roundHp} vs ${loser.roundHp})`);
+  }
+}
+
+// Начало следующего раунда
+function startNextRound(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  
+  const activePlayers = room.players.filter(id => {
+    const p = players.get(id);
+    return p && !p.isEliminated;
+  });
+  
+  if (activePlayers.length < 2) {
+    // Недостаточно игроков
+    room.gameInProgress = false;
+    io.to(roomId).emit('gameEnded', { winner: null });
+    return;
+  }
+  
+  // Сбрасываем HP раунда и выдаем временное золото для всех активных игроков
+  activePlayers.forEach(id => {
+    const p = players.get(id);
+    if (p) {
+      p.roundHp = 100;
+      p.isInDuel = false;
+      p.duelOpponent = null;
+      p.duelStatus = null;
+      p.lastSpinTime = 0;
+      p.rechargeEndTime = 0;
+      p.temporaryGold = 30; // Выдаем 30 временного золота
+      p.hasEndedTurn = false;
+    }
+  });
+  
+  // Создаем пары
+  room.pairs = createPairs(activePlayers);
+  room.currentRound = (room.currentRound || 0) + 1;
+  
+  // Назначаем дуэли
+  room.pairs.forEach(pair => {
+    if (pair[1] !== null) {
+      const p1 = players.get(pair[0]);
+      const p2 = players.get(pair[1]);
+      if (p1 && p2) {
+        p1.isInDuel = true;
+        p1.duelOpponent = pair[1];
+        p2.isInDuel = true;
+        p2.duelOpponent = pair[0];
+        
+        // Запускаем ботов, если они в дуэли
+        if (p1.isBot) {
+          const delay = p1.spinDelay || 0;
+          setTimeout(() => {
+            handleBotSpin(p1.socketId, roomId);
+          }, delay);
+        }
+        if (p2.isBot) {
+          const delay = p2.spinDelay || 0;
+          setTimeout(() => {
+            handleBotSpin(p2.socketId, roomId);
+          }, delay);
+        }
+      }
+    } else {
+      // Игрок без пары проходит автоматически
+      const p = players.get(pair[0]);
+      if (p) {
+        p.duelStatus = 'winner';
+      }
+    }
+  });
+  
+  updateRoomState(roomId);
+  io.to(roomId).emit('roundStarted', {
+    round: room.currentRound,
+    pairs: room.pairs
+  });
+}
+
 io.on('connection', (socket) => {
   console.log('Пользователь подключился:', socket.id);
 
@@ -509,38 +698,6 @@ io.on('connection', (socket) => {
     console.log(`Игрок ${attacker.nickname} атакует ${target.nickname} на ${damage} урона`);
   });
 
-  // Проверка, оба ли игрока закончили ход
-  function checkBothEndedTurn(roomId, player1Id, player2Id) {
-    const p1 = players.get(player1Id);
-    const p2 = players.get(player2Id);
-    
-    if (!p1 || !p2 || !p1.isInDuel || !p2.isInDuel) return;
-    
-    if (p1.hasEndedTurn && p2.hasEndedTurn) {
-      // Оба закончили ход - определяем победителя по HP
-      const winner = p1.roundHp >= p2.roundHp ? p1 : p2;
-      const loser = winner === p1 ? p2 : p1;
-      
-      // Проигравший теряет 20% от общего HP
-      loser.totalHp = Math.max(0, loser.totalHp - Math.floor(loser.totalHp * 0.2));
-      winner.duelStatus = 'winner';
-      loser.duelStatus = 'loser';
-      
-      if (loser.totalHp <= 0) {
-        loser.isEliminated = true;
-      }
-      
-      winner.isInDuel = false;
-      loser.isInDuel = false;
-      winner.hasEndedTurn = false;
-      loser.hasEndedTurn = false;
-      
-      updateRoomState(roomId);
-      checkAllDuelsFinished(roomId);
-      
-      console.log(`Оба игрока закончили ход. Победитель: ${winner.nickname} (HP: ${winner.roundHp} vs ${loser.roundHp})`);
-    }
-  }
 
   // Обработка завершения хода
   socket.on('endTurn', (data) => {
@@ -563,159 +720,6 @@ io.on('connection', (socket) => {
     
     console.log(`Игрок ${player.nickname} закончил ход`);
   });
-
-  // Обновление состояния комнаты
-  function updateRoomState(roomId) {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    
-    const playersInRoom = room.players.map(id => {
-      const p = players.get(id);
-      if (!p) return null;
-      return {
-        socketId: id,
-        nickname: p.nickname,
-        totalHp: p.totalHp,
-        roundHp: p.roundHp,
-        isEliminated: p.isEliminated,
-        isInDuel: p.isInDuel,
-        duelOpponent: p.duelOpponent,
-        duelStatus: p.duelStatus,
-        isBot: p.isBot || false,
-        permanentGold: p.permanentGold || 0,
-        temporaryGold: p.temporaryGold || 0,
-        hasEndedTurn: p.hasEndedTurn || false
-      };
-    }).filter(p => p !== null);
-    
-    io.to(roomId).emit('roomStateUpdate', {
-      players: playersInRoom,
-      pairs: room.pairs,
-      currentRound: room.currentRound
-    });
-  }
-
-  // Проверка, все ли дуэли закончились
-  function checkAllDuelsFinished(roomId) {
-    const room = rooms.get(roomId);
-    if (!room || !room.gameInProgress) return;
-    
-    const activePlayers = room.players.filter(id => {
-      const p = players.get(id);
-      return p && !p.isEliminated;
-    });
-    
-    // Проверяем, все ли бои закончились
-    const allDuelsFinished = activePlayers.every(id => {
-      const p = players.get(id);
-      return !p.isInDuel || p.duelStatus !== null;
-    });
-    
-    if (allDuelsFinished && activePlayers.length > 1) {
-      // Все бои закончились, начинаем следующий раунд
-      setTimeout(() => {
-        startNextRound(roomId);
-      }, 3000); // 3 секунды задержки перед следующим раундом
-    } else if (activePlayers.length <= 1) {
-      // Остался один игрок - игра окончена
-      // Проверяем, что это не бот
-      const realPlayers = activePlayers.filter(id => {
-        const p = players.get(id);
-        return p && !p.isBot;
-      });
-      
-      if (realPlayers.length <= 1) {
-        const winner = activePlayers.length === 1 ? players.get(activePlayers[0]) : null;
-        // Игра окончена только если остался один реальный игрок (не бот)
-        if (winner && !winner.isBot) {
-          room.gameInProgress = false;
-          io.to(roomId).emit('gameEnded', {
-            winner: { socketId: winner.socketId, nickname: winner.nickname }
-          });
-        } else if (realPlayers.length === 0) {
-          // Все реальные игроки выбыли
-          room.gameInProgress = false;
-          io.to(roomId).emit('gameEnded', {
-            winner: null
-          });
-        }
-      }
-    }
-  }
-
-  // Начало следующего раунда
-  function startNextRound(roomId) {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    
-    const activePlayers = room.players.filter(id => {
-      const p = players.get(id);
-      return p && !p.isEliminated;
-    });
-    
-    if (activePlayers.length < 2) {
-      // Недостаточно игроков
-      room.gameInProgress = false;
-      io.to(roomId).emit('gameEnded', { winner: null });
-      return;
-    }
-    
-    // Сбрасываем HP раунда и выдаем временное золото для всех активных игроков
-    activePlayers.forEach(id => {
-      const p = players.get(id);
-      if (p) {
-        p.roundHp = 100;
-        p.isInDuel = false;
-        p.duelOpponent = null;
-        p.duelStatus = null;
-        p.lastSpinTime = 0;
-        p.rechargeEndTime = 0;
-        p.temporaryGold = 30; // Выдаем 30 временного золота
-        p.hasEndedTurn = false;
-      }
-    });
-    
-    // Создаем пары
-    room.pairs = createPairs(activePlayers);
-    room.currentRound = (room.currentRound || 0) + 1;
-    
-    // Назначаем дуэли
-    room.pairs.forEach(pair => {
-      if (pair[1] !== null) {
-        const p1 = players.get(pair[0]);
-        const p2 = players.get(pair[1]);
-        if (p1 && p2) {
-          p1.isInDuel = true;
-          p1.duelOpponent = pair[1];
-          p2.isInDuel = true;
-          p2.duelOpponent = pair[0];
-        }
-      } else {
-        // Игрок без пары проходит автоматически
-        const p = players.get(pair[0]);
-        if (p) {
-          p.duelStatus = 'winner';
-        }
-      }
-    });
-    
-    updateRoomState(roomId);
-    io.to(roomId).emit('roundStarted', {
-      round: room.currentRound,
-      pairs: room.pairs
-    });
-    
-    // Запускаем ботов для автоматических спинов
-    activePlayers.forEach(id => {
-      const p = players.get(id);
-      if (p && p.isBot && p.isInDuel) {
-        // Бот начинает спин после случайной задержки
-        setTimeout(() => {
-          handleBotSpin(id, roomId);
-        }, p.spinDelay);
-      }
-    });
-  }
 
   // Начало игры (только хост может запустить)
   socket.on('startGame', (data) => {
