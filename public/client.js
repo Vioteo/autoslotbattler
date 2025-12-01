@@ -315,7 +315,13 @@ socket.on('roomStateUpdate', (data) => {
             const hasCharacter = player.characterId !== null && player.characterId !== undefined;
             const hasCompletedRound = roomState.currentRound > 0;
             
-            if (isInGame && isNotInMenu && hasRoom && hasCharacter && hasCompletedRound && !player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
+            // Скрываем статистику, если игрок в новой дуэли
+            if (player.isInDuel && !player.duelStatus && !player.hasEndedTurn) {
+                if (roundStatsScreen) roundStatsScreen.classList.remove('active');
+            }
+            
+            // Показываем статистику только если закончил бой или раунд (не в активной дуэли)
+            if (isInGame && isNotInMenu && hasRoom && hasCharacter && hasCompletedRound && (!player.isInDuel || player.duelStatus || player.hasEndedTurn)) {
                 // Показываем статистику, если закончил бой или раунд
                 showRoundStats();
             }
@@ -1894,11 +1900,18 @@ function resetGame() {
         clearInterval(battleTimerInterval);
         battleTimerInterval = null;
     }
+    if (statsScreenTimeout) {
+        clearTimeout(statsScreenTimeout);
+        statsScreenTimeout = null;
+    }
     
     const battleTimer = document.getElementById('battleTimer');
     const vsText = document.getElementById('vsText');
     if (battleTimer) battleTimer.style.display = 'none';
     if (vsText) vsText.style.display = 'block';
+    
+    // Скрываем статистику при сбросе игры
+    if (roundStatsScreen) roundStatsScreen.classList.remove('active');
     
     gameState = {
         roundHp: 200,
@@ -2043,6 +2056,21 @@ function startBattleTimer(duelStartTime) {
     // Очищаем предыдущий таймер
     if (battleTimerInterval) {
         clearInterval(battleTimerInterval);
+    }
+    
+    // Проверяем, что duelStartTime валидный
+    if (!duelStartTime || duelStartTime <= 0) {
+        console.warn('Invalid duelStartTime:', duelStartTime);
+        return;
+    }
+    
+    const now = Date.now();
+    const timeDiff = now - duelStartTime;
+    
+    // Если duelStartTime в будущем, это ошибка - используем текущее время
+    if (timeDiff < 0) {
+        console.warn('duelStartTime is in the future, using current time');
+        duelStartTime = now;
     }
     
     battleTimer.style.display = 'block';
