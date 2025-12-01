@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "commit": "node auto-commit.js",
+    "commit:msg": "node auto-commit.js"
   },
   "keywords": ["game", "multiplayer", "websocket", "socket.io"],
   "author": "",

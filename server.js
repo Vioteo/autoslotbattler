@@ -81,16 +81,97 @@ function createBot(roomId) {
   return bot;
 }
 
-// Расчет урона для бота (симуляция спина)
-function calculateBotDamage() {
-  // 10% шанс на бонус (25 урона)
-  if (Math.random() < 0.1) {
-    return 25;
+// Симуляция спина для бота (как у реального игрока)
+function simulateBotSpin() {
+  // Символы с весами (как на клиенте)
+  const SYMBOLS = [
+    { name: 'red', weight: 20 },
+    { name: 'blue', weight: 20 },
+    { name: 'green', weight: 20 },
+    { name: 'yellow', weight: 20 },
+    { name: 'purple', weight: 20 }
+  ];
+  const WILD_SYMBOL = { name: 'wild', weight: 5 };
+  const BONUS_SYMBOL = { name: 'bonus', weight: 3 };
+  
+  // Генерация случайного символа с учетом весов
+  function getRandomSymbol() {
+    const allSymbols = [...SYMBOLS, WILD_SYMBOL, BONUS_SYMBOL];
+    const totalWeight = allSymbols.reduce((sum, symbol) => sum + symbol.weight, 0);
+    let random = Math.random() * totalWeight;
+    
+    for (const symbol of allSymbols) {
+      random -= symbol.weight;
+      if (random <= 0) {
+        return symbol.name;
+      }
+    }
+    return SYMBOLS[0].name;
   }
   
-  // Иначе случайное количество совпадений (3-15, что дает 15-75 урона)
-  const matches = Math.floor(Math.random() * 13) + 3; // 3-15 совпадений
-  return matches * 5; // базовый урон 5
+  // Генерируем 3 линии по 5 символов (как на клиенте)
+  const results = [];
+  for (let line = 0; line < 3; line++) {
+    const lineSymbols = [];
+    for (let i = 0; i < 5; i++) {
+      lineSymbols.push(getRandomSymbol());
+    }
+    results.push(lineSymbols);
+  }
+  
+  // Подсчет бонусов (3+ бонусов = 25 урона)
+  let bonusCount = 0;
+  results.forEach(line => {
+    line.forEach(symbol => {
+      if (symbol === 'bonus') bonusCount++;
+    });
+  });
+  
+  if (bonusCount >= 3) {
+    return { damage: 25, matches: 'bonus' };
+  }
+  
+  // Подсчет совпадений по горизонтали с учетом wild
+  let totalMatches = 0;
+  
+  results.forEach(line => {
+    // Подсчет wild символов
+    let wildCount = 0;
+    const regularSymbols = [];
+    
+    line.forEach(symbol => {
+      if (symbol === 'wild') {
+        wildCount++;
+      } else if (symbol !== 'bonus') {
+        regularSymbols.push(symbol);
+      }
+    });
+    
+    // Подсчет одинаковых символов среди обычных
+    const symbolCounts = {};
+    regularSymbols.forEach(symbol => {
+      symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+    });
+    
+    // Находим максимальное количество совпадений
+    const maxRegularMatches = Object.keys(symbolCounts).length > 0 
+      ? Math.max(...Object.values(symbolCounts))
+      : 0;
+    
+    // Общее количество совпадений = обычные + wild
+    const totalLineMatches = maxRegularMatches + wildCount;
+    
+    // Только если 3 или больше совпадений в линии
+    if (totalLineMatches >= 3) {
+      totalMatches += totalLineMatches;
+    }
+  });
+  
+  // Расчет урона: базовый урон * количество совпадений
+  const baseDamage = 5;
+  const damage = baseDamage * totalMatches;
+  
+  return { damage: damage, matches: 'normal' };
 }
 
 // Принятие решения ботом: делать ли еще спин или закончить ход
@@ -174,8 +255,9 @@ function handleBotSpin(botId, roomId) {
     return;
   }
   
-  // Генерируем урон
-  const damage = calculateBotDamage();
+  // Симулируем реальный спин (как у игрока)
+  const spinResult = simulateBotSpin();
+  const damage = spinResult.damage;
   
   // Наносим урон противнику
   opponent.roundHp = Math.max(0, opponent.roundHp - damage);
@@ -185,7 +267,7 @@ function handleBotSpin(botId, roomId) {
     fromPlayerSocketId: botId,
     targetPlayerSocketId: opponentId,
     damage: damage,
-    matches: damage === 25 ? 'bonus' : 'normal'
+    matches: spinResult.matches
   });
   
   // Обновляем время последнего спина и перезарядки
@@ -357,7 +439,7 @@ function checkAllDuelsFinished(roomId) {
     // Все бои закончились, начинаем следующий раунд
     setTimeout(() => {
       startNextRound(roomId);
-    }, 3000); // 3 секунды задержки перед следующим раундом
+    }, 15000); // 15 секунд задержки перед следующим раундом
   } else if (activePlayers.length <= 1) {
     // Остался один игрок - игра окончена
     // Проверяем, что это не бот
@@ -435,10 +517,15 @@ function startNextRound(roomId) {
     return;
   }
   
-  // Сбрасываем HP раунда и выдаем временное золото для всех активных игроков
+  // Сбрасываем HP раунда и выдаем золото для всех активных игроков
   activePlayers.forEach(id => {
     const p = players.get(id);
     if (p) {
+      // Начисляем постоянное золото победителям предыдущего раунда (перед сбросом статуса)
+      if (p.duelStatus === 'winner') {
+        p.permanentGold = (p.permanentGold || 0) + 10; // Победитель получает 10 постоянного золота
+      }
+      
       p.roundHp = 100;
       p.isInDuel = false;
       p.duelOpponent = null;

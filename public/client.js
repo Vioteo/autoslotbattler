@@ -505,6 +505,17 @@ function updateHpBars() {
 function spin() {
     if (gameState.isSpinning) return;
     
+    // Проверяем наличие золота (5 золота на спин)
+    const spinCost = 5;
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        const totalGold = (player.temporaryGold || 0) + (player.permanentGold || 0);
+        if (totalGold < spinCost) {
+            showError('Недостаточно золота для спина (нужно 5 золота)');
+            return;
+        }
+    }
+    
     // Проверяем, прошло ли 3 секунды с начала перезарядки
     const now = Date.now();
     if (gameState.isRecharging && now < gameState.rechargeEndTime) {
