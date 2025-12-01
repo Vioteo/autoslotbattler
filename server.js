@@ -681,56 +681,134 @@ function botEndTurn(botId, roomId) {
 // Генерация предложений магазина карточек
 function generateCardShopOffers(player) {
   const offers = [];
-  const availableCards = CARDS.filter(card => {
+  
+  // Разделяем карты по категориям
+  const commonCards = CARDS.filter(card => {
+    // Обычные карты (с 1 очком стиля) всегда доступны
+    // Также антикарты с обычной редкостью всегда доступны
+    if (card.rarity === CARD_RARITIES.COMMON) {
+      // Обычные карты с 1 очком стиля
+      if (card.stylePoints === 1) {
+        const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+        const maxCount = 5;
+        return ownedCount < maxCount;
+      }
+      // Антикарты обычной редкости
+      if (card.isAnti) {
+        const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+        const maxCount = 5;
+        return ownedCount < maxCount;
+      }
+    }
+    return false;
+  });
+  
+  const rareCards = CARDS.filter(card => {
+    // Редкие карточки требуют минимум 4 очка стиля соответствующего типа
+    if (card.rarity === CARD_RARITIES.RARE) {
+      const stylePoints = player.stylePoints[card.type] || 0;
+      if (stylePoints < 4) {
+        return false;
+      }
+      // Проверяем лимиты покупки
+      const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+      const maxCount = 3;
+      return ownedCount < maxCount;
+    }
+    return false;
+  });
+  
+  const legendaryCards = CARDS.filter(card => {
     // Легендарные карточки требуют 10 очков стиля
     if (card.rarity === CARD_RARITIES.LEGENDARY) {
       const stylePoints = player.stylePoints[card.type] || 0;
       if (stylePoints < (card.requiresStyle || 10)) {
         return false;
       }
+      // Проверяем лимиты покупки
+      const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+      const maxCount = 1;
+      return ownedCount < maxCount;
     }
-    // Проверяем лимиты покупки
-    const ownedCount = (player.cardsOwned || {})[card.id] || 0;
-    const maxCount = card.rarity === CARD_RARITIES.LEGENDARY ? 1 
-      : card.rarity === CARD_RARITIES.RARE ? 3 
-      : 5;
-    if (ownedCount >= maxCount) {
-      return false; // Не показываем карточки, которые уже куплены до лимита
-    }
-    return true;
+    return false;
   });
   
-  // Шанс выпадения редких карт увеличивается с уровнем стиля
-  const totalStylePoints = Object.values(player.stylePoints || {}).reduce((sum, val) => sum + val, 0);
-  const rareChance = Math.min(0.5, 0.1 + (totalStylePoints * 0.02)); // 10% + 2% за очко стиля, максимум 50%
+  // Также включаем антикарты (они всегда доступны, если не достигнут лимит)
+  const antiCards = CARDS.filter(card => {
+    if (card.isAnti) {
+      const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+      const maxCount = card.rarity === CARD_RARITIES.LEGENDARY ? 1 
+        : card.rarity === CARD_RARITIES.RARE ? 3 
+        : 5;
+      return ownedCount < maxCount;
+    }
+    return false;
+  });
   
   // Генерируем 5 случайных карточек
   for (let i = 0; i < 5; i++) {
     let card;
-    if (Math.random() < rareChance) {
+    
+    // Сначала всегда убеждаемся, что есть хотя бы одна обычная карта
+    if (commonCards.length === 0 && i === 0) {
+      // Если нет доступных обычных карт, это ошибка - должны быть всегда
+      console.warn('Нет доступных обычных карт! Это не должно происходить.');
+    }
+    
+    // Определяем вероятность редкой карты на основе очков стиля конкретного типа
+    // Для каждого типа карты рассчитываем свой шанс
+    let maxRareChance = 0.1; // Базовая вероятность 10%
+    
+    // Ищем максимальный шанс среди всех типов стилей
+    Object.keys(player.stylePoints || {}).forEach(styleType => {
+      const stylePoints = player.stylePoints[styleType] || 0;
+      if (stylePoints >= 4) {
+        // Шанс растет от 10% при 4 очках до 50% при 20+ очках
+        const typeRareChance = Math.min(0.5, 0.1 + ((stylePoints - 4) * 0.025));
+        maxRareChance = Math.max(maxRareChance, typeRareChance);
+      }
+    });
+    
+    if (Math.random() < maxRareChance && (rareCards.length > 0 || legendaryCards.length > 0)) {
       // Пытаемся выдать редкую карточку
-      const rareCards = availableCards.filter(c => c.rarity === CARD_RARITIES.RARE);
-      if (rareCards.length > 0 && Math.random() < 0.3) {
+      if (rareCards.length > 0 && Math.random() < 0.7) {
+        // 70% шанс на редкую, если доступна
         card = rareCards[Math.floor(Math.random() * rareCards.length)];
       } else {
         // Или легендарную, если доступна
-        const legendaryCards = availableCards.filter(c => c.rarity === CARD_RARITIES.LEGENDARY);
-        if (legendaryCards.length > 0 && Math.random() < 0.1) {
+        if (legendaryCards.length > 0 && Math.random() < 0.2) {
           card = legendaryCards[Math.floor(Math.random() * legendaryCards.length)];
         } else {
           // Или обычную
-          const commonCards = availableCards.filter(c => c.rarity === CARD_RARITIES.COMMON);
-          card = commonCards[Math.floor(Math.random() * commonCards.length)];
+          if (commonCards.length > 0) {
+            card = commonCards[Math.floor(Math.random() * commonCards.length)];
+          } else if (antiCards.length > 0) {
+            card = antiCards[Math.floor(Math.random() * antiCards.length)];
+          }
         }
       }
     } else {
-      // Обычная карточка
-      const commonCards = availableCards.filter(c => c.rarity === CARD_RARITIES.COMMON);
-      card = commonCards[Math.floor(Math.random() * commonCards.length)];
+      // Обычная карточка или антикарта
+      const allCommon = [...commonCards, ...antiCards.filter(c => c.rarity === CARD_RARITIES.COMMON)];
+      if (allCommon.length > 0) {
+        card = allCommon[Math.floor(Math.random() * allCommon.length)];
+      } else if (commonCards.length > 0) {
+        card = commonCards[Math.floor(Math.random() * commonCards.length)];
+      } else if (antiCards.length > 0) {
+        card = antiCards[Math.floor(Math.random() * antiCards.length)];
+      }
     }
     
     if (card) {
       offers.push(card);
+    }
+  }
+  
+  // Если не удалось сгенерировать предложения, добавляем хотя бы обычные карты
+  if (offers.length === 0 && commonCards.length > 0) {
+    // Берем первые 5 доступных обычных карт
+    for (let i = 0; i < Math.min(5, commonCards.length); i++) {
+      offers.push(commonCards[i]);
     }
   }
   
@@ -1322,15 +1400,17 @@ function startNextRound(roomId) {
         p2.duelStartTime = now; // Устанавливаем время начала дуэли
         
         // Запускаем ботов, если они в дуэли (с учетом таймера 10 секунд + задержка спина)
-        // Боты будут проверять таймер внутри handleBotSpin, поэтому запускаем их после установки duelStartTime
+        // Боты должны начать делать спины ПОСЛЕ окончания 10-секундной задержки
         if (p1.isBot) {
-          const delay = (p1.spinDelay || 0); // Только задержка спина, таймер проверяется внутри
+          // Ждем 10 секунд (PRE_BATTLE_DELAY) + небольшая задержка спина
+          const delay = PRE_BATTLE_DELAY + (p1.spinDelay || 0);
           setTimeout(() => {
             handleBotSpin(p1.socketId, roomId);
           }, delay);
         }
         if (p2.isBot) {
-          const delay = (p2.spinDelay || 0); // Только задержка спина, таймер проверяется внутри
+          // Ждем 10 секунд (PRE_BATTLE_DELAY) + небольшая задержка спина
+          const delay = PRE_BATTLE_DELAY + (p2.spinDelay || 0);
           setTimeout(() => {
             handleBotSpin(p2.socketId, roomId);
           }, delay);

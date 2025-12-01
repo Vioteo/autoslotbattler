@@ -190,6 +190,7 @@ const slotReels = [
 let rechargeInterval = null;
 let spinTimeout = null;
 let battleTimerInterval = null;
+let lastDuelStartTime = null; // Последнее время начала дуэли для предотвращения дублирования таймера
 
 // Обработчики событий Socket.io
 socket.on('connect', () => {
@@ -364,12 +365,14 @@ socket.on('roomStateUpdate', (data) => {
             // Если duelStartTime только что обновился и игрок в дуэли, запускаем таймер
             if (player.isInDuel && player.duelStartTime) {
                 // Проверяем, не запущен ли уже таймер с этим же временем
-                const now = Date.now();
-                const timeDiff = now - player.duelStartTime;
-                // Если таймер еще не истек и не запущен, запускаем
-                if (timeDiff < PRE_BATTLE_DELAY && !battleTimerInterval) {
+                // Если это новое время начала дуэли, запускаем таймер
+                if (lastDuelStartTime !== player.duelStartTime) {
+                    lastDuelStartTime = player.duelStartTime;
                     startBattleTimer(player.duelStartTime);
                 }
+            } else if (!player.isInDuel) {
+                // Если игрок больше не в дуэли, сбрасываем
+                lastDuelStartTime = null;
             }
         }
     }
@@ -415,18 +418,28 @@ socket.on('roundStarted', (data) => {
     updateRoundRewardDisplay();
     
     // Запускаем таймер перед боем, если игрок в дуэли
+    // НЕ запускаем здесь, т.к. таймер уже должен быть запущен в roomStateUpdate
+    // Это предотвращает дублирование таймеров
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player && player.isInDuel && player.duelStartTime) {
-        startBattleTimer(player.duelStartTime);
-    } else if (player && player.isInDuel) {
+        // Проверяем, запущен ли уже таймер с этим временем
+        if (lastDuelStartTime !== player.duelStartTime) {
+            lastDuelStartTime = player.duelStartTime;
+            startBattleTimer(player.duelStartTime);
+        }
+    } else if (player && player.isInDuel && !player.duelStartTime) {
         // Если игрок в дуэли, но duelStartTime еще не пришел, проверяем периодически
         const checkTimer = setInterval(() => {
             const currentPlayer = roomState.players.find(p => p.socketId === playerState.socketId);
             if (currentPlayer && currentPlayer.duelStartTime) {
                 clearInterval(checkTimer);
-                startBattleTimer(currentPlayer.duelStartTime);
+                if (lastDuelStartTime !== currentPlayer.duelStartTime) {
+                    lastDuelStartTime = currentPlayer.duelStartTime;
+                    startBattleTimer(currentPlayer.duelStartTime);
+                }
             } else if (!currentPlayer || !currentPlayer.isInDuel) {
                 clearInterval(checkTimer);
+                lastDuelStartTime = null;
             }
         }, 100);
         
@@ -434,6 +447,8 @@ socket.on('roundStarted', (data) => {
         setTimeout(() => {
             clearInterval(checkTimer);
         }, 2000);
+    } else if (!player || !player.isInDuel) {
+        lastDuelStartTime = null;
     }
     
     // Обновляем состояние кнопки спин
@@ -2372,6 +2387,9 @@ function resetGame() {
         statsScreenTimeout = null;
     }
     
+    // Сбрасываем время начала дуэли для предотвращения дублирования таймера
+    lastDuelStartTime = null;
+    
     const battleTimer = document.getElementById('battleTimer');
     const vsText = document.getElementById('vsText');
     if (battleTimer) battleTimer.style.display = 'none';
@@ -2524,9 +2542,10 @@ function startBattleTimer(duelStartTime) {
     
     if (!battleTimer || !battleTimerCountdown) return;
     
-    // Очищаем предыдущий таймер
+    // Очищаем предыдущий таймер, если он запущен
     if (battleTimerInterval) {
         clearInterval(battleTimerInterval);
+        battleTimerInterval = null;
     }
     
     // Проверяем, что duelStartTime валидный
