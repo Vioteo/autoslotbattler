@@ -671,6 +671,14 @@ function generateCardShopOffers(player) {
         return false;
       }
     }
+    // Проверяем лимиты покупки
+    const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+    const maxCount = card.rarity === CARD_RARITIES.LEGENDARY ? 1 
+      : card.rarity === CARD_RARITIES.RARE ? 3 
+      : 5;
+    if (ownedCount >= maxCount) {
+      return false; // Не показываем карточки, которые уже куплены до лимита
+    }
     return true;
   });
   
