@@ -8,11 +8,6 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎮 Многопользовательская игра</h1>
-        
-        <div id="connectionStatus" class="status disconnected">
-            <span id="statusText">Отключено</span>
-        </div>
 
         <div id="menuScreen" class="screen active">
             <div class="menu-options">
@@ -256,6 +251,14 @@
         </div>
 
             <div id="errorMessage" class="error-message"></div>
+        </div>
+
+        <!-- Экран статистики между боями -->
+        <div id="roundStatsScreen" class="screen">
+            <div class="round-stats-content">
+                <h2>Статистика раунда</h2>
+                <div id="roundStatsContent" class="round-stats-info"></div>
+            </div>
         </div>
 
         <!-- Модальное окно победы/поражения -->

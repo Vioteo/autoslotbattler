@@ -122,8 +122,6 @@ let roomState = {
 };
 
 // Элементы DOM
-const connectionStatus = document.getElementById('connectionStatus');
-const statusText = document.getElementById('statusText');
 const menuScreen = document.getElementById('menuScreen');
 const characterSelectScreen = document.getElementById('characterSelectScreen');
 const waitingScreen = document.getElementById('waitingScreen');
@@ -163,6 +161,8 @@ const resultMessage = document.getElementById('resultMessage');
 const closeResultBtn = document.getElementById('closeResultBtn');
 const duelsContainer = document.getElementById('duelsContainer');
 const endTurnBtn = document.getElementById('endTurnBtn');
+const roundStatsScreen = document.getElementById('roundStatsScreen');
+const roundStatsContent = document.getElementById('roundStatsContent');
 
 // Получаем все линии слотов (старая структура для обратной совместимости)
 const slotLines = [
@@ -187,7 +187,6 @@ let battleTimerInterval = null;
 // Обработчики событий Socket.io
 socket.on('connect', () => {
     console.log('Подключено к серверу');
-    updateConnectionStatus('connected', 'Подключено');
     playerState.socketId = socket.id;
     
     // Отменяем таймер отключения, если был
@@ -209,7 +208,6 @@ socket.on('connect', () => {
 let disconnectTimeout = null;
 socket.on('disconnect', (reason) => {
     console.log('Отключено от сервера, причина:', reason);
-    updateConnectionStatus('disconnected', 'Отключено');
     
     // Если это не намеренное отключение и игра идет, не возвращаем в меню сразу
     // Socket.io попытается переподключиться автоматически
@@ -237,7 +235,6 @@ socket.on('disconnect', (reason) => {
 
 socket.on('connect_error', () => {
     console.log('Ошибка подключения');
-    updateConnectionStatus('disconnected', 'Ошибка подключения');
 });
 
 socket.on('roomCreated', (data) => {
@@ -311,13 +308,21 @@ socket.on('roomStateUpdate', (data) => {
         
         // Обновляем баланс противника
         const player = roomState.players.find(p => p.socketId === playerState.socketId);
-        if (player && player.isInDuel && player.duelOpponent) {
-            const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
-            if (opponent) {
-                const enemyTempGold = document.getElementById('enemyTempGold');
-                const enemyPermGold = document.getElementById('enemyPermGold');
-                if (enemyTempGold) enemyTempGold.textContent = opponent.temporaryGold || 0;
-                if (enemyPermGold) enemyPermGold.textContent = opponent.permanentGold || 0;
+        if (player) {
+            // Проверяем, закончил ли игрок бой или раунд
+            if (!player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
+                // Показываем статистику, если закончил бой или раунд
+                showRoundStats();
+            }
+            
+            if (player.isInDuel && player.duelOpponent) {
+                const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+                if (opponent) {
+                    const enemyTempGold = document.getElementById('enemyTempGold');
+                    const enemyPermGold = document.getElementById('enemyPermGold');
+                    if (enemyTempGold) enemyTempGold.textContent = opponent.temporaryGold || 0;
+                    if (enemyPermGold) enemyPermGold.textContent = opponent.permanentGold || 0;
+                }
             }
         }
     }
@@ -346,6 +351,9 @@ socket.on('roundStarted', (data) => {
     if (playerNickname && playerState.nickname) {
         playerNickname.textContent = playerState.nickname;
     }
+    
+    // Скрываем экран статистики и показываем игровой экран
+    if (roundStatsScreen) roundStatsScreen.classList.remove('active');
     initGame();
     showScreen(gameScreen);
     updateDuelsDisplay();
@@ -605,9 +613,32 @@ function updateHpBars() {
 function spin() {
     if (gameState.isSpinning) return;
     
-    // Проверяем таймер перед боем (3 секунды)
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
-    if (player && player.duelStartTime) {
+    if (!player) return;
+    
+    // Проверяем, не закончил ли игрок ход
+    if (player.hasEndedTurn) {
+        showError('Вы уже закончили ход');
+        return;
+    }
+    
+    // Проверяем, не мертв ли противник
+    if (player.isInDuel && player.duelOpponent) {
+        const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+        if (opponent && (opponent.roundHp <= 0 || opponent.isEliminated)) {
+            showError('Противник уже мертв');
+            return;
+        }
+    }
+    
+    // Проверяем, идет ли перерыв между боями (нет активной дуэли)
+    if (!player.isInDuel) {
+        showError('Сейчас перерыв между боями');
+        return;
+    }
+    
+    // Проверяем таймер перед боем (3 секунды)
+    if (player.duelStartTime) {
         const now = Date.now();
         if (now < player.duelStartTime + 3000) {
             const remaining = Math.ceil((player.duelStartTime + 3000 - now) / 1000);
@@ -618,12 +649,10 @@ function spin() {
     
     // Проверяем наличие золота (5 золота на спин)
     const spinCost = 5;
-    if (player) {
-        const totalGold = (player.temporaryGold || 0) + (player.permanentGold || 0);
-        if (totalGold < spinCost) {
-            showError('Недостаточно золота для спина (нужно 5 золота)');
-            return;
-        }
+    const totalGold = (player.temporaryGold || 0) + (player.permanentGold || 0);
+    if (totalGold < spinCost) {
+        showError('Недостаточно золота для спина (нужно 5 золота)');
+        return;
     }
     
     // Проверяем, прошло ли 3 секунды с начала перезарядки
@@ -1154,9 +1183,8 @@ function checkMatches() {
         damage = baseDamage * totalMatches;
     }
     
-    if ((damage > 0 || bonusCount >= 3) && playerState.currentOpponent) {
-        // Отправляем атаку на сервер (золото тратится на сервере)
-        // Если 3+ бонусов, сервер обработает способность персонажа
+    // Всегда отправляем атаку на сервер (золото тратится на сервере всегда, даже если нет комбинации)
+    if (playerState.currentOpponent) {
         socket.emit('attack', {
             roomId: playerState.roomId,
             fromPlayerSocketId: playerState.socketId,
@@ -1164,10 +1192,10 @@ function checkMatches() {
             damage: damage,
             matches: bonusCount >= 3 ? 'bonus' : 'normal'
         });
+    } else {
+        // Если нет противника, все равно начинаем перезарядку (деньги уже потрачены на клиенте)
+        startRecharge();
     }
-    
-    // Начинаем перезарядку
-    startRecharge();
 }
 
 // Начало перезарядки
@@ -1315,7 +1343,6 @@ function updateRoomsList(rooms) {
 function joinRoomById(roomId) {
     const nickname = nicknameInput ? nicknameInput.value.trim() : '';
     socket.emit('joinRoom', { roomId, nickname: nickname || undefined });
-    updateConnectionStatus('connecting', 'Подключение...');
 }
 
 // Обновление списка игроков в ожидании
@@ -1557,20 +1584,12 @@ function closeGameResult() {
 }
 
 // Функции UI
-function updateConnectionStatus(status, text) {
-    if (connectionStatus) {
-        connectionStatus.className = `status ${status}`;
-    }
-    if (statusText) {
-        statusText.textContent = text;
-    }
-}
-
 function showScreen(screen) {
     menuScreen.classList.remove('active');
     characterSelectScreen.classList.remove('active');
     waitingScreen.classList.remove('active');
     gameScreen.classList.remove('active');
+    if (roundStatsScreen) roundStatsScreen.classList.remove('active');
     screen.classList.add('active');
 }
 
@@ -1714,7 +1733,6 @@ createRoomBtn.addEventListener('click', () => {
         nickname: nickname || undefined,
         noBots: noBots
     });
-    updateConnectionStatus('connecting', 'Создание комнаты...');
 });
 
 joinRoomBtn.addEventListener('click', () => {
@@ -1725,7 +1743,6 @@ joinRoomBtn.addEventListener('click', () => {
     }
     const nickname = nicknameInput ? nicknameInput.value.trim() : '';
     socket.emit('joinRoom', { roomId, nickname: nickname || undefined });
-    updateConnectionStatus('connecting', 'Подключение...');
 });
 
 if (refreshRoomsBtn) {
@@ -1897,15 +1914,17 @@ function updateStreakDisplay() {
     if (winStreakDisplay) {
         const winStreak = playerState.winStreak || 0;
         const bonusPercent = Math.min(winStreak * 5, 50);
-        winStreakDisplay.innerHTML = `🏆 Побед: <strong>${winStreak}</strong>`;
+        winStreakDisplay.innerHTML = `🏆 Серия побед: <strong>${winStreak}</strong>`;
         winStreakDisplay.title = `Серия побед: +5% за каждую победу (макс. +50%)\nТекущий бонус: +${bonusPercent}%`;
+        winStreakDisplay.style.display = 'block';
     }
     
     if (loseStreakDisplay) {
         const loseStreak = playerState.loseStreak || 0;
         const bonusPercent = Math.min(loseStreak * 3, 30);
-        loseStreakDisplay.innerHTML = `💔 Поражений: <strong>${loseStreak}</strong>`;
+        loseStreakDisplay.innerHTML = `💔 Серия поражений: <strong>${loseStreak}</strong>`;
         loseStreakDisplay.title = `Серия поражений: +3% за каждое поражение (макс. +30%)\nТекущий бонус: +${bonusPercent}%`;
+        loseStreakDisplay.style.display = 'block';
     }
 }
 
@@ -1932,6 +1951,101 @@ function updateStatsDisplay() {
     if (lossesDisplay) {
         const losses = playerState.losses || 0;
         lossesDisplay.innerHTML = `❌ Поражений: <strong>${losses}</strong>`;
+    }
+}
+
+// Показ статистики раунда
+let statsScreenTimeout = null;
+function showRoundStats() {
+    if (!roundStatsScreen || !roundStatsContent) return;
+    
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) return;
+    
+    // Показываем статистику только если не в дуэли или дуэль завершена, или закончил ход
+    if (player.isInDuel && !player.duelStatus && !player.hasEndedTurn) return;
+    
+    // Очищаем предыдущий таймер, если есть
+    if (statsScreenTimeout) {
+        clearTimeout(statsScreenTimeout);
+        statsScreenTimeout = null;
+    }
+    
+    // Находим информацию о дуэли
+    let duelInfo = '';
+    let opponentInfo = null;
+    
+    if (player.duelOpponent) {
+        opponentInfo = roomState.players.find(p => p.socketId === player.duelOpponent);
+    }
+    
+    // Находим пару для отображения результатов
+    const pair = roomState.pairs.find(p => 
+        (p[0] === playerState.socketId || p[1] === playerState.socketId)
+    );
+    
+    if (pair && opponentInfo) {
+        const player1 = roomState.players.find(p => p.socketId === pair[0]);
+        const player2 = pair[1] ? roomState.players.find(p => p.socketId === pair[1]) : null;
+        
+        if (player1 && player2) {
+            const winner = player1.duelStatus === 'winner' ? player1 : 
+                          player2.duelStatus === 'winner' ? player2 : null;
+            const loser = winner === player1 ? player2 : player1;
+            
+            if (winner) {
+                duelInfo = `
+                    <div class="duel-result">
+                        <h3>Результат дуэли:</h3>
+                        <div class="duel-winner">🏆 Победитель: <strong>${winner.nickname}</strong></div>
+                        <div class="duel-loser">💀 Проигравший: <strong>${loser.nickname}</strong></div>
+                    </div>
+                `;
+            }
+        }
+    }
+    
+    // Формируем статистику
+    const statsHtml = `
+        <div class="round-stats-section">
+            <h3>Ваша статистика</h3>
+            <div class="stats-row">
+                <div>🏆 Серия побед: <strong>${player.winStreak || 0}</strong></div>
+                <div>💔 Серия поражений: <strong>${player.loseStreak || 0}</strong></div>
+            </div>
+            <div class="stats-row">
+                <div>✅ Всего побед: <strong>${player.wins || 0}</strong></div>
+                <div>❌ Всего поражений: <strong>${player.losses || 0}</strong></div>
+            </div>
+            <div class="stats-row">
+                <div>💰 Постоянное золото: <strong>${player.permanentGold || 0}</strong></div>
+                <div>💵 Временное золото: <strong>${player.temporaryGold || 0}</strong></div>
+            </div>
+            ${player.lastRoundGoldEarned > 0 ? `
+                <div class="stats-row">
+                    <div>💎 Золото за раунд: <strong>+${player.lastRoundGoldEarned}</strong></div>
+                    ${player.lastRoundGoldBonus > 0 ? `<div>📈 Бонус: <strong>+${player.lastRoundGoldBonus}%</strong></div>` : ''}
+                </div>
+            ` : ''}
+        </div>
+        ${duelInfo}
+        <div class="round-stats-note">Ожидание следующего раунда...</div>
+    `;
+    
+    roundStatsContent.innerHTML = statsHtml;
+    
+    // Показываем экран статистики поверх игрового экрана
+    if (gameScreen && gameScreen.classList.contains('active')) {
+        roundStatsScreen.classList.add('active');
+        
+        // Автоматически скрываем через 5 секунд (если раунд еще не начался)
+        statsScreenTimeout = setTimeout(() => {
+            const currentPlayer = roomState.players.find(p => p.socketId === playerState.socketId);
+            if (currentPlayer && (!currentPlayer.isInDuel || currentPlayer.hasEndedTurn) && roundStatsScreen && roundStatsScreen.classList.contains('active')) {
+                // Если раунд еще не начался или закончил ход, скрываем статистику
+                roundStatsScreen.classList.remove('active');
+            }
+        }, 5000);
     }
 }
 
@@ -1974,8 +2088,6 @@ function updateRoundRewardDisplay() {
 }
 
 // Инициализация
-updateConnectionStatus('disconnected', 'Отключено');
-
 // Загружаем ник из localStorage
 if (nicknameInput) {
     const savedNickname = localStorage.getItem('playerNickname');

@@ -1039,15 +1039,23 @@ io.on('connection', (socket) => {
     const target = players.get(targetPlayerSocketId);
     
     if (!attacker || !target || !attacker.isInDuel || attacker.duelOpponent !== targetPlayerSocketId) {
+      socket.emit('roomError', { message: 'Нельзя атаковать сейчас' });
       return;
     }
     
     // Проверяем, не закончил ли атакующий ход
     if (attacker.hasEndedTurn) {
+      socket.emit('roomError', { message: 'Вы уже закончили ход' });
       return;
     }
     
-    // Проверяем таймер перед боем (3 секунды)
+    // Проверяем, не мертв ли противник
+    if (target.roundHp <= 0 || target.isEliminated) {
+      socket.emit('roomError', { message: 'Противник уже мертв' });
+      return;
+    }
+    
+    // Проверяем таймер перед боем (3 секунды) - строгая проверка
     const now = Date.now();
     if (attacker.duelStartTime > 0 && now < attacker.duelStartTime + 3000) {
       socket.emit('roomError', { message: 'Бой еще не начался! Подождите 3 секунды' });
@@ -1060,7 +1068,7 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Тратим золото на спин (5 золота)
+    // Тратим золото на спин (5 золота) - ВСЕГДА, даже если нет комбинации
     const spinCost = 5;
     if (attacker.temporaryGold >= spinCost) {
       attacker.temporaryGold -= spinCost;

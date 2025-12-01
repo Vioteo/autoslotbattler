@@ -1172,3 +1172,92 @@ h1 {
     margin-bottom: 30px;
 }
 
+/* Экран статистики раунда */
+.round-stats-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    max-width: 600px;
+    margin: 0 auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.round-stats-content h2 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 28px;
+}
+
+.round-stats-section {
+    margin-bottom: 20px;
+}
+
+.round-stats-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 20px;
+}
+
+.stats-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.stats-row div {
+    flex: 1;
+    font-size: 16px;
+    color: #333;
+}
+
+.duel-result {
+    margin: 20px 0;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    color: white;
+}
+
+.duel-result h3 {
+    color: white;
+    margin-bottom: 10px;
+}
+
+.duel-winner {
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.duel-loser {
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.round-stats-note {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #ddd;
+}
+
+#roundStatsScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
