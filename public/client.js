@@ -1479,9 +1479,22 @@ function enableSpin() {
     // Проверяем условия для доступности спина
     const hasPassedPreBattleTimer = !player.duelStartTime || now >= player.duelStartTime + PRE_BATTLE_DELAY;
     
+    // Проверяем перезарядку - если она уже закончилась, сбрасываем флаг
+    const isRecharging = gameState.isRecharging && now < gameState.rechargeEndTime;
+    if (gameState.isRecharging && !isRecharging) {
+        // Перезарядка закончилась, сбрасываем состояние
+        gameState.isRecharging = false;
+        gameState.rechargeTime = 0;
+        gameState.rechargeEndTime = 0;
+        if (rechargeInterval) {
+            clearInterval(rechargeInterval);
+            rechargeInterval = null;
+        }
+    }
+    
     const canSpinNow = 
         !gameState.isSpinning && // Не крутится сейчас
-        !gameState.isRecharging && // Не на перезарядке
+        !isRecharging && // Не на перезарядке
         player.isInDuel && // В дуэли
         !player.hasEndedTurn && // Не закончил ход
         (player.temporaryGold >= 5 || player.permanentGold >= 5) && // Есть золото
@@ -1491,11 +1504,26 @@ function enableSpin() {
     if (spinBtn) {
         spinBtn.disabled = !canSpinNow;
     }
-    if (rechargeFill) {
-        rechargeFill.style.width = '100%';
-    }
-    if (rechargeText) {
-        rechargeText.textContent = 'Готово';
+    
+    // Обновляем UI перезарядки только если она активна
+    if (isRecharging) {
+        const remaining = Math.max(0, gameState.rechargeEndTime - now);
+        const progress = 1 - (remaining / gameState.rechargeTime);
+        if (rechargeFill) {
+            rechargeFill.style.width = `${progress * 100}%`;
+        }
+        if (rechargeText) {
+            rechargeText.textContent = remaining > 0 
+                ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
+                : 'Готово';
+        }
+    } else {
+        if (rechargeFill) {
+            rechargeFill.style.width = '100%';
+        }
+        if (rechargeText) {
+            rechargeText.textContent = 'Готово';
+        }
     }
 }
 
@@ -1597,6 +1625,31 @@ function updateStatsTooltip(target, player, attack, armor, dodge, crit, critMult
     const character = CHARACTERS.find(c => c.id === player.characterId);
     const characterName = character ? character.name : 'Без персонажа';
     
+    // Получаем уровни стилей
+    const stylePoints = player.stylePoints || {};
+    const styleNames = {
+        health: '❤️ Здоровье',
+        dodge: '💨 Уклонение',
+        critical: '⚡ Крит',
+        healing: '💚 Лечение',
+        armor: '🛡️ Броня',
+        freeze: '❄️ Заморозка',
+        attack: '⚔️ Атака'
+    };
+    
+    // Формируем список стилей
+    let styleList = '';
+    Object.keys(styleNames).forEach(styleType => {
+        const points = stylePoints[styleType] || 0;
+        if (points > 0) {
+            styleList += `<div class="tooltip-stat">${styleNames[styleType]}: <strong>${points}</strong></div>`;
+        }
+    });
+    
+    if (!styleList) {
+        styleList = '<div class="tooltip-stat" style="color: #999;">Нет очков стиля</div>';
+    }
+    
     tooltip.innerHTML = `
         <div class="tooltip-title">${player.nickname}${player.isBot ? ' 🤖' : ''}</div>
         <div class="tooltip-stat">Персонаж: <strong>${characterName}</strong></div>
@@ -1604,10 +1657,16 @@ function updateStatsTooltip(target, player, attack, armor, dodge, crit, critMult
         <div class="tooltip-stat">🛡️ Броня: <strong>${Math.round(armor)}%</strong></div>
         <div class="tooltip-stat">💨 Уклонение: <strong>${Math.round(dodge)}%</strong></div>
         <div class="tooltip-stat">⚡ Крит: <strong>${Math.round(crit)}%</strong> (x${critMult.toFixed(1)})</div>
-        <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
-        <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
-        <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
-        <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>
+        <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+            <strong>Уровни стилей:</strong>
+        </div>
+        ${styleList}
+        <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+            <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
+            <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
+            <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
+            <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>
+        </div>
     `;
 }
 
@@ -1935,24 +1994,55 @@ function updatePlayersListGame() {
         const characterEmoji = character ? character.emoji : '👤';
         const characterName = character ? character.name : 'Без персонажа';
         
-        // Вычисляем статистику для tooltip
-        const attack = 10 + (player.attackStyle || 0);
-        const armor = 25 + (player.armorStyle || 0);
-        const dodge = 15 + (player.dodgeStyle || 0);
-        const crit = 10 + (player.critStyle || 0);
-        const critMult = 1.5 + (player.critMultiplierStyle || 0);
+        // Вычисляем статистику для tooltip (используем stylePoints)
+        const stylePoints = player.stylePoints || {};
+        const attackStyle = stylePoints.attack || 0;
+        const armorStyle = stylePoints.armor || 0;
+        const dodgeStyle = stylePoints.dodge || 0;
+        const critStyle = stylePoints.critical || 0;
         
-        const attackBonus = getStyleBonus(player.attackStyle || 0);
-        const armorBonus = getStyleBonus(player.armorStyle || 0);
-        const dodgeBonus = getStyleBonus(player.dodgeStyle || 0);
-        const critBonus = getStyleBonus(player.critStyle || 0);
-        const critMultBonus = getStyleBonus(player.critMultiplierStyle || 0);
+        const attack = 10 + attackStyle;
+        const armor = 25 + armorStyle;
+        const dodge = 15 + dodgeStyle;
+        const crit = 10 + critStyle;
+        const critMult = 1.5;
+        
+        const attackBonus = getStyleBonus(attackStyle);
+        const armorBonus = getStyleBonus(armorStyle);
+        const dodgeBonus = getStyleBonus(dodgeStyle);
+        const critBonus = getStyleBonus(critStyle);
+        const critMultBonus = 0; // Крит множитель пока не зависит от стиля напрямую
         
         const finalAttack = attack + attackBonus;
         const finalArmor = armor + armorBonus;
         const finalDodge = dodge + dodgeBonus;
         const finalCrit = crit + critBonus;
         const finalCritMult = critMult + critMultBonus * 0.25;
+        
+        // Получаем уровни стилей
+        const stylePoints = player.stylePoints || {};
+        const styleNames = {
+            health: '❤️ Здоровье',
+            dodge: '💨 Уклонение',
+            critical: '⚡ Крит',
+            healing: '💚 Лечение',
+            armor: '🛡️ Броня',
+            freeze: '❄️ Заморозка',
+            attack: '⚔️ Атака'
+        };
+        
+        // Формируем список стилей
+        let styleList = '';
+        Object.keys(styleNames).forEach(styleType => {
+            const points = stylePoints[styleType] || 0;
+            if (points > 0) {
+                styleList += `<div class="tooltip-stat">${styleNames[styleType]}: <strong>${points}</strong></div>`;
+            }
+        });
+        
+        if (!styleList) {
+            styleList = '<div class="tooltip-stat" style="color: #999;">Нет очков стиля</div>';
+        }
         
         return `
             <div class="player-item-game ${statusClass}" data-player-id="${player.socketId}" style="position: relative; cursor: pointer;">
@@ -1983,7 +2073,12 @@ function updatePlayersListGame() {
                     <div class="tooltip-stat">🛡️ Броня: <strong>${Math.round(finalArmor)}%</strong></div>
                     <div class="tooltip-stat">💨 Уклонение: <strong>${Math.round(finalDodge)}%</strong></div>
                     <div class="tooltip-stat">⚡ Крит: <strong>${Math.round(finalCrit)}%</strong> (x${finalCritMult.toFixed(1)})</div>
-                    <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
+                    <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+                        <strong>Уровни стилей:</strong>
+                    </div>
+                    ${styleList}
+                    <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+                        <div class="tooltip-stat">❤️ HP: <strong>${player.roundHp} / 200</strong> (Раунд)</div>
                     <div class="tooltip-stat">❤️ HP: <strong>${player.totalHp} / 100</strong> (Всего)</div>
                     <div class="tooltip-stat">💰 Золото: <strong>${player.permanentGold || 0}</strong> (постоянное)</div>
                     <div class="tooltip-stat">💵 Золото: <strong>${player.temporaryGold || 0}</strong> (временное)</div>

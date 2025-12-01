@@ -77,6 +77,60 @@ const CHARACTERS = [
   }
 ];
 
+// Система карточек
+const CARD_TYPES = {
+  HEALTH: 'health',
+  DODGE: 'dodge',
+  CRITICAL: 'critical',
+  HEALING: 'healing',
+  ARMOR: 'armor',
+  FREEZE: 'freeze',
+  ATTACK: 'attack'
+};
+
+const CARD_RARITIES = {
+  COMMON: 'common',
+  RARE: 'rare',
+  LEGENDARY: 'legendary'
+};
+
+// Определение карточек
+const CARDS = [
+  // Common карточки (5 золота, +1 очко стиля)
+  { id: 'health_common', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Здоровье', description: '+1 очко стиля здоровья' },
+  { id: 'dodge_common', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Уклонение', description: '+1 очко стиля уклонения' },
+  { id: 'critical_common', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Крит', description: '+1 очко стиля крита' },
+  { id: 'healing_common', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Лечение', description: '+1 очко стиля лечения' },
+  { id: 'armor_common', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Броня', description: '+1 очко стиля брони' },
+  { id: 'freeze_common', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Заморозка', description: '+1 очко стиля заморозки' },
+  { id: 'attack_common', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, name: 'Атака', description: '+1 очко стиля атаки' },
+  
+  // Гибридные карточки (5 золота, +1 очко обоим стилям)
+  { id: 'health_dodge_hybrid', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Уклонение', description: '+1 очко стиля здоровья и уклонения' },
+  { id: 'health_armor_hybrid', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровье-Броня', description: '+1 очко стиля здоровья и брони' },
+  { id: 'dodge_critical_hybrid', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Уклонение-Крит', description: '+1 очко стиля уклонения и крита' },
+  { id: 'attack_critical_hybrid', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Атака-Крит', description: '+1 очко стиля атаки и крита' },
+  { id: 'healing_health_hybrid', type: CARD_TYPES.HEALING, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Лечение-Здоровье', description: '+1 очко стиля лечения и здоровья' },
+  
+  // Rare карточки (10 золота, +2 очка стиля, значения увеличены в 1.5 раза)
+  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Здоровье+', description: '+2 очка стиля здоровья' },
+  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Уклонение+', description: '+2 очка стиля уклонения' },
+  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Крит+', description: '+2 очка стиля крита' },
+  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Лечение+', description: '+2 очка стиля лечения' },
+  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня+', description: '+2 очка стиля брони' },
+  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Заморозка+', description: '+2 очка стиля заморозки' },
+  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Атака+', description: '+2 очка стиля атаки' },
+  
+  // Legendary карточки (20 золота, +4 очка стиля, требуют 10 очков стиля)
+  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Живучесть', description: '+40% макс. HP', requiresStyle: 10 },
+  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Отражение', description: '50% уклоненного урона отражается врагу', requiresStyle: 10 },
+  { id: 'critical_legendary', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Критический удар', description: 'Увеличенный шанс и множитель крита', requiresStyle: 10 },
+  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Регенерация', description: 'Полное восстановление HP при бонусе', requiresStyle: 10 },
+  { id: 'armor_legendary', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Броня', description: 'Усиленная защита', requiresStyle: 10 },
+  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Ледяная кара', description: '25 урона в секунду врагу', requiresStyle: 10 },
+  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: 'Быстрый удар', description: '50% сокращение перезарядки', requiresStyle: 10 }
+];
+
 // Структура данных игрока
 function createPlayer(socketId, nickname, roomId, isBot = false) {
   return {
@@ -108,7 +162,19 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     lastRoundGoldEarned: 0, // Золото, заработанное в последнем раунде
     // Персонаж
     characterId: null, // ID выбранного персонажа
-    hasBlock: false // Есть ли блок от следующего урона
+    hasBlock: false, // Есть ли блок от следующего урона
+    // Система карточек
+    stylePoints: {
+      health: 0,
+      dodge: 0,
+      critical: 0,
+      healing: 0,
+      armor: 0,
+      freeze: 0,
+      attack: 0
+    },
+    cardsOwned: {}, // { cardId: count } - количество купленных карточек
+    cardShopOffers: [] // Текущие предложения в магазине
   };
 }
 
@@ -594,7 +660,120 @@ function botEndTurn(botId, roomId) {
   console.log(`Бот ${bot.nickname} закончил ход`);
 }
 
-// Обработка покупки карточек ботом (заглушка - полная реализация будет позже)
+// Генерация предложений магазина карточек
+function generateCardShopOffers(player) {
+  const offers = [];
+  const availableCards = CARDS.filter(card => {
+    // Легендарные карточки требуют 10 очков стиля
+    if (card.rarity === CARD_RARITIES.LEGENDARY) {
+      const stylePoints = player.stylePoints[card.type] || 0;
+      if (stylePoints < (card.requiresStyle || 10)) {
+        return false;
+      }
+    }
+    return true;
+  });
+  
+  // Шанс выпадения редких карт увеличивается с уровнем стиля
+  const totalStylePoints = Object.values(player.stylePoints || {}).reduce((sum, val) => sum + val, 0);
+  const rareChance = Math.min(0.5, 0.1 + (totalStylePoints * 0.02)); // 10% + 2% за очко стиля, максимум 50%
+  
+  // Генерируем 5 случайных карточек
+  for (let i = 0; i < 5; i++) {
+    let card;
+    if (Math.random() < rareChance) {
+      // Пытаемся выдать редкую карточку
+      const rareCards = availableCards.filter(c => c.rarity === CARD_RARITIES.RARE);
+      if (rareCards.length > 0 && Math.random() < 0.3) {
+        card = rareCards[Math.floor(Math.random() * rareCards.length)];
+      } else {
+        // Или легендарную, если доступна
+        const legendaryCards = availableCards.filter(c => c.rarity === CARD_RARITIES.LEGENDARY);
+        if (legendaryCards.length > 0 && Math.random() < 0.1) {
+          card = legendaryCards[Math.floor(Math.random() * legendaryCards.length)];
+        } else {
+          // Или обычную
+          const commonCards = availableCards.filter(c => c.rarity === CARD_RARITIES.COMMON);
+          card = commonCards[Math.floor(Math.random() * commonCards.length)];
+        }
+      }
+    } else {
+      // Обычная карточка
+      const commonCards = availableCards.filter(c => c.rarity === CARD_RARITIES.COMMON);
+      card = commonCards[Math.floor(Math.random() * commonCards.length)];
+    }
+    
+    if (card) {
+      offers.push(card);
+    }
+  }
+  
+  return offers;
+}
+
+// Покупка карточки
+function buyCard(player, cardId) {
+  const card = CARDS.find(c => c.id === cardId);
+  if (!card) {
+    return { success: false, message: 'Карточка не найдена' };
+  }
+  
+  // Проверяем требования для легендарных карточек
+  if (card.rarity === CARD_RARITIES.LEGENDARY) {
+    const stylePoints = player.stylePoints[card.type] || 0;
+    if (stylePoints < (card.requiresStyle || 10)) {
+      return { success: false, message: `Требуется ${card.requiresStyle} очков стиля ${card.type}` };
+    }
+  }
+  
+  // Проверяем лимиты покупки
+  const ownedCount = player.cardsOwned[cardId] || 0;
+  const maxCount = card.rarity === CARD_RARITIES.LEGENDARY ? 1 
+    : card.rarity === CARD_RARITIES.RARE ? 3 
+    : 5;
+  
+  if (ownedCount >= maxCount) {
+    return { success: false, message: `Достигнут лимит покупки этой карточки (${maxCount})` };
+  }
+  
+  // Проверяем золото
+  if (player.permanentGold < card.cost) {
+    return { success: false, message: 'Недостаточно постоянного золота' };
+  }
+  
+  // Покупаем карточку
+  player.permanentGold -= card.cost;
+  player.cardsOwned[cardId] = (player.cardsOwned[cardId] || 0) + 1;
+  
+  // Добавляем очки стиля
+  player.stylePoints[card.type] = (player.stylePoints[card.type] || 0) + card.stylePoints;
+  
+  // Если это гибридная карта, добавляем очки и второму стилю
+  if (card.isHybrid && card.secondaryType) {
+    player.stylePoints[card.secondaryType] = (player.stylePoints[card.secondaryType] || 0) + card.stylePoints;
+  }
+  
+  return { success: true, message: `Карточка "${card.name}" куплена!` };
+}
+
+// Обновление магазина карточек
+function refreshCardShop(player) {
+  const refreshCost = 2;
+  
+  // Можно использовать временное или постоянное золото
+  if (player.temporaryGold >= refreshCost) {
+    player.temporaryGold -= refreshCost;
+  } else if (player.permanentGold >= refreshCost) {
+    player.permanentGold -= refreshCost;
+  } else {
+    return { success: false, message: 'Недостаточно золота для обновления (нужно 2 золота)' };
+  }
+  
+  player.cardShopOffers = generateCardShopOffers(player);
+  return { success: true, message: 'Магазин обновлен!' };
+}
+
+// Обработка покупки карточек ботом
 function handleBotCardPurchase(botId, roomId) {
   try {
     const bot = bots.get(botId);
@@ -609,14 +788,25 @@ function handleBotCardPurchase(botId, roomId) {
       return;
     }
     
-    // Пока что просто логируем - полная реализация системы карточек будет добавлена позже
-    console.log(`Бот ${bot.nickname} (${botId}) пытается купить карточки в комнате ${roomId}`);
+    // Генерируем предложения, если их еще нет
+    if (!bot.cardShopOffers || bot.cardShopOffers.length === 0) {
+      bot.cardShopOffers = generateCardShopOffers(bot);
+    }
     
-    // TODO: Реализовать логику покупки карточек ботами
-    // Боты должны покупать карточки случайным образом во время перерыва между боями
+    // Бот случайным образом покупает карточки (30% шанс на каждую)
+    bot.cardShopOffers.forEach(card => {
+      if (Math.random() < 0.3 && bot.permanentGold >= card.cost) {
+        const result = buyCard(bot, card.id);
+        if (result.success) {
+          console.log(`Бот ${bot.nickname} купил карточку ${card.name}`);
+        }
+      }
+    });
+    
+    // Обновляем состояние комнаты
+    updateRoomState(roomId);
   } catch (error) {
     console.error(`Ошибка при покупке карточек ботом ${botId}:`, error);
-    // Не выбрасываем ошибку дальше, чтобы не упал сервер
   }
 }
 
@@ -720,7 +910,10 @@ function updateRoomState(roomId) {
       wins: p.wins || 0,
       losses: p.losses || 0,
       lastRoundGoldBonus: p.lastRoundGoldBonus || 0,
-      lastRoundGoldEarned: p.lastRoundGoldEarned || 0
+      lastRoundGoldEarned: p.lastRoundGoldEarned || 0,
+      stylePoints: p.stylePoints || { health: 0, dodge: 0, critical: 0, healing: 0, armor: 0, freeze: 0, attack: 0 },
+      cardsOwned: p.cardsOwned || {},
+      cardShopOffers: p.cardShopOffers || []
     };
   }).filter(p => p !== null);
   
@@ -946,6 +1139,11 @@ function startNextRound(roomId) {
       p.duelStartTime = 0;
       p.temporaryGold = 30; // Выдаем 30 временного золота
       p.hasEndedTurn = false;
+      
+      // Генерируем предложения карточек для всех игроков
+      if (room.currentRound > 0) {
+        p.cardShopOffers = generateCardShopOffers(p);
+      }
       
       // Боты покупают карточки между боями
       if (p.isBot) {
@@ -1341,6 +1539,46 @@ io.on('connection', (socket) => {
     console.log(`Игрок ${player.nickname} закончил ход`);
   });
 
+  // Обработка покупки карточки
+  socket.on('buyCard', (data) => {
+    const { roomId, cardId } = data;
+    const player = players.get(socket.id);
+    const room = rooms.get(roomId);
+    
+    if (!player || !room) {
+      socket.emit('roomError', { message: 'Игрок или комната не найдены' });
+      return;
+    }
+    
+    const result = buyCard(player, cardId);
+    if (result.success) {
+      updateRoomState(roomId);
+      socket.emit('cardBought', { success: true, message: result.message });
+    } else {
+      socket.emit('cardBought', { success: false, message: result.message });
+    }
+  });
+  
+  // Обработка обновления магазина карточек
+  socket.on('refreshCardShop', (data) => {
+    const { roomId } = data;
+    const player = players.get(socket.id);
+    const room = rooms.get(roomId);
+    
+    if (!player || !room) {
+      socket.emit('roomError', { message: 'Игрок или комната не найдены' });
+      return;
+    }
+    
+    const result = refreshCardShop(player);
+    if (result.success) {
+      updateRoomState(roomId);
+      socket.emit('cardShopRefreshed', { success: true, message: result.message, offers: player.cardShopOffers });
+    } else {
+      socket.emit('cardShopRefreshed', { success: false, message: result.message });
+    }
+  });
+  
   // Начало игры (только хост может запустить)
   // Обработка выбора персонажа
   socket.on('selectCharacter', (data) => {
