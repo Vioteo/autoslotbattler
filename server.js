@@ -1137,7 +1137,7 @@ function updateRoomState(roomId) {
       lastRoundGoldEarned: p.lastRoundGoldEarned || 0,
       stylePoints: p.stylePoints || { health: 0, dodge: 0, critical: 0, healing: 0, armor: 0, freeze: 0, attack: 0 },
       cardsOwned: p.cardsOwned || {},
-      cardShopOffers: p.cardShopOffers || [],
+      cardShopOffers: p.cardShopOffers || (p.isBot ? [] : generateCardShopOffers(p)), // Генерируем предложения, если их нет (для не-ботов)
       antiCards: p.antiCards || {},
       legendaryEffects: p.legendaryEffects || {}
     };
@@ -1170,6 +1170,17 @@ function checkAllDuelsFinished(roomId) {
     // Все бои закончились
     // Перерыв только между раундами, не перед первым раундом
     if (room.currentRound > 0) {
+      // Генерируем предложения карточек для всех игроков перед показом магазина
+      activePlayers.forEach(id => {
+        const p = players.get(id);
+        if (p && !p.isBot) {
+          // Генерируем предложения, если их еще нет
+          if (!p.cardShopOffers || p.cardShopOffers.length === 0) {
+            p.cardShopOffers = generateCardShopOffers(p);
+          }
+        }
+      });
+      
       // Отправляем событие о начале перерыва перед следующим раундом
       io.to(roomId).emit('breakStarted', {
         duration: BREAK_DURATION,
@@ -1366,10 +1377,10 @@ function startNextRound(roomId) {
       p.temporaryGold = 30; // Выдаем 30 временного золота
       p.hasEndedTurn = false;
       
-      // Генерируем предложения карточек для всех игроков
-      if (room.currentRound > 0) {
-        p.cardShopOffers = generateCardShopOffers(p);
-      }
+      // Генерируем предложения карточек для всех игроков (для следующего раунда)
+      // Предложения для текущего перерыва уже были сгенерированы в checkAllDuelsFinished
+      // Здесь генерируем для следующего перерыва
+      p.cardShopOffers = generateCardShopOffers(p);
       
       // Боты покупают карточки между боями
       if (p.isBot) {

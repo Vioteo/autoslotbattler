@@ -534,6 +534,8 @@ socket.on('breakStarted', (data) => {
     // Показываем экран покупки карточек
     if (cardShopScreen) {
         cardShopScreen.classList.add('active');
+        // Ждем обновления состояния с предложениями карт
+        // Предложения должны быть сгенерированы на сервере в checkAllDuelsFinished
         updateCardShop();
         startBreakTimer(data.duration);
     }
