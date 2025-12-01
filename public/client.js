@@ -520,6 +520,34 @@ socket.on('heal', (data) => {
     }
 });
 
+socket.on('abilityUsed', (data) => {
+    console.log('Способность использована:', data);
+    // Обновляем щиты при использовании способности
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    const opponent = roomState.players.find(p => p.socketId === (data.fromPlayerSocketId === playerState.socketId ? data.targetPlayerSocketId : data.fromPlayerSocketId));
+    
+    if (player && data.fromPlayerSocketId === playerState.socketId) {
+        // Обновляем щиты игрока
+        updateShieldDisplay('player', player.shields);
+    }
+    
+    if (opponent && data.targetPlayerSocketId === playerState.socketId) {
+        // Обновляем щиты противника (если это наш противник)
+        updateShieldDisplay('enemy', opponent.shields);
+    } else if (player && player.isInDuel && player.duelOpponent) {
+        const duelOpponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+        if (duelOpponent) {
+            updateShieldDisplay('enemy', duelOpponent.shields);
+        }
+    }
+    
+    // Показываем сообщение о способности
+    if (data.message) {
+        const target = data.fromPlayerSocketId === playerState.socketId ? 'player' : 'enemy';
+        showFloatingMessage(target, data.message, 'heal');
+    }
+});
+
 // Обработка начала перерыва между боями
 let breakTimerInterval = null;
 socket.on('breakStarted', (data) => {
@@ -2077,7 +2105,43 @@ function updateCharacterStats() {
             
             // Обновляем tooltip для противника (характеристики теперь только в tooltip)
             updateStatsTooltip('enemy', opponent, finalOppAttack, finalOppArmor, finalOppDodge, finalOppCrit, finalOppCritMult);
+            
+            // Обновляем визуализацию щитов противника
+            updateShieldDisplay('enemy', opponent.shields);
         }
+    }
+    
+    // Обновляем визуализацию щитов игрока
+    updateShieldDisplay('player', player.shields);
+}
+
+// Обновление визуализации щитов
+function updateShieldDisplay(target, shields) {
+    const containerId = target === 'player' ? 'playerCharacterContainer' : 'enemyCharacterContainer';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    // Удаляем существующий индикатор щита
+    const existingShield = container.querySelector('.shield-indicator');
+    if (existingShield) {
+        existingShield.remove();
+    }
+    
+    // Если есть щиты, создаем индикатор
+    const shieldCount = shields ? shields.length : 0;
+    if (shieldCount > 0) {
+        const shieldIndicator = document.createElement('div');
+        shieldIndicator.className = 'shield-indicator active';
+        if (shieldCount > 1) {
+            shieldIndicator.classList.add('multiple');
+        }
+        
+        const shieldCountEl = document.createElement('div');
+        shieldCountEl.className = 'shield-count';
+        shieldCountEl.textContent = shieldCount;
+        shieldIndicator.appendChild(shieldCountEl);
+        
+        container.appendChild(shieldIndicator);
     }
 }
 

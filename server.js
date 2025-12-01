@@ -211,7 +211,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     lastRoundGoldEarned: 0, // Золото, заработанное в последнем раунде
     // Персонаж
     characterId: null, // ID выбранного персонажа
-    hasBlock: false, // Есть ли блок от следующего урона
+    shields: [], // Массив щитов: [{ id: uniqueId, source: 'character' }]
     // Система карточек
     stylePoints: {
       health: 0,
@@ -491,16 +491,20 @@ function useCharacterAbility(player, opponent, roomId) {
       break;
       
     case 'block':
-      // Блокирование следующего урона
-      player.hasBlock = true;
-      result.message = `${character.name}: следующий урон будет заблокирован`;
+      // Добавление щита (блокирование следующего урона)
+      const shieldId = `shield_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (!player.shields) player.shields = [];
+      player.shields.push({ id: shieldId, source: 'character' });
+      result.message = `${character.name}: получен щит (всего щитов: ${player.shields.length})`;
+      result.shieldAdded = true;
       break;
       
     case 'damage':
       // Нанесение 50 урона (урон применяется в основной логике после проверки крита)
-      if (opponent && opponent.hasBlock) {
-        opponent.hasBlock = false;
-        result.message = `${character.name}: урон заблокирован защитой противника`;
+      if (opponent && opponent.shields && opponent.shields.length > 0) {
+        // Урон поглощается щитом
+        opponent.shields.shift(); // Удаляем первый щит
+        result.message = `${character.name}: урон заблокирован щитом противника (щитов осталось: ${opponent.shields.length})`;
         result.damage = 0;
       } else {
         const damage = character.abilityValue;
@@ -644,13 +648,15 @@ function handleBotSpin(botId, roomId) {
       effectiveAttack = Math.max(0, effectiveAttack + targetAntiCards[CARD_TYPES.ATTACK]);
     }
     
-    // Базовый урон = урон от комбинации + базовый урон за спин (10) + бонус атаки
-    const baseSpinDamage = 10;
-    let finalDamage = damage + baseSpinDamage + (effectiveAttack - 10); // effectiveAttack уже включает базовые 10
+    // Формула урона: базовый урон (10) + урон от всех линий (5 * совпадения) + бонус атаки
+    const baseSpinDamage = 10; // Базовый урон всегда 10, даже если нет линий
+    const lineDamage = damage || 0; // Урон от линий (5 * совпадения)
+    const attackBonus = Math.max(0, effectiveAttack - 10); // Бонус атаки сверх базовой (10)
+    let finalDamage = baseSpinDamage + lineDamage + attackBonus;
     
-    // Проверяем крит
+    // Проверяем крит (применяется к итоговому урону)
     const critResult = applyCritToDamage(finalDamage, attackerStats);
-    finalDamage = critResult.damage;
+    finalDamage = Math.max(0, critResult.damage); // Убеждаемся что урон не может быть отрицательным или -0
     let isCrit = critResult.isCrit;
     
     // Флаг для отслеживания снижения урона броней
@@ -766,18 +772,22 @@ function handleBotSpin(botId, roomId) {
         }
       }
     } else if (damage > 0) {
-      // Обычный урон - проверяем блок противника
-      if (opponent.hasBlock) {
-        opponent.hasBlock = false;
-        finalDamage = 0;
+      // Обычный урон - проверяем щиты противника
+      const shieldResult = absorbDamageWithShields(opponent, finalDamage);
+      if (shieldResult.shieldsUsed > 0) {
+        finalDamage = shieldResult.remainingDamage;
         io.to(roomId).emit('abilityUsed', {
           fromPlayerSocketId: opponentId,
           targetPlayerSocketId: botId,
           ability: 'block',
-          message: 'Урон заблокирован защитой',
-          damage: 0
+          message: `Урон заблокирован щитом (щитов осталось: ${opponent.shields ? opponent.shields.length : 0})`,
+          damage: 0,
+          shieldsUsed: shieldResult.shieldsUsed,
+          shieldsRemaining: opponent.shields ? opponent.shields.length : 0
         });
-      } else if (finalDamage > 0) {
+      }
+      
+      if (finalDamage > 0) {
         // Проверяем уклонение (считается для каждого источника урона отдельно)
         const dodgeRoll = Math.random() * 100;
         let effectiveDodge = targetStats.dodge;
@@ -816,9 +826,9 @@ function handleBotSpin(botId, roomId) {
           const armorReduction = targetStats.armor / 100;
           if (targetAntiCards[CARD_TYPES.ARMOR]) {
             const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
-            finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
+            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - effectiveArmor / 100)));
           } else {
-            finalDamage = Math.floor(finalDamage * (1 - armorReduction));
+            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - armorReduction)));
           }
           // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
           if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
@@ -1369,6 +1379,25 @@ function checkAndEliminatePlayer(player) {
     return true;
   }
   return false;
+}
+
+// Поглощение урона щитами
+function absorbDamageWithShields(target, damage) {
+  if (!target.shields || target.shields.length === 0) {
+    return { remainingDamage: damage, shieldsUsed: 0 };
+  }
+  
+  let remainingDamage = damage;
+  let shieldsUsed = 0;
+  
+  // Щиты поглощают урон по очереди, каждый щит поглощает весь урон
+  while (target.shields.length > 0 && remainingDamage > 0) {
+    target.shields.shift(); // Удаляем щит
+    shieldsUsed++;
+    remainingDamage = 0; // Каждый щит полностью поглощает урон
+  }
+  
+  return { remainingDamage, shieldsUsed };
 }
 
 // Применение крита к урону
@@ -2568,13 +2597,15 @@ io.on('connection', (socket) => {
       effectiveAttack = Math.max(0, effectiveAttack + targetAntiCards[CARD_TYPES.ATTACK]);
     }
     
-    // Базовый урон = урон от комбинации + базовый урон за спин (10) + бонус атаки
-    const baseSpinDamage = 10;
-    let finalDamage = damage + baseSpinDamage + (effectiveAttack - 10); // effectiveAttack уже включает базовые 10
+    // Формула урона: базовый урон (10) + урон от всех линий (5 * совпадения) + бонус атаки
+    const baseSpinDamage = 10; // Базовый урон всегда 10, даже если нет линий
+    const lineDamage = damage || 0; // Урон от линий (5 * совпадения)
+    const attackBonus = Math.max(0, effectiveAttack - 10); // Бонус атаки сверх базовой (10)
+    let finalDamage = baseSpinDamage + lineDamage + attackBonus;
     
-    // Проверяем крит
+    // Проверяем крит (применяется к итоговому урону)
     const critResult = applyCritToDamage(finalDamage, attackerStats);
-    finalDamage = critResult.damage;
+    finalDamage = Math.max(0, critResult.damage); // Убеждаемся что урон не может быть отрицательным или -0
     let isCrit = critResult.isCrit;
     
     // Флаг для отслеживания снижения урона броней
@@ -2690,18 +2721,22 @@ io.on('connection', (socket) => {
         }
       }
     } else if (damage > 0) {
-      // Обычный урон - проверяем блок противника
-      if (target.hasBlock) {
-        target.hasBlock = false;
-        finalDamage = 0;
+      // Обычный урон - проверяем щиты противника
+      const shieldResult = absorbDamageWithShields(target, finalDamage);
+      if (shieldResult.shieldsUsed > 0) {
+        finalDamage = shieldResult.remainingDamage;
         io.to(roomId).emit('abilityUsed', {
           fromPlayerSocketId: targetPlayerSocketId,
           targetPlayerSocketId: fromPlayerSocketId,
           ability: 'block',
-          message: 'Урон заблокирован защитой',
-          damage: 0
+          message: `Урон заблокирован щитом (щитов осталось: ${target.shields ? target.shields.length : 0})`,
+          damage: 0,
+          shieldsUsed: shieldResult.shieldsUsed,
+          shieldsRemaining: target.shields ? target.shields.length : 0
         });
-      } else if (finalDamage > 0) {
+      }
+      
+      if (finalDamage > 0) {
         // Проверяем уклонение (считается для каждого источника урона отдельно)
         const dodgeRoll = Math.random() * 100;
         let effectiveDodge = targetStats.dodge;
@@ -2740,9 +2775,9 @@ io.on('connection', (socket) => {
           const armorReduction = targetStats.armor / 100;
           if (targetAntiCards[CARD_TYPES.ARMOR]) {
             const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
-            finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
+            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - effectiveArmor / 100)));
           } else {
-            finalDamage = Math.floor(finalDamage * (1 - armorReduction));
+            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - armorReduction)));
           }
             // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
             if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
