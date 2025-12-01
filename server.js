@@ -722,17 +722,23 @@ function checkAllDuelsFinished(roomId) {
   });
   
   if (allDuelsFinished && activePlayers.length > 1) {
-    // Все бои закончились, начинаем перерыв перед следующим раундом
-    // Отправляем событие о начале перерыва
-    io.to(roomId).emit('breakStarted', {
-      duration: BREAK_DURATION,
-      round: room.currentRound
-    });
-    
-    // Запускаем следующий раунд после перерыва
-    setTimeout(() => {
+    // Все бои закончились
+    // Перерыв только между раундами, не перед первым раундом
+    if (room.currentRound > 0) {
+      // Отправляем событие о начале перерыва перед следующим раундом
+      io.to(roomId).emit('breakStarted', {
+        duration: BREAK_DURATION,
+        round: room.currentRound
+      });
+      
+      // Запускаем следующий раунд после перерыва
+      setTimeout(() => {
+        startNextRound(roomId);
+      }, BREAK_DURATION);
+    } else {
+      // Первый раунд - начинаем сразу без перерыва
       startNextRound(roomId);
-    }, BREAK_DURATION);
+    }
   } else if (activePlayers.length <= 1) {
     // Остался один игрок - игра окончена
     // Проверяем, что это не бот
