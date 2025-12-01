@@ -392,7 +392,26 @@ socket.on('roundStarted', (data) => {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player && player.isInDuel && player.duelStartTime) {
         startBattleTimer(player.duelStartTime);
+    } else if (player && player.isInDuel) {
+        // Если игрок в дуэли, но duelStartTime еще не пришел, проверяем периодически
+        const checkTimer = setInterval(() => {
+            const currentPlayer = roomState.players.find(p => p.socketId === playerState.socketId);
+            if (currentPlayer && currentPlayer.duelStartTime) {
+                clearInterval(checkTimer);
+                startBattleTimer(currentPlayer.duelStartTime);
+            } else if (!currentPlayer || !currentPlayer.isInDuel) {
+                clearInterval(checkTimer);
+            }
+        }, 100);
+        
+        // Останавливаем проверку через 2 секунды, если duelStartTime не пришел
+        setTimeout(() => {
+            clearInterval(checkTimer);
+        }, 2000);
     }
+    
+    // Обновляем состояние кнопки спин
+    enableSpin();
 });
 
 socket.on('gameEnded', (data) => {
@@ -1365,14 +1384,18 @@ function enableSpin() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (!player) return;
     
+    const now = Date.now();
+    
     // Проверяем условия для доступности спина
+    const hasPassedPreBattleTimer = !player.duelStartTime || now >= player.duelStartTime + PRE_BATTLE_DELAY;
+    
     const canSpinNow = 
         !gameState.isSpinning && // Не крутится сейчас
         !gameState.isRecharging && // Не на перезарядке
         player.isInDuel && // В дуэли
         !player.hasEndedTurn && // Не закончил ход
         (player.temporaryGold >= 5 || player.permanentGold >= 5) && // Есть золото
-        (!player.duelStartTime || Date.now() >= player.duelStartTime + PRE_BATTLE_DELAY); // Прошел таймер до боя
+        hasPassedPreBattleTimer; // Прошел таймер до боя
     
     gameState.canSpin = canSpinNow;
     if (spinBtn) {
@@ -2067,6 +2090,15 @@ function startBattleTimer(duelStartTime) {
         duelStartTime = now;
     }
     
+    // Если таймер уже прошел, сразу разблокируем кнопку
+    if (timeDiff >= PRE_BATTLE_DELAY) {
+        battleTimer.style.display = 'none';
+        if (vsText) vsText.style.display = 'block';
+        updateBattlePhase();
+        enableSpin();
+        return;
+    }
+    
     battleTimer.style.display = 'block';
     if (vsText) vsText.style.display = 'none';
     
@@ -2090,6 +2122,8 @@ function startBattleTimer(duelStartTime) {
             battleTimerCountdown.textContent = seconds;
         }
         updateBattlePhase();
+        // Периодически проверяем, можно ли разблокировать кнопку
+        enableSpin();
     }, 100);
 }
 
