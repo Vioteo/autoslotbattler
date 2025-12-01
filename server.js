@@ -200,6 +200,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     permanentGold: 30,
     temporaryGold: 0,
     hasEndedTurn: false, // Закончил ли ход
+    turnEndTime: null, // Время окончания хода (timestamp)
     isReady: isBot, // Готовность к следующему раунду (боты всегда готовы)
     // Серии побед/поражений
     winStreak: 0,
@@ -289,7 +290,7 @@ function simulateBotSpin() {
     { name: 'purple', weight: 20 }
   ];
   const WILD_SYMBOL = { name: 'wild', weight: 5 };
-  const BONUS_SYMBOL = { name: 'bonus', weight: 13 };
+  const BONUS_SYMBOL = { name: 'bonus', weight: 10 };
   
   // Генерация случайного символа с учетом весов
   function getRandomSymbol() {
@@ -1039,6 +1040,8 @@ function handleBotSpin(botId, roomId) {
       opponent.isInDuel = false;
       bot.hasEndedTurn = false;
       opponent.hasEndedTurn = false;
+      bot.turnEndTime = null;
+      opponent.turnEndTime = null;
       
       // Очищаем интервалы ледяной кары при завершении дуэли
       clearIcePunishmentIntervals(bot);
@@ -1084,6 +1087,7 @@ function botEndTurn(botId, roomId) {
   if (!bot || !bot.isInDuel) return;
   
   bot.hasEndedTurn = true;
+  bot.turnEndTime = Date.now(); // Сохраняем время окончания хода
   updateRoomState(roomId);
   
   // Проверяем, оба ли игрока закончили ход
@@ -2044,6 +2048,19 @@ function checkAllDuelsFinished(roomId) {
         }
       });
       
+      // Начисляем 20% от постоянного золота в начале раунда закупки (только для не-копий)
+      activePlayers.forEach(id => {
+        const p = players.get(id);
+        if (p && !p.isCopy) {
+          const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
+          if (interestGold > 0) {
+            p.permanentGold = (p.permanentGold || 0) + interestGold;
+            p.lastRoundGoldEarned = interestGold;
+            p.lastRoundGoldBonus = 20; // 20% проценты
+          }
+        }
+      });
+      
       // Устанавливаем состояние BREAK с таймером 1 минута
       setGameState(roomId, GAME_STATES.BREAK);
       
@@ -2174,8 +2191,28 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
   
   if (p1.hasEndedTurn && p2.hasEndedTurn) {
     // Оба закончили ход - определяем победителя по HP
-    const winner = p1.roundHp >= p2.roundHp ? p1 : p2;
-    const loser = winner === p1 ? p2 : p1;
+    let winner, loser;
+    
+    if (p1.roundHp > p2.roundHp) {
+      winner = p1;
+      loser = p2;
+    } else if (p2.roundHp > p1.roundHp) {
+      winner = p2;
+      loser = p1;
+    } else {
+      // При равенстве HP побеждает тот, кто первый закончил ход
+      if (p1.turnEndTime && p2.turnEndTime) {
+        winner = p1.turnEndTime < p2.turnEndTime ? p1 : p2;
+      } else if (p1.turnEndTime) {
+        winner = p1; // p1 закончил, p2 еще нет (но это не должно происходить)
+      } else if (p2.turnEndTime) {
+        winner = p2;
+      } else {
+        // Fallback на старую логику, если время не установлено
+        winner = p1.roundHp >= p2.roundHp ? p1 : p2;
+      }
+    }
+    loser = winner === p1 ? p2 : p1;
     
     // Проигравший теряет 20% от общего HP
     loser.totalHp = Math.max(0, loser.totalHp - Math.floor(loser.totalHp * 0.2));
@@ -2209,6 +2246,8 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
       loser.isInDuel = false;
       winner.hasEndedTurn = false;
       loser.hasEndedTurn = false;
+      winner.turnEndTime = null;
+      loser.turnEndTime = null;
       
       // Очищаем интервалы ледяной кары при завершении дуэли
       clearIcePunishmentIntervals(winner);
@@ -2265,16 +2304,6 @@ function startNextRound(roomId) {
         p.cardPurchaseRefused = false;
       }
       
-      // Начисляем 20% от постоянного золота в конце раунда (только для не-копий)
-      if (!p.isCopy) {
-        const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
-        if (interestGold > 0) {
-          p.permanentGold = (p.permanentGold || 0) + interestGold;
-          p.lastRoundGoldEarned = interestGold;
-          p.lastRoundGoldBonus = 20; // 20% проценты
-        }
-      }
-      
       // Устанавливаем roundHp равным maxHp в начале раунда
       const stats = calculatePlayerStats(p);
       p.roundHp = stats.maxHp;
@@ -2297,6 +2326,7 @@ function startNextRound(roomId) {
       }
       
       p.hasEndedTurn = false;
+      p.turnEndTime = null;
       
       // Очищаем интервалы ледяной кары при начале нового раунда
       clearIcePunishmentIntervals(p);
@@ -3003,6 +3033,7 @@ io.on('connection', (socket) => {
     }
     
     player.hasEndedTurn = true;
+    player.turnEndTime = Date.now(); // Сохраняем время окончания хода
     updateRoomState(roomId);
     
     // Проверяем, оба ли игрока закончили ход

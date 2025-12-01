@@ -48,7 +48,7 @@ const SYMBOLS = [
 const WILD_SYMBOL = { emoji: '⭐', color: '#ffd700', name: 'wild', weight: 5 };
 
 // Бонус символ
-const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 13 };
+const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 10 };
 
 // Персонажи (должны совпадать с сервером)
 const CHARACTERS = [
