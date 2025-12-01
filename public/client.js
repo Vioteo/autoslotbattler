@@ -2112,8 +2112,7 @@ function updatePlayersListGame() {
         const finalCrit = crit + critBonus;
         const finalCritMult = critMult + critMultBonus * 0.25;
         
-        // Получаем уровни стилей
-        const stylePoints = player.stylePoints || {};
+        // Получаем уровни стилей (используем уже объявленную переменную stylePoints)
         const styleNames = {
             health: '❤️ Здоровье',
             dodge: '💨 Уклонение',
