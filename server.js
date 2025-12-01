@@ -17,6 +17,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Константы
 const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
+const BREAK_DURATION = 120000; // 2 минуты между боями
 
 // Хранилище комнат
 const rooms = new Map();
@@ -260,15 +261,19 @@ function simulateBotSpin() {
 }
 
 // Принятие решения ботом: делать ли еще спин или закончить ход
+// БОТЫ ДОЛЖНЫ РЕДКО ДЕЛАТЬ СПИНЫ - ТОЛЬКО ЕСЛИ ЕСТЬ ВРЕМЕННОЕ ЗОЛОТО ИЛИ КРИТИЧЕСКАЯ СИТУАЦИЯ
 function botDecideAction(bot, opponent) {
   const spinCost = 5;
   const botHpPercent = bot.roundHp / 200;
   const opponentHpPercent = opponent.roundHp / 200;
   
-  // БОТЫ ДОЛЖНЫ КРУТИТЬ МИНИМУМ ДО КОНЦА ВРЕМЕННЫХ ДЕНЕГ
-  // Если есть временное золото - обязательно крутим
+  // Если есть временное золото - крутим (но редко, с вероятностью 20%)
   if (bot.temporaryGold >= spinCost) {
-    return 'spin';
+    // Только 20% шанс сделать спин, даже если есть временное золото
+    if (Math.random() < 0.2) {
+      return 'spin';
+    }
+    return 'endTurn';
   }
   
   // Если у бота нет золота - заканчивает ход
@@ -276,22 +281,24 @@ function botDecideAction(bot, opponent) {
     return 'endTurn';
   }
   
-  // Если противник почти мертв (HP < 20%) - пытаемся добить (можно тратить постоянное)
-  if (opponentHpPercent < 0.2 && bot.permanentGold >= spinCost) {
-    return 'spin';
+  // Очень редко тратим постоянное золото на спины - только в критических ситуациях
+  // Если противник почти мертв (HP < 15%) - пытаемся добить (можно тратить постоянное, но с 30% шансом)
+  if (opponentHpPercent < 0.15 && bot.permanentGold >= spinCost) {
+    if (Math.random() < 0.3) {
+      return 'spin';
+    }
+    return 'endTurn';
   }
   
-  // Если у бота мало HP (< 30%) и есть постоянное золото - пытаемся атаковать
-  if (botHpPercent < 0.3 && bot.permanentGold >= spinCost) {
-    return 'spin';
+  // Если у бота очень мало HP (< 20%) и есть постоянное золото - пытаемся атаковать (с 25% шансом)
+  if (botHpPercent < 0.2 && bot.permanentGold >= spinCost) {
+    if (Math.random() < 0.25) {
+      return 'spin';
+    }
+    return 'endTurn';
   }
   
-  // Если у бота есть постоянное золото и ситуация критическая - тратим постоянное
-  if (bot.permanentGold >= spinCost && (botHpPercent < 0.4 || opponentHpPercent < 0.3)) {
-    return 'spin';
-  }
-  
-  // Иначе заканчиваем ход
+  // Иначе заканчиваем ход (боты предпочитают экономить золото на карточки)
   return 'endTurn';
 }
 
