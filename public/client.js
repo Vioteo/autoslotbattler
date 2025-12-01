@@ -362,8 +362,14 @@ socket.on('roomStateUpdate', (data) => {
             updateCharacterStats();
             
             // Если duelStartTime только что обновился и игрок в дуэли, запускаем таймер
-            if (player.isInDuel && player.duelStartTime && !battleTimerInterval) {
-                startBattleTimer(player.duelStartTime);
+            if (player.isInDuel && player.duelStartTime) {
+                // Проверяем, не запущен ли уже таймер с этим же временем
+                const now = Date.now();
+                const timeDiff = now - player.duelStartTime;
+                // Если таймер еще не истек и не запущен, запускаем
+                if (timeDiff < PRE_BATTLE_DELAY && !battleTimerInterval) {
+                    startBattleTimer(player.duelStartTime);
+                }
             }
         }
     }
