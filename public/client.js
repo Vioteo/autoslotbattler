@@ -31,13 +31,33 @@ const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 3
 
 // Игровое состояние
 let gameState = {
-    playerHp: 100,
-    enemyHp: 100,
+    roundHp: 100,
+    totalHp: 100,
+    enemyRoundHp: 100,
+    enemyTotalHp: 100,
     maxHp: 100,
     isRecharging: false,
     rechargeTime: 0,
     canSpin: true,
-    isSpinning: false
+    isSpinning: false,
+    rechargeEndTime: 0
+};
+
+// Состояние игрока
+let playerState = {
+    nickname: '',
+    socketId: null,
+    roomId: null,
+    isHost: false,
+    currentOpponent: null,
+    isInDuel: false
+};
+
+// Состояние комнаты
+let roomState = {
+    players: [],
+    pairs: [],
+    currentRound: 0
 };
 
 // Элементы DOM
@@ -49,12 +69,20 @@ const gameScreen = document.getElementById('gameScreen');
 const createRoomBtn = document.getElementById('createRoomBtn');
 const joinRoomBtn = document.getElementById('joinRoomBtn');
 const roomIdInput = document.getElementById('roomIdInput');
+const nicknameInput = document.getElementById('nicknameInput');
 const displayRoomId = document.getElementById('displayRoomId');
 const copyRoomIdBtn = document.getElementById('copyRoomIdBtn');
 const playersCount = document.getElementById('playersCount');
+const playersListWaiting = document.getElementById('playersList');
+const playersListGame = document.getElementById('playersListGame');
+const hostControls = document.getElementById('hostControls');
+const startGameBtn = document.getElementById('startGameBtn');
+const refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
+const roomsList = document.getElementById('roomsList');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
 const gameRoomId = document.getElementById('gameRoomId');
-const playerNumber = document.getElementById('playerNumber');
+const currentRound = document.getElementById('currentRound');
+const playerNickname = document.getElementById('playerNickname');
 const leaveGameBtn = document.getElementById('leaveGameBtn');
 const errorMessage = document.getElementById('errorMessage');
 const spinBtn = document.getElementById('spinBtn');
@@ -71,6 +99,7 @@ const gameResultModal = document.getElementById('gameResultModal');
 const resultTitle = document.getElementById('resultTitle');
 const resultMessage = document.getElementById('resultMessage');
 const closeResultBtn = document.getElementById('closeResultBtn');
+const duelsContainer = document.getElementById('duelsContainer');
 
 // Получаем все линии слотов
 const slotLines = [
@@ -79,8 +108,6 @@ const slotLines = [
     document.querySelectorAll('#line3 .slot-symbol')
 ];
 
-let currentRoomId = null;
-let currentPlayerNumber = null;
 let rechargeInterval = null;
 let spinTimeout = null;
 
@@ -88,6 +115,9 @@ let spinTimeout = null;
 socket.on('connect', () => {
     console.log('Подключено к серверу');
     updateConnectionStatus('connected', 'Подключено');
+    playerState.socketId = socket.id;
+    // Запрашиваем список комнат
+    socket.emit('getRooms');
 });
 
 socket.on('disconnect', () => {
@@ -103,23 +133,33 @@ socket.on('connect_error', () => {
 });
 
 socket.on('roomCreated', (data) => {
-    console.log('Комната создана:', data.roomId);
-    currentRoomId = data.roomId;
-    currentPlayerNumber = data.playerNumber || 1;
+    console.log('Комната создана:', data);
+    playerState.roomId = data.roomId;
+    playerState.isHost = data.isHost || false;
     if (displayRoomId) {
         displayRoomId.textContent = data.roomId;
     }
+    if (hostControls) {
+        hostControls.style.display = playerState.isHost ? 'block' : 'none';
+    }
+    // Запрашиваем обновление списка игроков
+    socket.emit('getRooms');
     showScreen(waitingScreen);
     hideError();
 });
 
 socket.on('roomJoined', (data) => {
     console.log('Присоединено к комнате:', data);
-    currentRoomId = data.roomId;
-    currentPlayerNumber = data.playerNumber;
+    playerState.roomId = data.roomId;
+    playerState.isHost = data.isHost || false;
     if (displayRoomId) {
         displayRoomId.textContent = data.roomId;
     }
+    if (hostControls) {
+        hostControls.style.display = playerState.isHost ? 'block' : 'none';
+    }
+    // Запрашиваем обновление списка игроков
+    socket.emit('getRooms');
     showScreen(waitingScreen);
     hideError();
 });
@@ -129,19 +169,84 @@ socket.on('playerJoined', (data) => {
     if (playersCount) {
         playersCount.textContent = data.playerCount;
     }
+    if (data.players) {
+        roomState.players = data.players;
+        updatePlayersListWaiting();
+    }
+});
+
+socket.on('roomsList', (rooms) => {
+    console.log('Список комнат:', rooms);
+    updateRoomsList(rooms);
+});
+
+socket.on('becameHost', (data) => {
+    console.log('Вы стали хостом');
+    playerState.isHost = true;
+    if (hostControls) {
+        hostControls.style.display = 'block';
+    }
+    showError('Вы стали хостом комнаты');
+});
+
+socket.on('roomStateUpdate', (data) => {
+    console.log('Обновление состояния комнаты:', data);
+    if (data.players) {
+        roomState.players = data.players;
+        updatePlayersListGame();
+    }
+    if (data.pairs) {
+        roomState.pairs = data.pairs;
+        updateDuelsDisplay();
+    }
+    if (data.currentRound !== undefined) {
+        roomState.currentRound = data.currentRound;
+        if (currentRound) {
+            currentRound.textContent = data.currentRound;
+        }
+    }
+});
+
+socket.on('roundStarted', (data) => {
+    console.log('Раунд начался:', data);
+    roomState.currentRound = data.round;
+    roomState.pairs = data.pairs;
+    if (currentRound) {
+        currentRound.textContent = data.round;
+    }
+    if (gameRoomId && playerState.roomId) {
+        gameRoomId.textContent = playerState.roomId;
+    }
+    if (playerNickname && playerState.nickname) {
+        playerNickname.textContent = playerState.nickname;
+    }
+    initGame();
+    showScreen(gameScreen);
+    updateDuelsDisplay();
+    updatePlayersListGame();
+});
+
+socket.on('gameEnded', (data) => {
+    console.log('Игра окончена:', data);
+    if (data.winner) {
+        if (data.winner.socketId === playerState.socketId) {
+            showGameResult(true, 'Вы победили в турнире!');
+        } else {
+            showGameResult(false, `Победитель: ${data.winner.nickname}`);
+        }
+    } else {
+        showGameResult(false, 'Игра завершена');
+    }
 });
 
 socket.on('gameStart', (data) => {
     console.log('Игра началась:', data);
-    currentRoomId = data.roomId;
-    if (data.playerNumber) {
-        currentPlayerNumber = data.playerNumber;
-    }
+    playerState.roomId = data.roomId;
     if (gameRoomId) {
         gameRoomId.textContent = data.roomId;
     }
-    if (playerNumber) {
-        playerNumber.textContent = currentPlayerNumber;
+    if (playerNickname && playerState.nickname) {
+        playerNickname.textContent = playerState.nickname;
     }
     initGame();
     showScreen(gameScreen);
@@ -155,15 +260,15 @@ socket.on('gameState', (data) => {
 
 socket.on('attack', (data) => {
     console.log('Получена атака:', data);
-    if (data.targetPlayer === currentPlayerNumber) {
+    if (data.targetPlayerSocketId === playerState.socketId) {
         // Мы получили урон
         takeDamage(data.damage);
-    } else if (data.fromPlayer === currentPlayerNumber) {
+    } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
         showAttackAnimation(data.damage, true);
     } else {
-        // Атака противника, показываем анимацию
-        showAttackAnimation(data.damage, false);
+        // Атака другого игрока, обновляем состояние комнаты
+        updatePlayersListGame();
     }
 });
 
@@ -188,25 +293,35 @@ socket.on('roomError', (data) => {
 
 // Инициализация игры
 function initGame() {
-    gameState = {
-        playerHp: 100,
-        enemyHp: 100,
-        maxHp: 100,
-        isRecharging: false,
-        rechargeTime: 0,
-        canSpin: true,
-        isSpinning: false
-    };
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        gameState.roundHp = player.roundHp || 100;
+        gameState.totalHp = player.totalHp || 100;
+    }
+    
+    // Находим противника
+    const opponent = roomState.players.find(p => 
+        p.socketId === playerState.currentOpponent || 
+        (player && player.isInDuel && p.socketId === player.duelOpponent)
+    );
+    
+    if (opponent) {
+        gameState.enemyRoundHp = opponent.roundHp || 100;
+        gameState.enemyTotalHp = opponent.totalHp || 100;
+        playerState.currentOpponent = opponent.socketId;
+        playerState.isInDuel = true;
+    }
+    
+    gameState.maxHp = 100;
+    gameState.isRecharging = false;
+    gameState.rechargeTime = 0;
+    gameState.canSpin = true;
+    gameState.isSpinning = false;
+    gameState.rechargeEndTime = 0;
+    
     updateHpBars();
     generateInitialSymbols();
     enableSpin();
-    
-    // Отправляем начальное состояние
-    socket.emit('gameState', {
-        roomId: currentRoomId,
-        playerNumber: currentPlayerNumber,
-        gameState: gameState
-    });
 }
 
 // Получение случайного символа с учетом весов
@@ -257,13 +372,13 @@ function updateGameState(data) {
 
 // Обновление HP баров
 function updateHpBars() {
-    // Игрок
-    const playerHpPercent = (gameState.playerHp / gameState.maxHp) * 100;
+    // Игрок - показываем HP раунда
+    const playerHpPercent = (gameState.roundHp / gameState.maxHp) * 100;
     if (playerHpFill) {
         playerHpFill.style.width = `${playerHpPercent}%`;
     }
     if (playerHpText) {
-        playerHpText.textContent = `${gameState.playerHp} / ${gameState.maxHp}`;
+        playerHpText.textContent = `Раунд: ${gameState.roundHp} / ${gameState.maxHp} | Всего: ${gameState.totalHp}`;
     }
     
     if (playerHpPercent <= 25) {
@@ -276,13 +391,13 @@ function updateHpBars() {
         playerHpFill.classList.remove('low', 'medium');
     }
     
-    // Противник
-    const enemyHpPercent = (gameState.enemyHp / gameState.maxHp) * 100;
+    // Противник - показываем HP раунда
+    const enemyHpPercent = (gameState.enemyRoundHp / gameState.maxHp) * 100;
     if (enemyHpFill) {
         enemyHpFill.style.width = `${enemyHpPercent}%`;
     }
     if (enemyHpText) {
-        enemyHpText.textContent = `${gameState.enemyHp} / ${gameState.maxHp}`;
+        enemyHpText.textContent = `Раунд: ${gameState.enemyRoundHp} / ${gameState.maxHp} | Всего: ${gameState.enemyTotalHp}`;
     }
     
     if (enemyHpPercent <= 25) {
@@ -295,11 +410,16 @@ function updateHpBars() {
         enemyHpFill.classList.remove('low', 'medium');
     }
     
-    // Проверка победы/поражения
-    if (gameState.playerHp <= 0) {
-        showGameResult(false);
-    } else if (gameState.enemyHp <= 0) {
-        showGameResult(true);
+    // Проверка победы/поражения в дуэли
+    if (gameState.roundHp <= 0) {
+        // Проиграли дуэль, но не обязательно всю игру
+        const player = roomState.players.find(p => p.socketId === playerState.socketId);
+        if (player && player.totalHp <= 0) {
+            showGameResult(false, 'Вы выбыли из турнира!');
+        }
+    } else if (gameState.enemyRoundHp <= 0) {
+        // Победили в дуэли
+        // Результат будет показан через roomStateUpdate
     }
 }
 
@@ -307,39 +427,43 @@ function updateHpBars() {
 function spin() {
     if (gameState.isSpinning) return;
     
-    const wasRecharging = gameState.isRecharging;
-    
-    // Если спин во время перезарядки, добавляем +2 секунды и продолжаем
-    if (wasRecharging) {
-        gameState.rechargeTime += 2000;
-        const newEndTime = Date.now() + gameState.rechargeTime;
-        // Обновляем время окончания перезарядки
+    // Проверяем, прошло ли 3 секунды с начала перезарядки
+    const now = Date.now();
+    if (gameState.isRecharging && now < gameState.rechargeEndTime) {
+        // Штраф: добавляем +2 секунды
+        const remaining = gameState.rechargeEndTime - now;
+        gameState.rechargeTime = remaining + 2000;
+        gameState.rechargeEndTime = now + gameState.rechargeTime;
+        
+        // Обновляем интервал перезарядки
         if (rechargeInterval) {
             clearInterval(rechargeInterval);
         }
-        const startTime = Date.now();
         rechargeInterval = setInterval(() => {
-            const now = Date.now();
-            const remaining = Math.max(0, newEndTime - now);
-            const progress = 1 - (remaining / gameState.rechargeTime);
+            const currentTime = Date.now();
+            const timeRemaining = Math.max(0, gameState.rechargeEndTime - currentTime);
+            const progress = 1 - (timeRemaining / gameState.rechargeTime);
             if (rechargeFill) {
                 rechargeFill.style.width = `${progress * 100}%`;
             }
             if (rechargeText) {
-                rechargeText.textContent = remaining > 0 
-                    ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
+                rechargeText.textContent = timeRemaining > 0 
+                    ? `Перезарядка: ${(timeRemaining / 1000).toFixed(1)}с (+2 сек штраф)`
                     : 'Готово';
             }
-            if (remaining <= 0) {
+            if (timeRemaining <= 0) {
                 clearInterval(rechargeInterval);
                 gameState.isRecharging = false;
                 gameState.rechargeTime = 0;
+                gameState.rechargeEndTime = 0;
                 enableSpin();
             }
         }, 50);
+        
         if (rechargeText) {
-            rechargeText.textContent = `Перезарядка: +2 сек`;
+            rechargeText.textContent = `Перезарядка: +2 сек штраф`;
         }
+        return; // Не позволяем спин, пока не прошло 3 секунды
     }
     
     gameState.isSpinning = true;
@@ -568,24 +692,35 @@ function checkMatches() {
 function startRecharge() {
     gameState.isRecharging = true;
     gameState.rechargeTime = 3000; // 3 секунды
+    gameState.rechargeEndTime = Date.now() + gameState.rechargeTime;
     
     const startTime = Date.now();
-    const endTime = startTime + gameState.rechargeTime;
+    const endTime = gameState.rechargeEndTime;
+    
+    // Блокируем кнопку спин на 3 секунды
+    if (spinBtn) {
+        spinBtn.disabled = true;
+    }
     
     rechargeInterval = setInterval(() => {
         const now = Date.now();
         const remaining = Math.max(0, endTime - now);
         const progress = 1 - (remaining / gameState.rechargeTime);
         
-        rechargeFill.style.width = `${progress * 100}%`;
-        rechargeText.textContent = remaining > 0 
-            ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
-            : 'Готово';
+        if (rechargeFill) {
+            rechargeFill.style.width = `${progress * 100}%`;
+        }
+        if (rechargeText) {
+            rechargeText.textContent = remaining > 0 
+                ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
+                : 'Готово';
+        }
         
         if (remaining <= 0) {
             clearInterval(rechargeInterval);
             gameState.isRecharging = false;
             gameState.rechargeTime = 0;
+            gameState.rechargeEndTime = 0;
             enableSpin();
         }
     }, 50);
@@ -601,24 +736,25 @@ function enableSpin() {
 
 // Получение урона
 function takeDamage(damage) {
-    gameState.playerHp = Math.max(0, gameState.playerHp - damage);
+    gameState.roundHp = Math.max(0, gameState.roundHp - damage);
+    
+    // Обновляем из состояния комнаты
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        gameState.roundHp = player.roundHp;
+        gameState.totalHp = player.totalHp;
+    }
+    
     updateHpBars();
     
     // Анимация получения урона
     const playerContainer = document.querySelector('.player-character');
-    playerContainer.classList.add('taking-damage');
-    setTimeout(() => {
-        playerContainer.classList.remove('taking-damage');
-    }, 500);
-    
-    // Обновляем состояние на сервере после небольшой задержки
-    setTimeout(() => {
-        socket.emit('gameState', {
-            roomId: currentRoomId,
-            playerNumber: currentPlayerNumber,
-            gameState: gameState
-        });
-    }, 100);
+    if (playerContainer) {
+        playerContainer.classList.add('taking-damage');
+        setTimeout(() => {
+            playerContainer.classList.remove('taking-damage');
+        }, 500);
+    }
 }
 
 // Показ анимации атаки
@@ -638,16 +774,16 @@ function showAttackAnimation(damage, isMyAttack = false) {
 }
 
 // Показ результата игры (победа/поражение)
-function showGameResult(isVictory) {
+function showGameResult(isVictory, message = null) {
     if (!gameResultModal || !resultTitle || !resultMessage) return;
     
     if (isVictory) {
         resultTitle.textContent = '🎉 Победа!';
-        resultMessage.textContent = 'Вы победили противника!';
+        resultMessage.textContent = message || 'Вы победили противника!';
         gameResultModal.classList.add('show');
     } else {
         resultTitle.textContent = '💀 Поражение';
-        resultMessage.textContent = 'Вы проиграли. Попробуйте еще раз!';
+        resultMessage.textContent = message || 'Вы проиграли. Попробуйте еще раз!';
         gameResultModal.classList.add('show');
     }
     
@@ -658,6 +794,175 @@ function showGameResult(isVictory) {
             resetToMenu();
         }, 500);
     }, 5000);
+}
+
+// Обновление списка комнат
+function updateRoomsList(rooms) {
+    if (!roomsList) return;
+    
+    if (rooms.length === 0) {
+        roomsList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Нет доступных комнат</p>';
+        return;
+    }
+    
+    roomsList.innerHTML = rooms.map(room => `
+        <div class="room-item" data-room-id="${room.id}">
+            <div class="room-item-info">
+                <div class="room-item-id">${room.id}</div>
+                <div class="room-item-count">${room.playerCount} / ${room.maxPlayers} игроков</div>
+            </div>
+            <button class="btn btn-small" onclick="joinRoomById('${room.id}')">Присоединиться</button>
+        </div>
+    `).join('');
+}
+
+// Присоединение к комнате по ID
+function joinRoomById(roomId) {
+    const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+    socket.emit('joinRoom', { roomId, nickname: nickname || undefined });
+    updateConnectionStatus('connecting', 'Подключение...');
+}
+
+// Обновление списка игроков в ожидании
+function updatePlayersListWaiting() {
+    if (!playersListWaiting) return;
+    
+    if (roomState.players.length === 0) {
+        playersListWaiting.innerHTML = '';
+        return;
+    }
+    
+    playersListWaiting.innerHTML = roomState.players.map(player => {
+        const isHost = player.socketId === (roomState.players[0]?.socketId);
+        const isBot = player.isBot || false;
+        return `
+            <div class="player-item-waiting ${isHost ? 'host' : ''}">
+                <span>${player.nickname}${isHost ? ' (Хост)' : ''}${isBot ? ' 🤖' : ''}</span>
+                <span>HP: ${player.totalHp}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// Обновление списка игроков в игре
+function updatePlayersListGame() {
+    if (!playersListGame) return;
+    
+    // Обновляем состояние игрока из комнаты
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        gameState.roundHp = player.roundHp;
+        gameState.totalHp = player.totalHp;
+        
+        if (player.isInDuel && player.duelOpponent) {
+            playerState.currentOpponent = player.duelOpponent;
+            playerState.isInDuel = true;
+            
+            const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+            if (opponent) {
+                gameState.enemyRoundHp = opponent.roundHp;
+                gameState.enemyTotalHp = opponent.totalHp;
+            }
+        }
+        
+        updateHpBars();
+    }
+    
+    if (roomState.players.length === 0) {
+        playersListGame.innerHTML = '';
+        return;
+    }
+    
+    playersListGame.innerHTML = roomState.players.map(player => {
+        const isMe = player.socketId === playerState.socketId;
+        const isBot = player.isBot || false;
+        const statusClass = player.isEliminated ? 'eliminated' : 
+                          player.duelStatus === 'winner' ? 'winner' :
+                          player.duelStatus === 'loser' ? 'loser' :
+                          player.isInDuel ? 'in-duel' : '';
+        
+        const roundHpPercent = (player.roundHp / 100) * 100;
+        const totalHpPercent = (player.totalHp / 100) * 100;
+        
+        return `
+            <div class="player-item-game ${statusClass}">
+                <div class="player-item-header">
+                    <span class="player-item-name">${player.nickname}${isMe ? ' (Вы)' : ''}${isBot ? ' 🤖' : ''}</span>
+                </div>
+                <div class="player-item-hp">
+                    Раунд: ${player.roundHp} | Всего: ${player.totalHp}
+                </div>
+                <div class="player-hp-bars">
+                    <div class="player-hp-bar-mini">
+                        <div class="player-hp-fill-mini ${roundHpPercent <= 25 ? 'low' : roundHpPercent <= 50 ? 'medium' : ''}" 
+                             style="width: ${roundHpPercent}%"></div>
+                    </div>
+                    <div class="player-hp-bar-mini">
+                        <div class="player-hp-fill-mini ${totalHpPercent <= 25 ? 'low' : totalHpPercent <= 50 ? 'medium' : ''}" 
+                             style="width: ${totalHpPercent}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Обновление отображения дуэлей
+function updateDuelsDisplay() {
+    if (!duelsContainer) return;
+    
+    if (!roomState.pairs || roomState.pairs.length === 0) {
+        duelsContainer.innerHTML = '';
+        return;
+    }
+    
+    duelsContainer.innerHTML = roomState.pairs.map(pair => {
+        const player1 = roomState.players.find(p => p.socketId === pair[0]);
+        const player2 = pair[1] ? roomState.players.find(p => p.socketId === pair[1]) : null;
+        
+        if (!player1) return '';
+        
+        if (!player2) {
+            // Игрок без пары проходит автоматически
+            return `
+                <div class="duel-pair">
+                    <div class="duel-player">
+                        <strong>${player1.nickname}</strong>
+                        <div>Раунд HP: ${player1.roundHp} | Всего HP: ${player1.totalHp}</div>
+                    </div>
+                    <div class="duel-status winner">ПРОХОДИТ</div>
+                    <div class="duel-player"></div>
+                </div>
+            `;
+        }
+        
+        const status1 = player1.duelStatus || (player1.isInDuel ? 'fighting' : '');
+        const status2 = player2.duelStatus || (player2.isInDuel ? 'fighting' : '');
+        
+        let statusText = 'БОЙ ИДЕТ';
+        let statusClass = 'fighting';
+        if (status1 === 'winner' || status2 === 'loser') {
+            statusText = `${player1.nickname} ПОБЕДИЛ`;
+            statusClass = 'winner';
+        } else if (status1 === 'loser' || status2 === 'winner') {
+            statusText = `${player2.nickname} ПОБЕДИЛ`;
+            statusClass = 'winner';
+        }
+        
+        return `
+            <div class="duel-pair">
+                <div class="duel-player">
+                    <strong>${player1.nickname}</strong>
+                    <div>Раунд HP: ${player1.roundHp} | Всего HP: ${player1.totalHp}</div>
+                </div>
+                <div class="duel-status ${statusClass}">${statusText}</div>
+                <div class="duel-player">
+                    <strong>${player2.nickname}</strong>
+                    <div>Раунд HP: ${player2.roundHp} | Всего HP: ${player2.totalHp}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Закрытие модального окна результата
@@ -700,8 +1005,14 @@ function hideError() {
 
 function resetToMenu() {
     resetGame();
-    currentRoomId = null;
-    currentPlayerNumber = null;
+    playerState.roomId = null;
+    playerState.isHost = false;
+    playerState.currentOpponent = null;
+    playerState.isInDuel = false;
+    roomState.players = [];
+    roomState.pairs = [];
+    roomState.currentRound = 0;
+    
     if (roomIdInput) {
         roomIdInput.value = '';
     }
@@ -711,8 +1022,21 @@ function resetToMenu() {
     if (playersCount) {
         playersCount.textContent = '1';
     }
+    if (hostControls) {
+        hostControls.style.display = 'none';
+    }
+    if (playersListWaiting) {
+        playersListWaiting.innerHTML = '';
+    }
+    if (playersListGame) {
+        playersListGame.innerHTML = '';
+    }
+    if (duelsContainer) {
+        duelsContainer.innerHTML = '';
+    }
     showScreen(menuScreen);
     hideError();
+    socket.emit('getRooms');
 }
 
 function resetGame() {
@@ -725,19 +1049,23 @@ function resetGame() {
         spinTimeout = null;
     }
     gameState = {
-        playerHp: 100,
-        enemyHp: 100,
+        roundHp: 100,
+        totalHp: 100,
+        enemyRoundHp: 100,
+        enemyTotalHp: 100,
         maxHp: 100,
         isRecharging: false,
         rechargeTime: 0,
         canSpin: true,
-        isSpinning: false
+        isSpinning: false,
+        rechargeEndTime: 0
     };
 }
 
 // Обработчики кнопок
 createRoomBtn.addEventListener('click', () => {
-    socket.emit('createRoom');
+    const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+    socket.emit('createRoom', { nickname: nickname || undefined });
     updateConnectionStatus('connecting', 'Создание комнаты...');
 });
 
@@ -747,9 +1075,24 @@ joinRoomBtn.addEventListener('click', () => {
         showError('Введите ID комнаты');
         return;
     }
-    socket.emit('joinRoom', { roomId });
+    const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+    socket.emit('joinRoom', { roomId, nickname: nickname || undefined });
     updateConnectionStatus('connecting', 'Подключение...');
 });
+
+if (refreshRoomsBtn) {
+    refreshRoomsBtn.addEventListener('click', () => {
+        socket.emit('getRooms');
+    });
+}
+
+if (startGameBtn) {
+    startGameBtn.addEventListener('click', () => {
+        if (playerState.roomId) {
+            socket.emit('startGame', { roomId: playerState.roomId });
+        }
+    });
+}
 
 copyRoomIdBtn.addEventListener('click', () => {
     if (displayRoomId && copyRoomIdBtn) {
@@ -763,19 +1106,23 @@ copyRoomIdBtn.addEventListener('click', () => {
     }
 });
 
-leaveRoomBtn.addEventListener('click', () => {
-    if (currentRoomId) {
-        socket.leave(currentRoomId);
-    }
-    resetToMenu();
-});
+if (leaveRoomBtn) {
+    leaveRoomBtn.addEventListener('click', () => {
+        if (playerState.roomId) {
+            socket.leave(playerState.roomId);
+        }
+        resetToMenu();
+    });
+}
 
-leaveGameBtn.addEventListener('click', () => {
-    if (currentRoomId) {
-        socket.leave(currentRoomId);
-    }
-    resetToMenu();
-});
+if (leaveGameBtn) {
+    leaveGameBtn.addEventListener('click', () => {
+        if (playerState.roomId) {
+            socket.leave(playerState.roomId);
+        }
+        resetToMenu();
+    });
+}
 
 spinBtn.addEventListener('click', () => {
     spin();
@@ -798,3 +1145,21 @@ if (closeResultBtn) {
 
 // Инициализация
 updateConnectionStatus('disconnected', 'Отключено');
+
+// Загружаем ник из localStorage
+if (nicknameInput) {
+    const savedNickname = localStorage.getItem('playerNickname');
+    if (savedNickname) {
+        nicknameInput.value = savedNickname;
+    }
+    playerState.nickname = nicknameInput.value.trim() || '';
+    
+    // Сохраняем ник при изменении
+    nicknameInput.addEventListener('change', () => {
+        const nickname = nicknameInput.value.trim();
+        playerState.nickname = nickname;
+        if (nickname) {
+            localStorage.setItem('playerNickname', nickname);
+        }
+    });
+}
