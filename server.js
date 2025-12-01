@@ -137,15 +137,15 @@ const CARDS = [
   { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар в сердце', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки' },
   { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бессмертный регенератор', description: '+20 HP, +10 HP при спине' },
   { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Невидимая стена', description: '+2% уклонения, +2% брони' },
-  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+2 к урону, +2% крита, +0.1 к множителю' },
-  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+2 к урону, +2% уклонения' },
-  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+2 к урону, +2% брони' },
-  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+2 к урону, +20 HP' },
-  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+2 к урону, +10 HP при спине' },
+  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+6 к урону, +2% крита, +0.1 к множителю' },
+  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+6 к урону, +2% уклонения' },
+  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+6 к урону, +2% брони' },
+  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+6 к урону, +20 HP' },
+  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+6 к урону, +10 HP при спине' },
   { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическое исцеление', description: '+2% крита, +0.1 к множителю, +10 HP при спине' },
   { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной щит', description: '+0.3 сек заморозки, +2% брони' },
   { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Морозный призрак', description: '+0.3 сек заморозки, +2% уклонения' },
-  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+2 к урону, +0.3 сек заморозки' },
+  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+6 к урону, +0.3 сек заморозки' },
   { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическая защита', description: '+2% крита, +0.1 к множителю, +2% брони' },
   { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровый крит', description: '+20 HP, +2% крита, +0.1 к множителю' },
   
@@ -156,7 +156,7 @@ const CARDS = [
   { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня бога войны', description: '+4% снижение урона' },
   { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Аптечка самурая', description: '+20 HP при спине' },
   { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Вечная мерзлота', description: '+0.6 сек к перезарядке противника' },
-  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+4 к базовому урону' },
+  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+12 к базовому урону' },
   
   // Легендарные карточки (20 золота, 1 раз, требуют 10 очков стиля)
   { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '⚡ Молния-убийца', description: '+4 атака, 50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike' },
@@ -228,6 +228,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     antiCards: {}, // { antiType: value } - антикарты, снижающие характеристики противника
     legendaryEffects: {}, // { effectType: true } - активные эффекты легендарных карт
     icePunishmentIntervals: {}, // { targetSocketId: intervalId } - активные интервалы ледяной кары
+    styleThresholdRewards: {}, // { styleType: [4, 10, 20] } - отслеживание выданных наград за пороги стиля
     // Флаги отказа действий (для ботов - до первого отказа)
     attackRefused: false, // Бот получил отказ на атаку (неправильная фаза или нет золота)
     cardPurchaseRefused: false // Бот получил отказ на покупку карточек (неправильная фаза или нет золота)
@@ -1286,6 +1287,17 @@ function buyCard(player, cardId) {
   }
   player.cardsOwned[cardId] = (player.cardsOwned[cardId] || 0) + 1;
   
+  // Удаляем купленную карту из магазина
+  if (player.cardShopOffers && Array.isArray(player.cardShopOffers)) {
+    player.cardShopOffers = player.cardShopOffers.filter(offer => offer.id !== cardId);
+  }
+  
+  // Проверяем, остались ли доступные карты в магазине
+  // Если магазин пуст или все карты куплены, автоматически обновляем его
+  if (!player.cardShopOffers || player.cardShopOffers.length === 0) {
+    player.cardShopOffers = generateCardShopOffers(player);
+  }
+  
   // Обрабатываем антикарты
   if (card.isAnti) {
     if (!player.antiCards) player.antiCards = {};
@@ -1313,6 +1325,49 @@ function buyCard(player, cardId) {
     player.stylePoints[card.secondaryType] = (player.stylePoints[card.secondaryType] || 0) + card.stylePoints;
   }
   
+  // Проверяем и выдаем награды за пороговые уровни стиля
+  if (!player.styleThresholdRewards) player.styleThresholdRewards = {};
+  
+  // Проверяем основной тип карты
+  const mainStylePoints = player.stylePoints[card.type] || 0;
+  const mainRewards = player.styleThresholdRewards[card.type] || [];
+  let totalReward = 0;
+  
+  if (mainStylePoints >= 20 && !mainRewards.includes(20)) {
+    totalReward += 15;
+    mainRewards.push(20);
+  } else if (mainStylePoints >= 10 && !mainRewards.includes(10)) {
+    totalReward += 10;
+    mainRewards.push(10);
+  } else if (mainStylePoints >= 4 && !mainRewards.includes(4)) {
+    totalReward += 5;
+    mainRewards.push(4);
+  }
+  player.styleThresholdRewards[card.type] = mainRewards;
+  
+  // Проверяем вторичный тип карты (если есть)
+  if (card.isHybrid && card.secondaryType) {
+    const secondaryStylePoints = player.stylePoints[card.secondaryType] || 0;
+    const secondaryRewards = player.styleThresholdRewards[card.secondaryType] || [];
+    
+    if (secondaryStylePoints >= 20 && !secondaryRewards.includes(20)) {
+      totalReward += 15;
+      secondaryRewards.push(20);
+    } else if (secondaryStylePoints >= 10 && !secondaryRewards.includes(10)) {
+      totalReward += 10;
+      secondaryRewards.push(10);
+    } else if (secondaryStylePoints >= 4 && !secondaryRewards.includes(4)) {
+      totalReward += 5;
+      secondaryRewards.push(4);
+    }
+    player.styleThresholdRewards[card.secondaryType] = secondaryRewards;
+  }
+  
+  // Выдаем награду
+  if (totalReward > 0) {
+    player.permanentGold += totalReward;
+  }
+  
   // Активируем легендарные эффекты
   if (card.legendaryEffect) {
     if (!player.legendaryEffects) player.legendaryEffects = {};
@@ -1324,18 +1379,12 @@ function buyCard(player, cardId) {
     }
   }
   
-  // Удаляем купленную карту из магазина
-  if (player.cardShopOffers && Array.isArray(player.cardShopOffers)) {
-    player.cardShopOffers = player.cardShopOffers.filter(offer => offer.id !== cardId);
+  let message = `Карточка "${card.name}" куплена!`;
+  if (totalReward > 0) {
+    message += ` Награда за порог стиля: +${totalReward}💰`;
   }
   
-  // Проверяем, остались ли доступные карты в магазине
-  // Если магазин пуст или все карты куплены, автоматически обновляем его
-  if (!player.cardShopOffers || player.cardShopOffers.length === 0) {
-    player.cardShopOffers = generateCardShopOffers(player);
-  }
-  
-  return { success: true, message: `Карточка "${card.name}" куплена!` };
+  return { success: true, message: message };
 }
 
 // Обновление магазина карточек
@@ -1362,17 +1411,76 @@ function refreshCardShop(player) {
   return { success: true, message: 'Магазин обновлен!' };
 }
 
-// Расчет пороговых бонусов для стиля
-function getStyleThresholdBonus(stylePoints) {
-  let bonus = 0;
+// Расчет пороговых бонусов для атаки
+function getAttackThresholdBonus(stylePoints) {
   if (stylePoints >= 20) {
-    bonus = 15; // 20 единиц: +15
+    return 30; // 20 единиц: +30 (5 + 10 + 15)
   } else if (stylePoints >= 10) {
-    bonus = 10; // 10 единиц: +10
+    return 15; // 10 единиц: +15 (5 + 10)
   } else if (stylePoints >= 4) {
-    bonus = 5; // 4 единицы: +5
+    return 5; // 4 единицы: +5
   }
-  return bonus;
+  return 0;
+}
+
+// Расчет пороговых бонусов для уклонения
+function getDodgeThresholdBonus(stylePoints) {
+  if (stylePoints >= 20) {
+    return 30; // 20 единиц: +30% (5 + 10 + 15)
+  } else if (stylePoints >= 10) {
+    return 15; // 10 единиц: +15% (5 + 10)
+  } else if (stylePoints >= 4) {
+    return 5; // 4 единицы: +5%
+  }
+  return 0;
+}
+
+// Расчет пороговых бонусов для крита
+function getCriticalThresholdBonus(stylePoints) {
+  if (stylePoints >= 20) {
+    return { chance: 30, multiplier: 1.5 }; // 20 единиц: +30% шанс, +1.5 множитель (0.25 + 0.5 + 0.75)
+  } else if (stylePoints >= 10) {
+    return { chance: 15, multiplier: 0.75 }; // 10 единиц: +15% шанс, +0.75 множитель (0.25 + 0.5)
+  } else if (stylePoints >= 4) {
+    return { chance: 5, multiplier: 0.25 }; // 4 единицы: +5% шанс, +0.25 множитель
+  }
+  return { chance: 0, multiplier: 0 };
+}
+
+// Расчет пороговых бонусов для брони
+function getArmorThresholdBonus(stylePoints) {
+  if (stylePoints >= 20) {
+    return 30; // 20 единиц: +30% (5 + 10 + 15)
+  } else if (stylePoints >= 10) {
+    return 15; // 10 единиц: +15% (5 + 10)
+  } else if (stylePoints >= 4) {
+    return 5; // 4 единицы: +5%
+  }
+  return 0;
+}
+
+// Расчет пороговых бонусов для заморозки
+function getFreezeThresholdBonus(stylePoints) {
+  if (stylePoints >= 20) {
+    return 10; // 20 единиц: +10 сек (2 + 3 + 5)
+  } else if (stylePoints >= 10) {
+    return 5; // 10 единиц: +5 сек (2 + 3)
+  } else if (stylePoints >= 4) {
+    return 2; // 4 единицы: +2 сек
+  }
+  return 0;
+}
+
+// Расчет пороговых бонусов для лечения
+function getHealingThresholdBonus(stylePoints) {
+  if (stylePoints >= 20) {
+    return 30; // 20 единиц: +30 HP (5 + 10 + 15)
+  } else if (stylePoints >= 10) {
+    return 15; // 10 единиц: +15 HP (5 + 10)
+  } else if (stylePoints >= 4) {
+    return 5; // 4 единицы: +5 HP
+  }
+  return 0;
 }
 
 // Проверка и выбывание игрока, если totalHp <= 0
@@ -1446,36 +1554,22 @@ function calculatePlayerStats(player) {
   maxHp += (stylePoints.health || 0) * 20; // +20 HP за единицу здоровья (ослаблено в 1.5 раза)
   
   // Применяем пороговые бонусы
-  const attackBonus = getStyleThresholdBonus(stylePoints.attack || 0);
-  const armorBonus = getStyleThresholdBonus(stylePoints.armor || 0);
-  const dodgeBonus = getStyleThresholdBonus(stylePoints.dodge || 0);
-  const critBonus = getStyleThresholdBonus(stylePoints.critical || 0);
-  const freezeBonus = getStyleThresholdBonus(stylePoints.freeze || 0);
-  const healingBonus = getStyleThresholdBonus(stylePoints.healing || 0);
+  const attackBonus = getAttackThresholdBonus(stylePoints.attack || 0);
+  const armorBonus = getArmorThresholdBonus(stylePoints.armor || 0);
+  const dodgeBonus = getDodgeThresholdBonus(stylePoints.dodge || 0);
+  const critBonus = getCriticalThresholdBonus(stylePoints.critical || 0);
+  const freezeBonus = getFreezeThresholdBonus(stylePoints.freeze || 0);
+  const healingBonus = getHealingThresholdBonus(stylePoints.healing || 0);
   
-  // Специальные пороговые эффекты для крита
-  let critChanceBonus = critBonus;
-  let critMultBonus = 0;
-  if ((stylePoints.critical || 0) >= 20) {
-    critMultBonus = 0.75;
-  } else if ((stylePoints.critical || 0) >= 10) {
-    critMultBonus = 0.5;
-  } else if ((stylePoints.critical || 0) >= 4) {
-    critMultBonus = 0.25;
-  }
+  // Применяем пороговые бонусы для крита (шанс и множитель)
+  const critChanceBonus = critBonus.chance;
+  const critMultBonus = critBonus.multiplier;
   
-  // Специальные пороговые эффекты для заморозки
-  let freezeTimeBonus = 0;
-  if ((stylePoints.freeze || 0) >= 20) {
-    freezeTimeBonus = 5;
-  } else if ((stylePoints.freeze || 0) >= 10) {
-    freezeTimeBonus = 3;
-  } else if ((stylePoints.freeze || 0) >= 4) {
-    freezeTimeBonus = 2;
-  }
+  // Применяем пороговые бонусы для заморозки
+  const freezeTimeBonus = freezeBonus;
   
-  // Специальные пороговые эффекты для лечения
-  let healingHpBonus = healingBonus;
+  // Применяем пороговые бонусы для лечения
+  const healingHpBonus = healingBonus;
   
   // Применяем эффекты легендарных карт
   const legendaryEffects = player.legendaryEffects || {};
@@ -3055,6 +3149,11 @@ io.on('connection', (socket) => {
       return;
     }
     
+    // Проверяем, что игрок не исключён
+    if (player.isEliminated) {
+      return; // Молча игнорируем для исключённых игроков
+    }
+    
     const result = buyCard(player, cardId);
     if (result.success) {
       updateRoomState(roomId);
@@ -3075,6 +3174,11 @@ io.on('connection', (socket) => {
       return;
     }
     
+    // Проверяем, что игрок не исключён
+    if (player.isEliminated) {
+      return; // Молча игнорируем для исключённых игроков
+    }
+    
     const result = refreshCardShop(player);
     if (result.success) {
       updateRoomState(roomId);
@@ -3093,6 +3197,11 @@ io.on('connection', (socket) => {
     if (!player || !room) {
       socket.emit('roomError', { message: 'Игрок или комната не найдены' });
       return;
+    }
+    
+    // Проверяем, что игрок не исключён
+    if (player.isEliminated) {
+      return; // Молча игнорируем для исключённых игроков
     }
     
     // Проверяем, что сейчас перерыв

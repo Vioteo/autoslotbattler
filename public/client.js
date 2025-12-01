@@ -452,13 +452,6 @@ socket.on('roundStarted', (data) => {
     enableSpin();
 });
 
-// Обработчик кнопки обновления магазина
-if (refreshShopBtn) {
-    refreshShopBtn.addEventListener('click', () => {
-        refreshCardShop();
-    });
-}
-
 socket.on('gameEnded', (data) => {
     console.log('Игра окончена:', data);
     if (data.winner) {
@@ -541,10 +534,15 @@ socket.on('abilityUsed', (data) => {
         }
     }
     
-    // Показываем сообщение о способности
+    // Показываем сообщение о способности только для текущего игрока или его противника
     if (data.message) {
-        const target = data.fromPlayerSocketId === playerState.socketId ? 'player' : 'enemy';
-        showFloatingMessage(target, data.message, 'heal');
+        const isFromCurrentPlayer = data.fromPlayerSocketId === playerState.socketId;
+        const isFromOpponent = player && player.isInDuel && player.duelOpponent === data.fromPlayerSocketId;
+        
+        if (isFromCurrentPlayer || isFromOpponent) {
+            const target = isFromCurrentPlayer ? 'player' : 'enemy';
+            showFloatingMessage(target, data.message, 'heal');
+        }
     }
 });
 
@@ -944,12 +942,30 @@ function updateCardShop() {
 // Покупка карточки (глобальная функция для onclick)
 window.buyCard = function(cardId) {
     if (!playerState.roomId) return;
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) return;
+    
+    // Проверяем, что игрок не исключён
+    if (player.isEliminated || player.totalHp <= 0) {
+        showError('Вы выбыли из турнира');
+        return;
+    }
+    
     socket.emit('buyCard', { roomId: playerState.roomId, cardId });
 };
 
 // Обновление магазина
 function refreshCardShop() {
     if (!playerState.roomId) return;
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player) return;
+    
+    // Проверяем, что игрок не исключён
+    if (player.isEliminated || player.totalHp <= 0) {
+        showError('Вы выбыли из турнира');
+        return;
+    }
+    
     socket.emit('refreshCardShop', { roomId: playerState.roomId });
 }
 
@@ -967,8 +983,8 @@ if (readyBtn) {
         const player = roomState.players.find(p => p.socketId === playerState.socketId);
         if (!player) return;
         
-        // Проверяем, что игрок жив (totalHp > 0)
-        if (player.totalHp <= 0) {
+        // Проверяем, что игрок не исключён
+        if (player.isEliminated || player.totalHp <= 0) {
             showError('Вы выбыли из турнира');
             return;
         }
@@ -1029,6 +1045,14 @@ socket.on('playerLeft', (data) => {
 
 socket.on('roomError', (data) => {
     console.error('Ошибка комнаты:', data.message);
+    
+    // Проверяем, не является ли игрок исключённым
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player && (player.isEliminated || player.totalHp <= 0)) {
+        // Игнорируем ошибки для исключённых игроков, чтобы не показывать лишние сообщения
+        return;
+    }
+    
     showError(data.message);
 });
 
