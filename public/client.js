@@ -769,7 +769,7 @@ function updateRoundStatsInShop() {
             const emoji1 = char1 ? char1.emoji : '👤';
             const name1 = player1.nickname + (player1.isBot ? ' 🤖' : '');
             const hp1 = player1.roundHp || 0;
-            const maxHp1 = 100;
+            const maxHp1 = player1.maxHp || 100;
             const hpPercent1 = Math.max(0, (hp1 / maxHp1) * 100);
             
             let status1 = '';
@@ -786,7 +786,7 @@ function updateRoundStatsInShop() {
                 const emoji2 = char2 ? char2.emoji : '👤';
                 const name2 = player2.nickname + (player2.isBot ? ' 🤖' : '');
                 const hp2 = player2.roundHp || 0;
-                const maxHp2 = 100;
+                const maxHp2 = player2.maxHp || 100;
                 const hpPercent2 = Math.max(0, (hp2 / maxHp2) * 100);
                 
                 let status2 = '';
@@ -3274,7 +3274,7 @@ function showRoundStats() {
                 const emoji1 = char1 ? char1.emoji : '👤';
                 const name1 = player1.nickname + (player1.isBot ? ' 🤖' : '');
                 const hp1 = player1.roundHp || 0;
-                const maxHp1 = 100;
+                const maxHp1 = player1.maxHp || 100;
                 const hpPercent1 = Math.max(0, (hp1 / maxHp1) * 100);
                 
                 let status1 = '';
@@ -3295,7 +3295,7 @@ function showRoundStats() {
                     const emoji2 = char2 ? char2.emoji : '👤';
                     const name2 = player2.nickname + (player2.isBot ? ' 🤖' : '');
                     const hp2 = player2.roundHp || 0;
-                    const maxHp2 = 100;
+                    const maxHp2 = player2.maxHp || 100;
                     const hpPercent2 = Math.max(0, (hp2 / maxHp2) * 100);
                     
                     let status2 = '';

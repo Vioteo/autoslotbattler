@@ -46,22 +46,22 @@ let botIdCounter = 0;
 const BOT_BEHAVIOR_PATTERNS = {
   AGGRESSIVE: {
     name: 'Агрессивный',
-    permanentGoldAttackChance: 0.7,
-    cardPurchaseChance: 0.2,
+    permanentGoldAttackChance: 1.0, // 0.7 + 0.3 = 1.0 (100%)
+    cardPurchaseChance: 0.5,
     suffixes: ['-Безумец', '-Разрушитель', '-Берсерк', '-Яростный']
   },
   ECONOMIC: {
     name: 'Экономичный',
-    permanentGoldAttackChance: 0.2,
-    cardPurchaseChance: 0.6,
+    permanentGoldAttackChance: 0.5, // 0.2 + 0.3 = 0.5 (50%)
+    cardPurchaseChance: 0.9,
     suffixes: ['-Скупой', '-Торгаш', '-Коллекционер', '-Хранитель']
   },
   STRATEGIC: {
     name: 'Стратегический',
-    permanentGoldAttackChance: 0.3, // до 30 HP
-    permanentGoldAttackChanceAfter: 0.85, // после 30 HP
-    cardPurchaseChance: 0.3, // до 30 HP
-    cardPurchaseChanceAfter: 0.7, // после 30 HP
+    permanentGoldAttackChance: 0.6, // 0.3 + 0.3 = 0.6 (60%) до 30 HP
+    permanentGoldAttackChanceAfter: 1.0, // 0.85 + 0.15 = 1.0 (100%) после 30 HP
+    cardPurchaseChance: 0.6, // до 30 HP
+    cardPurchaseChanceAfter: 1.0, // после 30 HP
     hpThreshold: 30,
     suffixes: ['-Терпеливый', '-Мудрый', '-Хитрец', '-Тактик']
   }
@@ -267,6 +267,12 @@ function createBot(roomId) {
   const randomCharacter = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
   bot.characterId = randomCharacter.id;
   
+  // Выбираем предпочтительные стили (минимум 2)
+  const allStyles = Object.values(CARD_TYPES);
+  const preferredStylesCount = 2 + Math.floor(Math.random() * 2); // 2-3 стиля
+  const shuffledStyles = [...allStyles].sort(() => Math.random() - 0.5);
+  bot.preferredStyles = shuffledStyles.slice(0, preferredStylesCount);
+  
   bots.set(botId, bot);
   players.set(botId, bot);
   return bot;
@@ -400,6 +406,15 @@ function botDecideAction(bot, opponent) {
   const spinCost = 5;
   const botHpPercent = bot.roundHp / 100;
   const opponentHpPercent = opponent.roundHp / 100;
+  
+  // Копии тратят только временное золото
+  if (bot.isCopy) {
+    if (bot.temporaryGold >= spinCost) {
+      return 'spin';
+    } else {
+      return 'endTurn';
+    }
+  }
   
   // 100% шанс атаковать при наличии временного золота (оно теряется в конце раунда!)
   if (bot.temporaryGold >= spinCost) {
@@ -587,7 +602,15 @@ function handleBotSpin(botId, roomId) {
   }
   
   // Тратим золото (сначала временное, потом постоянное)
-  if (bot.temporaryGold >= spinCost) {
+  // Копии тратят только временное золото
+  if (bot.isCopy) {
+    if (bot.temporaryGold >= spinCost) {
+      bot.temporaryGold -= spinCost;
+    } else {
+      // Копия не может тратить постоянное золото
+      return;
+    }
+  } else if (bot.temporaryGold >= spinCost) {
     bot.temporaryGold -= spinCost;
   } else if (bot.permanentGold >= spinCost) {
     bot.permanentGold -= spinCost;
@@ -802,6 +825,11 @@ function handleBotSpin(botId, roomId) {
             armorReduced = true;
           }
           
+          // Исправление бага: если урон стал 0, но у противника очень мало HP (<=2), применяем минимум 1 урон
+          if (finalDamage === 0 && opponent.roundHp > 0 && opponent.roundHp <= 2) {
+            finalDamage = 1;
+          }
+          
           // Эффект мстительного здоровья
           if (opponent.legendaryEffects && opponent.legendaryEffects.vengefulHealth) {
             const lostHp = opponent.roundHp - Math.max(0, opponent.roundHp - finalDamage);
@@ -972,6 +1000,9 @@ function handleBotSpin(botId, roomId) {
       // Проигравший теряет 20% от общего HP
       opponent.totalHp = Math.max(0, opponent.totalHp - Math.floor(opponent.totalHp * 0.2));
       
+      // Проверяем и выбываем игрока, если totalHp <= 0
+      checkAndEliminatePlayer(opponent);
+      
       // Обновляем серии и статистику
       bot.winStreak = (bot.winStreak || 0) + 1;
       bot.loseStreak = 0; // Победа сбрасывает серию поражений
@@ -1016,10 +1047,20 @@ function handleBotSpin(botId, roomId) {
     // Общее время до следующего спина = время перезарядки (3000мс) + задержка (bot.spinDelay)
     if (bot.isInDuel && !bot.isEliminated && !bot.hasEndedTurn) {
       const rechargeTime = 3000; // 3 секунды перезарядки
-      const totalDelay = rechargeTime + bot.spinDelay; // Перезарядка + задержка после окончания перезарядки
+      const totalDelay = rechargeTime + (bot.spinDelay || 0); // Перезарядка + задержка после окончания перезарядки
       
       setTimeout(() => {
-        handleBotSpin(botId, roomId);
+        // Проверяем решение еще раз после перезарядки (вероятность повторяется)
+        const currentBot = bots.get(botId);
+        const currentOpponent = currentBot && currentBot.duelOpponent ? players.get(currentBot.duelOpponent) : null;
+        if (currentBot && currentOpponent && currentBot.isInDuel && !currentBot.isEliminated && !currentBot.hasEndedTurn) {
+          const nextDecision = botDecideAction(currentBot, currentOpponent);
+          if (nextDecision === 'spin') {
+            handleBotSpin(botId, roomId);
+          } else {
+            botEndTurn(botId, roomId);
+          }
+        }
       }, totalDelay);
     }
     
@@ -1217,12 +1258,18 @@ function buyCard(player, cardId) {
   }
   
   // Проверяем золото
-  if (player.permanentGold < card.cost) {
-    return { success: false, message: 'Недостаточно постоянного золота' };
+  // Копии тратят только временное золото
+  if (player.isCopy) {
+    if (player.temporaryGold < card.cost) {
+      return { success: false, message: 'Недостаточно временного золота' };
+    }
+    player.temporaryGold -= card.cost;
+  } else {
+    if (player.permanentGold < card.cost) {
+      return { success: false, message: 'Недостаточно постоянного золота' };
+    }
+    player.permanentGold -= card.cost;
   }
-  
-  // Покупаем карточку
-  player.permanentGold -= card.cost;
   player.cardsOwned[cardId] = (player.cardsOwned[cardId] || 0) + 1;
   
   // Обрабатываем антикарты
@@ -1282,7 +1329,14 @@ function refreshCardShop(player) {
   const refreshCost = 2;
   
   // Можно использовать временное или постоянное золото
-  if (player.temporaryGold >= refreshCost) {
+  // Копии тратят только временное золото
+  if (player.isCopy) {
+    if (player.temporaryGold >= refreshCost) {
+      player.temporaryGold -= refreshCost;
+    } else {
+      return { success: false, message: 'Недостаточно временного золота' };
+    }
+  } else if (player.temporaryGold >= refreshCost) {
     player.temporaryGold -= refreshCost;
   } else if (player.permanentGold >= refreshCost) {
     player.permanentGold -= refreshCost;
@@ -1305,6 +1359,16 @@ function getStyleThresholdBonus(stylePoints) {
     bonus = 5; // 4 единицы: +5
   }
   return bonus;
+}
+
+// Проверка и выбывание игрока, если totalHp <= 0
+function checkAndEliminatePlayer(player) {
+  if (player && player.totalHp <= 0) {
+    player.isEliminated = true;
+    player.totalHp = 0; // Гарантируем, что HP не будет отрицательным
+    return true;
+  }
+  return false;
 }
 
 // Применение крита к урону
@@ -1460,6 +1524,41 @@ function handleBotCardPurchase(botId, roomId) {
       }
     }
     
+    // Проверяем предпочтительные стили бота
+    const preferredStyles = bot.preferredStyles || [];
+    
+    // Проверяем, есть ли карты предпочтительных стилей в магазине
+    const hasPreferredStyles = bot.cardShopOffers.some(card => {
+      const cardTypes = [card.type];
+      if (card.isHybrid && card.secondaryType) {
+        cardTypes.push(card.secondaryType);
+      }
+      return cardTypes.some(type => preferredStyles.includes(type));
+    });
+    
+    // Если нет карт предпочтительных стилей и есть золото для рерола - делаем рерол
+    // Но только если после рерола останется золото для покупки хотя бы одной карты
+    const refreshCost = 2;
+    const minCardCost = 5; // Минимальная стоимость карты
+    
+    if (!hasPreferredStyles && preferredStyles.length > 0) {
+      // Проверяем, хватит ли золота на рерол + хотя бы одну карту
+      const totalNeeded = refreshCost + minCardCost;
+      const hasEnoughForRefreshAndCard = 
+        (bot.permanentGold >= totalNeeded) || 
+        (bot.temporaryGold >= refreshCost && bot.permanentGold >= minCardCost) ||
+        (bot.permanentGold >= refreshCost && bot.temporaryGold >= minCardCost);
+      
+      if (hasEnoughForRefreshAndCard && 
+          (bot.permanentGold >= refreshCost || bot.temporaryGold >= refreshCost)) {
+        const refreshResult = refreshCardShop(bot);
+        if (refreshResult.success) {
+          console.log(`Бот ${bot.nickname} сделал рерол магазина для поиска предпочтительных стилей (потрачено ${refreshCost} золота)`);
+          // После рерола продолжаем с новыми предложениями
+        }
+      }
+    }
+    
     // Проверяем, есть ли доступные карточки для покупки (есть золото и карточки в предложениях)
     const affordableCards = bot.cardShopOffers.filter(card => bot.permanentGold >= card.cost);
     if (affordableCards.length === 0) {
@@ -1472,20 +1571,77 @@ function handleBotCardPurchase(botId, roomId) {
       return;
     }
     
-    // Бот покупает карточки в зависимости от паттерна поведения
+    // Бот покупает карточки в цикле (может купить несколько подряд)
+    let maxPurchaseAttempts = 10; // Максимум попыток покупки за один вызов
+    let purchaseAttempt = 0;
     let purchasedAny = false;
-    bot.cardShopOffers.forEach(card => {
-      if (Math.random() < cardPurchaseChance && bot.permanentGold >= card.cost) {
-        const result = buyCard(bot, card.id);
-        if (result.success) {
-          purchasedAny = true;
-          console.log(`Бот ${bot.nickname} купил карточку ${card.name}`);
+    
+    while (purchaseAttempt < maxPurchaseAttempts && bot.permanentGold >= 5) { // Минимальная стоимость карты
+      purchaseAttempt++;
+      
+      // Пересчитываем доступные карты в каждой итерации (после покупки список обновляется)
+      const currentAffordableCards = bot.cardShopOffers.filter(card => bot.permanentGold >= card.cost);
+      if (currentAffordableCards.length === 0) {
+        break; // Больше нет доступных карт
+      }
+      
+      // Сортируем карты по приоритету (предпочтительные стили имеют больший приоритет)
+      const sortedCards = [...currentAffordableCards].sort((a, b) => {
+        const aTypes = [a.type];
+        if (a.isHybrid && a.secondaryType) aTypes.push(a.secondaryType);
+        const bTypes = [b.type];
+        if (b.isHybrid && b.secondaryType) bTypes.push(b.secondaryType);
+        
+        const aHasPreferred = aTypes.some(type => preferredStyles.includes(type));
+        const bHasPreferred = bTypes.some(type => preferredStyles.includes(type));
+        
+        if (aHasPreferred && !bHasPreferred) return -1;
+        if (!aHasPreferred && bHasPreferred) return 1;
+        return 0;
+      });
+      
+      // Выбираем карту для покупки (предпочтительно из предпочтительных стилей)
+      let cardToBuy = null;
+      for (const card of sortedCards) {
+        if (bot.permanentGold < card.cost) continue;
+        
+        const cardTypes = [card.type];
+        if (card.isHybrid && card.secondaryType) cardTypes.push(card.secondaryType);
+        const isPreferred = cardTypes.some(type => preferredStyles.includes(type));
+        
+        // Более высокая вероятность покупки для предпочтительных стилей
+        const adjustedChance = isPreferred ? cardPurchaseChance * 1.5 : cardPurchaseChance;
+        const finalChance = Math.min(adjustedChance, 1.0); // Ограничиваем до 1.0
+        
+        if (Math.random() < finalChance) {
+          cardToBuy = card;
+          break;
         }
       }
-    });
-    
-    // Если бот не купил ни одной карточки (из-за вероятности), но мог бы купить,
-    // это не считается отказом - он может попробовать в следующий раз
+      
+      // Если не выбрали карту, пробуем еще раз с обычной вероятностью
+      if (!cardToBuy && sortedCards.length > 0) {
+        const randomCard = sortedCards[Math.floor(Math.random() * sortedCards.length)];
+        if (bot.permanentGold >= randomCard.cost && Math.random() < cardPurchaseChance) {
+          cardToBuy = randomCard;
+        }
+      }
+      
+      // Покупаем выбранную карту (проверяем золото еще раз перед покупкой)
+      if (cardToBuy && bot.permanentGold >= cardToBuy.cost) {
+        const result = buyCard(bot, cardToBuy.id);
+        if (result.success) {
+          purchasedAny = true;
+          console.log(`Бот ${bot.nickname} купил карточку ${cardToBuy.name} за ${cardToBuy.cost} золота (осталось: ${bot.permanentGold})`);
+        } else {
+          // Если покупка не удалась (например, достигнут лимит), прекращаем попытки
+          break;
+        }
+      } else {
+        // Не удалось выбрать карту или недостаточно золота - прекращаем попытки
+        break;
+      }
+    }
     
     // Обновляем состояние комнаты
     updateRoomState(roomId);
@@ -1552,6 +1708,31 @@ function getAvailableRooms() {
 }
 
 // Создать случайные пары для дуэлей
+// Создание копии игрока для боя при нечетном количестве
+function createPlayerCopy(originalPlayer, roomId) {
+  if (!originalPlayer) return null;
+  
+  const copyId = `COPY_${originalPlayer.socketId}_${Date.now()}`;
+  const copy = JSON.parse(JSON.stringify(originalPlayer)); // Глубокая копия
+  
+  // Обновляем идентификаторы
+  copy.socketId = copyId;
+  copy.nickname = `${originalPlayer.nickname} (Копия)`;
+  copy.isCopy = true;
+  copy.originalSocketId = originalPlayer.socketId; // Ссылка на оригинал
+  copy.roomId = roomId;
+  
+  // Копия должна тратить только временное золото
+  // Синхронизируем золото с оригиналом
+  copy.temporaryGold = originalPlayer.temporaryGold;
+  copy.permanentGold = originalPlayer.permanentGold;
+  
+  // Сохраняем копию в хранилище
+  players.set(copyId, copy);
+  
+  return copy;
+}
+
 function createPairs(playerIds) {
   const shuffled = [...playerIds].sort(() => Math.random() - 0.5);
   const pairs = [];
@@ -1559,8 +1740,38 @@ function createPairs(playerIds) {
     if (i + 1 < shuffled.length) {
       pairs.push([shuffled[i], shuffled[i + 1]]);
     } else {
-      // Нечетное количество - один игрок проходит автоматически
-      pairs.push([shuffled[i], null]);
+      // Нечетное количество - создаем копию одного из живых игроков
+      const oddPlayerId = shuffled[i];
+      const oddPlayer = players.get(oddPlayerId);
+      
+      if (oddPlayer && !oddPlayer.isEliminated) {
+        // Выбираем случайного живого игрока для создания копии (не самого нечетного)
+        const otherPlayers = shuffled.filter(id => id !== oddPlayerId && !players.get(id)?.isEliminated);
+        if (otherPlayers.length > 0) {
+          const originalId = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+          const originalPlayer = players.get(originalId);
+          
+          if (originalPlayer) {
+            const copy = createPlayerCopy(originalPlayer, oddPlayer.roomId);
+            if (copy) {
+              // Добавляем копию в комнату
+              const room = rooms.get(oddPlayer.roomId);
+              if (room && !room.players.includes(copy.socketId)) {
+                room.players.push(copy.socketId);
+              }
+              pairs.push([oddPlayerId, copy.socketId]);
+            } else {
+              pairs.push([oddPlayerId, null]);
+            }
+          } else {
+            pairs.push([oddPlayerId, null]);
+          }
+        } else {
+          pairs.push([oddPlayerId, null]);
+        }
+      } else {
+        pairs.push([oddPlayerId, null]);
+      }
     }
   }
   return pairs;
@@ -1788,8 +1999,8 @@ function checkAllDuelsFinished(roomId) {
       // Генерируем предложения карточек для всех игроков перед показом магазина
       activePlayers.forEach(id => {
         const p = players.get(id);
-        if (p && !p.isBot) {
-          // Генерируем предложения, если их еще нет
+        if (p) {
+          // Генерируем предложения, если их еще нет (для всех игроков, включая ботов)
           if (!p.cardShopOffers || p.cardShopOffers.length === 0) {
             p.cardShopOffers = generateCardShopOffers(p);
           }
@@ -1806,6 +2017,17 @@ function checkAllDuelsFinished(roomId) {
       
       // Устанавливаем состояние BREAK с таймером 1 минута
       setGameState(roomId, GAME_STATES.BREAK);
+      
+      // Боты покупают карточки во время перерыва
+      activePlayers.forEach(id => {
+        const p = players.get(id);
+        if (p && p.isBot) {
+          // Запускаем покупку карточек для бота с небольшой задержкой
+          setTimeout(() => {
+            handleBotCardPurchase(id, roomId);
+          }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
+        }
+      });
       
       // Отправляем событие о начале перерыва перед следующим раундом (для обратной совместимости)
       io.to(roomId).emit('breakStarted', {
@@ -1929,6 +2151,9 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
     // Проигравший теряет 20% от общего HP
     loser.totalHp = Math.max(0, loser.totalHp - Math.floor(loser.totalHp * 0.2));
     
+    // Проверяем и выбываем игрока, если totalHp <= 0
+    checkAndEliminatePlayer(loser);
+    
     // Обновляем серии и статистику
     winner.winStreak = (winner.winStreak || 0) + 1;
     winner.loseStreak = 0; // Победа сбрасывает серию поражений
@@ -1988,6 +2213,16 @@ function startNextRound(roomId) {
   activePlayers.forEach(id => {
     const p = players.get(id);
     if (p) {
+      // Если это копия, синхронизируем золото с оригиналом перед обновлением
+      if (p.isCopy && p.originalSocketId) {
+        const original = players.get(p.originalSocketId);
+        if (original) {
+          // Синхронизируем золото с оригиналом
+          p.temporaryGold = original.temporaryGold;
+          p.permanentGold = original.permanentGold;
+        }
+      }
+      
       // Золото уже начислено при завершении дуэли, здесь только сбрасываем статусы
       // Сбрасываем информацию о последнем раунде (будет обновлена в следующем раунде)
       p.lastRoundGoldBonus = 0;
@@ -2001,12 +2236,14 @@ function startNextRound(roomId) {
         p.cardPurchaseRefused = false;
       }
       
-      // Начисляем 20% от постоянного золота в конце раунда
-      const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
-      if (interestGold > 0) {
-        p.permanentGold = (p.permanentGold || 0) + interestGold;
-        p.lastRoundGoldEarned = interestGold;
-        p.lastRoundGoldBonus = 20; // 20% проценты
+      // Начисляем 20% от постоянного золота в конце раунда (только для не-копий)
+      if (!p.isCopy) {
+        const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
+        if (interestGold > 0) {
+          p.permanentGold = (p.permanentGold || 0) + interestGold;
+          p.lastRoundGoldEarned = interestGold;
+          p.lastRoundGoldBonus = 20; // 20% проценты
+        }
       }
       
       // Устанавливаем roundHp равным maxHp в начале раунда
@@ -2017,7 +2254,19 @@ function startNextRound(roomId) {
       p.duelStatus = null;
       p.lastSpinTime = 0;
       p.rechargeEndTime = 0;
-      p.temporaryGold = 30; // Выдаем 30 временного золота
+      
+      // Выдаем 30 временного золота (для копий синхронизируем с оригиналом после)
+      if (!p.isCopy) {
+        p.temporaryGold = 30;
+      } else if (p.originalSocketId) {
+        const original = players.get(p.originalSocketId);
+        if (original) {
+          p.temporaryGold = original.temporaryGold;
+        } else {
+          p.temporaryGold = 30; // Fallback
+        }
+      }
+      
       p.hasEndedTurn = false;
       
       // Очищаем интервалы ледяной кары при начале нового раунда
@@ -2027,14 +2276,6 @@ function startNextRound(roomId) {
       // Предложения для текущего перерыва уже были сгенерированы в checkAllDuelsFinished
       // Здесь генерируем для следующего перерыва
       p.cardShopOffers = generateCardShopOffers(p);
-      
-      // Боты покупают карточки между боями
-      if (p.isBot) {
-        // Запускаем покупку карточек для бота с небольшой задержкой
-        setTimeout(() => {
-          handleBotCardPurchase(id, roomId);
-        }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
-      }
     }
   });
   
@@ -2289,7 +2530,15 @@ io.on('connection', (socket) => {
     
     // Тратим золото на спин (5 золота) - ВСЕГДА, даже если нет комбинации
     const spinCost = 5;
-    if (attacker.temporaryGold >= spinCost) {
+    // Копии тратят только временное золото
+    if (attacker.isCopy) {
+      if (attacker.temporaryGold >= spinCost) {
+        attacker.temporaryGold -= spinCost;
+      } else {
+        // Копия не может тратить постоянное золото
+        return;
+      }
+    } else if (attacker.temporaryGold >= spinCost) {
       attacker.temporaryGold -= spinCost;
     } else if (attacker.permanentGold >= spinCost) {
       attacker.permanentGold -= spinCost;
@@ -2495,19 +2744,24 @@ io.on('connection', (socket) => {
           } else {
             finalDamage = Math.floor(finalDamage * (1 - armorReduction));
           }
-          // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
-          if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
-            armorReduced = true;
-          }
-          
-          // Эффект мстительного здоровья
-          if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
-            const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
-            let revengeDamage = Math.floor(lostHp * 0.1);
-            // Применяем крит к мстительному урону (крит применяется от того, кто мстит)
-            const critResult = applyCritToDamage(revengeDamage, targetStats);
-            revengeDamage = critResult.damage;
-            attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
+            // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
+            if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
+              armorReduced = true;
+            }
+            
+            // Исправление бага: если урон стал 0, но у противника очень мало HP (<=2), применяем минимум 1 урон
+            if (finalDamage === 0 && target.roundHp > 0 && target.roundHp <= 2) {
+              finalDamage = 1;
+            }
+            
+            // Эффект мстительного здоровья
+            if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
+              const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
+              let revengeDamage = Math.floor(lostHp * 0.1);
+              // Применяем крит к мстительному урону (крит применяется от того, кто мстит)
+              const critResult = applyCritToDamage(revengeDamage, targetStats);
+              revengeDamage = critResult.damage;
+              attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
             if (revengeDamage > 0) {
               io.to(roomId).emit('attack', {
                 fromPlayerSocketId: targetPlayerSocketId,
@@ -2652,6 +2906,9 @@ io.on('connection', (socket) => {
     if (target.roundHp <= 0) {
       // Проигравший теряет 20% от общего HP
       target.totalHp = Math.max(0, target.totalHp - Math.floor(target.totalHp * 0.2));
+      
+      // Проверяем и выбываем игрока, если totalHp <= 0
+      checkAndEliminatePlayer(target);
       
       // Обновляем серии и статистику
       attacker.winStreak = (attacker.winStreak || 0) + 1;
