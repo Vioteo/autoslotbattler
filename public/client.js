@@ -1647,13 +1647,7 @@ function updatePlayersListGame() {
                     enemyPermGold.textContent = opponent.permanentGold || 0;
                 }
                 
-                // Запускаем таймер перед боем, если он есть
-                if (opponent.duelStartTime || player.duelStartTime) {
-                    const duelStartTime = player.duelStartTime || opponent.duelStartTime;
-                    if (duelStartTime > 0) {
-                        startBattleTimer(duelStartTime);
-                    }
-                }
+                // Таймер запускается в roundStarted, не запускаем здесь повторно
             }
         } else {
             // Скрываем баланс противника, если не в дуэли
@@ -2215,64 +2209,101 @@ function showRoundStats() {
         statsScreenTimeout = null;
     }
     
-    // Находим информацию о дуэли
-    let duelInfo = '';
-    let opponentInfo = null;
+    // Формируем статистику всех пар раунда
+    let pairsHtml = '';
     
-    if (player.duelOpponent) {
-        opponentInfo = roomState.players.find(p => p.socketId === player.duelOpponent);
-    }
-    
-    // Находим пару для отображения результатов
-    const pair = roomState.pairs.find(p => 
-        (p[0] === playerState.socketId || p[1] === playerState.socketId)
-    );
-    
-    if (pair && opponentInfo) {
-        const player1 = roomState.players.find(p => p.socketId === pair[0]);
-        const player2 = pair[1] ? roomState.players.find(p => p.socketId === pair[1]) : null;
+    if (roomState.pairs && roomState.pairs.length > 0) {
+        pairsHtml = '<div class="round-stats-section"><h3>Результаты боев раунда</h3>';
         
-        if (player1 && player2) {
-            const winner = player1.duelStatus === 'winner' ? player1 : 
-                          player2.duelStatus === 'winner' ? player2 : null;
-            const loser = winner === player1 ? player2 : player1;
+        roomState.pairs.forEach((pair, index) => {
+            const player1 = roomState.players.find(p => p.socketId === pair[0]);
+            const player2 = pair[1] ? roomState.players.find(p => p.socketId === pair[1]) : null;
             
-            if (winner) {
-                duelInfo = `
-                    <div class="duel-result">
-                        <h3>Результат дуэли:</h3>
-                        <div class="duel-winner">🏆 Победитель: <strong>${winner.nickname}</strong></div>
-                        <div class="duel-loser">💀 Проигравший: <strong>${loser.nickname}</strong></div>
-                    </div>
-                `;
+            if (player1) {
+                const char1 = CHARACTERS.find(c => c.id === player1.characterId);
+                const emoji1 = char1 ? char1.emoji : '👤';
+                const name1 = player1.nickname + (player1.isBot ? ' 🤖' : '');
+                const hp1 = player1.roundHp || 0;
+                const maxHp1 = 200;
+                const hpPercent1 = Math.max(0, (hp1 / maxHp1) * 100);
+                
+                let status1 = '';
+                if (player1.duelStatus === 'winner') {
+                    status1 = '<span style="color: #4caf50; font-weight: bold;">🏆 Победитель</span>';
+                } else if (player1.duelStatus === 'loser') {
+                    status1 = '<span style="color: #f44336; font-weight: bold;">💀 Проиграл</span>';
+                } else if (player1.isInDuel) {
+                    status1 = '<span style="color: #ff9800;">⚔️ Бой идет</span>';
+                } else if (player1.hasEndedTurn) {
+                    status1 = '<span style="color: #2196f3;">✅ Закончил ход</span>';
+                } else {
+                    status1 = '<span style="color: #9e9e9e;">⏳ Ожидание</span>';
+                }
+                
+                if (player2) {
+                    const char2 = CHARACTERS.find(c => c.id === player2.characterId);
+                    const emoji2 = char2 ? char2.emoji : '👤';
+                    const name2 = player2.nickname + (player2.isBot ? ' 🤖' : '');
+                    const hp2 = player2.roundHp || 0;
+                    const maxHp2 = 200;
+                    const hpPercent2 = Math.max(0, (hp2 / maxHp2) * 100);
+                    
+                    let status2 = '';
+                    if (player2.duelStatus === 'winner') {
+                        status2 = '<span style="color: #4caf50; font-weight: bold;">🏆 Победитель</span>';
+                    } else if (player2.duelStatus === 'loser') {
+                        status2 = '<span style="color: #f44336; font-weight: bold;">💀 Проиграл</span>';
+                    } else if (player2.isInDuel) {
+                        status2 = '<span style="color: #ff9800;">⚔️ Бой идет</span>';
+                    } else if (player2.hasEndedTurn) {
+                        status2 = '<span style="color: #2196f3;">✅ Закончил ход</span>';
+                    } else {
+                        status2 = '<span style="color: #9e9e9e;">⏳ Ожидание</span>';
+                    }
+                    
+                    pairsHtml += `
+                        <div class="duel-pair" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px; border: 2px solid ${player1.duelStatus === 'winner' || player2.duelStatus === 'winner' ? '#4caf50' : '#ddd'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 24px; margin-bottom: 5px;">${emoji1} ${name1}</div>
+                                    <div style="margin-bottom: 5px;">${status1}</div>
+                                    <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 20px; margin-bottom: 5px;">
+                                        <div style="width: ${hpPercent1}%; background: ${hp1 > 0 ? '#4caf50' : '#f44336'}; height: 20px; border-radius: 4px; transition: width 0.3s;"></div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">HP: ${hp1} / ${maxHp1}</div>
+                                </div>
+                                <div style="margin: 0 20px; font-size: 24px; font-weight: bold;">VS</div>
+                                <div style="flex: 1; text-align: right;">
+                                    <div style="font-size: 24px; margin-bottom: 5px;">${emoji2} ${name2}</div>
+                                    <div style="margin-bottom: 5px;">${status2}</div>
+                                    <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 20px; margin-bottom: 5px;">
+                                        <div style="width: ${hpPercent2}%; background: ${hp2 > 0 ? '#4caf50' : '#f44336'}; height: 20px; border-radius: 4px; transition: width 0.3s;"></div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">HP: ${hp2} / ${maxHp2}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Игрок без пары (прошел автоматически)
+                    pairsHtml += `
+                        <div class="duel-pair" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px; border: 2px solid #4caf50;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; margin-bottom: 5px;">${emoji1} ${name1}</div>
+                                <div style="color: #4caf50; font-weight: bold;">🏆 Прошел автоматически (нет противника)</div>
+                            </div>
+                        </div>
+                    `;
+                }
             }
-        }
+        });
+        
+        pairsHtml += '</div>';
     }
     
-    // Формируем статистику
+    // Формируем финальный HTML
     const statsHtml = `
-        <div class="round-stats-section">
-            <h3>Ваша статистика</h3>
-            <div class="stats-row">
-                <div>🏆 Серия побед: <strong>${player.winStreak || 0}</strong></div>
-                <div>💔 Серия поражений: <strong>${player.loseStreak || 0}</strong></div>
-            </div>
-            <div class="stats-row">
-                <div>✅ Всего побед: <strong>${player.wins || 0}</strong></div>
-                <div>❌ Всего поражений: <strong>${player.losses || 0}</strong></div>
-            </div>
-            <div class="stats-row">
-                <div>💰 Постоянное золото: <strong>${player.permanentGold || 0}</strong></div>
-                <div>💵 Временное золото: <strong>${player.temporaryGold || 0}</strong></div>
-            </div>
-            ${player.lastRoundGoldEarned > 0 ? `
-                <div class="stats-row">
-                    <div>💎 Золото за раунд: <strong>+${player.lastRoundGoldEarned}</strong></div>
-                    ${player.lastRoundGoldBonus > 0 ? `<div>📈 Бонус: <strong>+${player.lastRoundGoldBonus}%</strong></div>` : ''}
-                </div>
-            ` : ''}
-        </div>
-        ${duelInfo}
+        ${pairsHtml}
         <div class="round-stats-note">Ожидание следующего раунда...</div>
     `;
     
