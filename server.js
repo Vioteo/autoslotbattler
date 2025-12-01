@@ -226,7 +226,10 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     cardShopOffers: [], // Текущие предложения в магазине
     antiCards: {}, // { antiType: value } - антикарты, снижающие характеристики противника
     legendaryEffects: {}, // { effectType: true } - активные эффекты легендарных карт
-    icePunishmentIntervals: {} // { targetSocketId: intervalId } - активные интервалы ледяной кары
+    icePunishmentIntervals: {}, // { targetSocketId: intervalId } - активные интервалы ледяной кары
+    // Флаги отказа действий (для ботов - до первого отказа)
+    attackRefused: false, // Бот получил отказ на атаку (неправильная фаза или нет золота)
+    cardPurchaseRefused: false // Бот получил отказ на покупку карточек (неправильная фаза или нет золота)
   };
 }
 
@@ -504,36 +507,53 @@ function handleBotSpin(botId, roomId) {
   const room = rooms.get(roomId);
   if (!room || !room.gameInProgress) return;
   
+  // Если бот уже получил отказ, прекращаем попытки
+  if (bot.attackRefused) {
+    return;
+  }
+  
+  const now = Date.now();
+  
+  // Проверяем фазу игры - боты могут атаковать только в BATTLE
+  if (room.gameStateController) {
+    const currentState = room.gameStateController.currentState;
+    // Если фаза PREPARATION, но прошло время подготовки, считаем что можно атаковать
+    if (currentState === GAME_STATES.PREPARATION) {
+      const controller = room.gameStateController;
+      if (controller.preBattleEndTime > 0 && now < controller.preBattleEndTime) {
+        // Еще идет подготовка, планируем повторную попытку
+        const remaining = controller.preBattleEndTime - now;
+        setTimeout(() => {
+          handleBotSpin(botId, roomId);
+        }, remaining + 100);
+        return;
+      }
+      // Время подготовки прошло, можно атаковать (isBattleActive вернет true)
+    } else if (currentState !== GAME_STATES.BATTLE) {
+      // Неправильная фаза - устанавливаем флаг отказа и прекращаем попытки
+      if (!bot.attackRefused) {
+        bot.attackRefused = true;
+        console.log(`Бот ${bot.nickname} получил отказ на атаку - неправильная фаза: ${currentState}`);
+      }
+      return;
+    }
+  }
+  
+  // СТРОГАЯ ПРОВЕРКА: Проверяем общее состояние боя - боты НЕ должны атаковать до старта
+  if (!isBattleActive(roomId)) {
+    // Бой еще не начался, устанавливаем флаг отказа
+    if (!bot.attackRefused) {
+      bot.attackRefused = true;
+      console.log(`Бот ${bot.nickname} получил отказ на атаку - бой еще не активен`);
+    }
+    return;
+  }
+  
   const opponentId = bot.duelOpponent;
   if (!opponentId) return;
   
   const opponent = players.get(opponentId);
   if (!opponent || opponent.isEliminated) return;
-  
-  const now = Date.now();
-  
-  // СТРОГАЯ ПРОВЕРКА: Проверяем общее состояние боя - боты НЕ должны атаковать до старта
-  if (!isBattleActive(roomId)) {
-    // Бой еще не начался, планируем повторную попытку
-    const room = rooms.get(roomId);
-    if (room && room.gameStateController) {
-      const controller = room.gameStateController;
-      if (controller.currentState === GAME_STATES.PREPARATION && controller.preBattleEndTime > 0) {
-        const remaining = controller.preBattleEndTime - now;
-        if (remaining > 0) {
-          setTimeout(() => {
-            handleBotSpin(botId, roomId);
-          }, remaining + 100); // Добавляем задержку для надежности
-          return;
-        }
-      }
-    }
-    // Если состояние еще не установлено, ждем и повторяем
-    setTimeout(() => {
-      handleBotSpin(botId, roomId);
-    }, 200);
-    return;
-  }
   
   // Проверяем перезарядку
   if (bot.rechargeEndTime > 0 && now < bot.rechargeEndTime) {
@@ -549,7 +569,11 @@ function handleBotSpin(botId, roomId) {
   
   // Проверяем наличие золота
   if (bot.temporaryGold < spinCost && bot.permanentGold < spinCost) {
-    // Нет золота - заканчиваем ход
+    // Нет золота - устанавливаем флаг отказа и заканчиваем ход
+    if (!bot.attackRefused) {
+      bot.attackRefused = true;
+      console.log(`Бот ${bot.nickname} получил отказ на атаку - нет золота`);
+    }
     botEndTurn(botId, roomId);
     return;
   }
@@ -568,6 +592,11 @@ function handleBotSpin(botId, roomId) {
   } else if (bot.permanentGold >= spinCost) {
     bot.permanentGold -= spinCost;
   } else {
+    // Не удалось потратить золото - устанавливаем флаг отказа
+    if (!bot.attackRefused) {
+      bot.attackRefused = true;
+      console.log(`Бот ${bot.nickname} получил отказ на атаку - не удалось потратить золото`);
+    }
     botEndTurn(botId, roomId);
     return;
   }
@@ -577,15 +606,58 @@ function handleBotSpin(botId, roomId) {
   
   // Планируем нанесение урона после завершения спина
   setTimeout(() => {
+    const spinEndTime = Date.now();
     const spinResult = simulateBotSpin();
-    let damage = 0;
+    let damage = spinResult.damage || 0;
+    
+    // Рассчитываем характеристики игроков
+    const attackerStats = calculatePlayerStats(bot);
+    const targetStats = calculatePlayerStats(opponent);
+    
+    // Применяем антикарты противника к атакующему
+    const targetAntiCards = opponent.antiCards || {};
+    let effectiveAttack = attackerStats.attack;
+    if (targetAntiCards[CARD_TYPES.ATTACK]) {
+      effectiveAttack = Math.max(0, effectiveAttack + targetAntiCards[CARD_TYPES.ATTACK]);
+    }
+    
+    // Базовый урон = урон от комбинации + базовый урон за спин (10) + бонус атаки
+    const baseSpinDamage = 10;
+    let finalDamage = damage + baseSpinDamage + (effectiveAttack - 10); // effectiveAttack уже включает базовые 10
+    
+    // Проверяем крит
+    const critResult = applyCritToDamage(finalDamage, attackerStats);
+    finalDamage = critResult.damage;
+    let isCrit = critResult.isCrit;
+    
+    // Флаг для отслеживания снижения урона броней
+    let armorReduced = false;
+    // Флаг для отслеживания уклонения
+    let dodged = false;
     
     // Если 3+ бонусных символа - используем способность персонажа
     if (spinResult.matches === 'bonus' && bot.characterId) {
       const abilityResult = useCharacterAbility(bot, opponent, roomId);
       if (abilityResult) {
         if (abilityResult.ability === 'damage' && abilityResult.damage) {
-          damage = abilityResult.damage;
+          // Применяем крит к урону от способности
+          const critResult = applyCritToDamage(abilityResult.damage, attackerStats);
+          finalDamage = critResult.damage;
+          isCrit = critResult.isCrit;
+        } else {
+          finalDamage = 0;
+          isCrit = false;
+        }
+        
+        // Эффект регенерации при бонусе
+        if (bot.legendaryEffects && bot.legendaryEffects.regeneration) {
+          bot.roundHp = attackerStats.maxHp;
+          bot.totalHp = attackerStats.maxHp;
+          io.to(roomId).emit('heal', {
+            playerSocketId: botId,
+            amount: attackerStats.maxHp - bot.roundHp,
+            isFull: true
+          });
         }
         
         // Отправляем информацию о способности
@@ -597,15 +669,84 @@ function handleBotSpin(botId, roomId) {
           damage: abilityResult.damage || 0,
           healAmount: abilityResult.healAmount || 0
         });
+        
+        // Применяем урон от способности с учетом всех проверок
+        if (abilityResult.ability === 'damage' && finalDamage > 0) {
+          // Проверяем уклонение
+          const dodgeRoll = Math.random() * 100;
+          let effectiveDodge = targetStats.dodge;
+          if (targetAntiCards[CARD_TYPES.DODGE]) {
+            effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
+          }
+          
+          if (dodgeRoll < effectiveDodge) {
+            dodged = true;
+            const originalDamage = finalDamage;
+            finalDamage = 0;
+            
+            // Эффект отражения при уклонении
+            // ВАЖНО: Отражённый урон наносится напрямую без проверки уклонения/отражения,
+            // чтобы исключить бесконечные циклы отражения
+            if (opponent.legendaryEffects && opponent.legendaryEffects.reflection) {
+              let reflectedDamage = Math.floor(originalDamage * 0.5);
+              const critResult = applyCritToDamage(reflectedDamage, targetStats);
+              reflectedDamage = critResult.damage;
+              // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+              bot.roundHp = Math.max(0, bot.roundHp - reflectedDamage);
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: opponentId,
+                targetPlayerSocketId: botId,
+                damage: reflectedDamage,
+                matches: 'reflection',
+                crit: critResult.isCrit,
+                isReflected: true, // Флаг, что это отражённый урон (не может быть снова отражён)
+                comboInfo: { type: 'reflection', text: 'Отражение', description: '50% уклоненного урона' }
+              });
+            }
+          } else {
+            // Применяем броню
+            const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
+            const armorReduction = targetStats.armor / 100;
+            if (targetAntiCards[CARD_TYPES.ARMOR]) {
+              const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
+              finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
+            } else {
+              finalDamage = Math.floor(finalDamage * (1 - armorReduction));
+            }
+            // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
+            if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
+              armorReduced = true;
+            }
+            
+            // Эффект мстительного здоровья
+            if (opponent.legendaryEffects && opponent.legendaryEffects.vengefulHealth) {
+              const lostHp = opponent.roundHp - Math.max(0, opponent.roundHp - finalDamage);
+              let revengeDamage = Math.floor(lostHp * 0.1);
+              const critResult = applyCritToDamage(revengeDamage, targetStats);
+              revengeDamage = critResult.damage;
+              bot.roundHp = Math.max(0, bot.roundHp - revengeDamage);
+              if (revengeDamage > 0) {
+                io.to(roomId).emit('attack', {
+                  fromPlayerSocketId: opponentId,
+                  targetPlayerSocketId: botId,
+                  damage: revengeDamage,
+                  matches: 'revenge',
+                  crit: critResult.isCrit,
+                  comboInfo: { type: 'revenge', text: 'Мщение', description: '10% от потерянного HP' }
+                });
+              }
+            }
+            
+            // Применяем урон
+            opponent.roundHp = Math.max(0, opponent.roundHp - finalDamage);
+          }
+        }
       }
-    } else {
-      // Обычный урон от совпадений
-      damage = spinResult.damage || 0;
-      
-      // Проверяем блок противника
-      if (opponent && opponent.hasBlock && damage > 0) {
+    } else if (damage > 0) {
+      // Обычный урон - проверяем блок противника
+      if (opponent.hasBlock) {
         opponent.hasBlock = false;
-        damage = 0;
+        finalDamage = 0;
         io.to(roomId).emit('abilityUsed', {
           fromPlayerSocketId: opponentId,
           targetPlayerSocketId: botId,
@@ -613,10 +754,164 @@ function handleBotSpin(botId, roomId) {
           message: 'Урон заблокирован защитой',
           damage: 0
         });
+      } else if (finalDamage > 0) {
+        // Проверяем уклонение (считается для каждого источника урона отдельно)
+        const dodgeRoll = Math.random() * 100;
+        let effectiveDodge = targetStats.dodge;
+        if (targetAntiCards[CARD_TYPES.DODGE]) {
+          effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
+        }
+        
+        if (dodgeRoll < effectiveDodge) {
+          dodged = true;
+          const originalDamage = finalDamage;
+          finalDamage = 0;
+          
+          // Эффект отражения при уклонении (50% от исходного урона)
+          // ВАЖНО: Отражённый урон наносится напрямую без проверки уклонения/отражения,
+          // чтобы исключить бесконечные циклы отражения
+          if (opponent.legendaryEffects && opponent.legendaryEffects.reflection) {
+            let reflectedDamage = Math.floor(originalDamage * 0.5);
+            // Применяем крит к отражённому урону (крит применяется от того, кто отражает)
+            const critResult = applyCritToDamage(reflectedDamage, targetStats);
+            reflectedDamage = critResult.damage;
+            // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+            bot.roundHp = Math.max(0, bot.roundHp - reflectedDamage);
+            io.to(roomId).emit('attack', {
+              fromPlayerSocketId: opponentId,
+              targetPlayerSocketId: botId,
+              damage: reflectedDamage,
+              matches: 'reflection',
+              crit: critResult.isCrit,
+              isReflected: true, // Флаг, что это отражённый урон (не может быть снова отражён)
+              comboInfo: { type: 'reflection', text: 'Отражение', description: '50% уклоненного урона' }
+            });
+          }
+        } else {
+          // Применяем броню
+          const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
+          const armorReduction = targetStats.armor / 100;
+          if (targetAntiCards[CARD_TYPES.ARMOR]) {
+            const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
+            finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
+          } else {
+            finalDamage = Math.floor(finalDamage * (1 - armorReduction));
+          }
+          // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
+          if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
+            armorReduced = true;
+          }
+          
+          // Эффект мстительного здоровья
+          if (opponent.legendaryEffects && opponent.legendaryEffects.vengefulHealth) {
+            const lostHp = opponent.roundHp - Math.max(0, opponent.roundHp - finalDamage);
+            let revengeDamage = Math.floor(lostHp * 0.1);
+            // Применяем крит к мстительному урону (крит применяется от того, кто мстит)
+            const critResult = applyCritToDamage(revengeDamage, targetStats);
+            revengeDamage = critResult.damage;
+            bot.roundHp = Math.max(0, bot.roundHp - revengeDamage);
+            if (revengeDamage > 0) {
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: opponentId,
+                targetPlayerSocketId: botId,
+                damage: revengeDamage,
+                matches: 'revenge',
+                crit: critResult.isCrit,
+                comboInfo: { type: 'revenge', text: 'Мщение', description: '10% от потерянного HP' }
+              });
+            }
+          }
+          
+          // Применяем урон
+          opponent.roundHp = Math.max(0, opponent.roundHp - finalDamage);
+        }
+      }
+    }
+    
+    // Применяем лечение при спине
+    if (attackerStats.healing > 0) {
+      const healAmount = attackerStats.healing;
+      bot.roundHp = Math.min(attackerStats.maxHp, bot.roundHp + healAmount);
+      io.to(roomId).emit('heal', {
+        playerSocketId: botId,
+        amount: healAmount
+      });
+    }
+    
+    // Применяем заморозку (увеличиваем перезарядку противника)
+    // Заморозка добавляется к базовому времени перезарядки (3000ms)
+    if (attackerStats.freeze > 0) {
+      const freezeTime = attackerStats.freeze * 1000; // в миллисекундах
+      const baseRechargeTime = 3000; // Базовое время перезарядки
+      if (opponent.rechargeEndTime > spinEndTime) {
+        // Если уже идет перезарядка, добавляем время заморозки
+        opponent.rechargeEndTime += freezeTime;
+      } else {
+        // Если перезарядка не идет, устанавливаем базовое время + заморозка
+        opponent.rechargeEndTime = spinEndTime + baseRechargeTime + freezeTime;
+      }
+    }
+    
+    // Эффект ледяной кары (25 урона в секунду во время перезарядки спина противника)
+    if (bot.legendaryEffects && bot.legendaryEffects.icePunishment) {
+      // Инициализируем хранилище интервалов, если его нет
+      if (!bot.icePunishmentIntervals) {
+        bot.icePunishmentIntervals = {};
       }
       
-      if (damage > 0) {
-        opponent.roundHp = Math.max(0, opponent.roundHp - damage);
+      // Проверяем, не запущен ли уже интервал для этого противника
+      if (!bot.icePunishmentIntervals[opponentId]) {
+        const iceDamage = 25;
+        const iceInterval = setInterval(() => {
+          const currentTarget = players.get(opponentId);
+          const currentAttacker = bots.get(botId);
+          const now = Date.now();
+          
+          // Проверяем, жив ли противник и в дуэли
+          if (!currentTarget || currentTarget.roundHp <= 0 || !currentTarget.isInDuel || 
+              !currentAttacker || !currentAttacker.isInDuel) {
+            // Очищаем интервал
+            if (currentAttacker && currentAttacker.icePunishmentIntervals) {
+              clearInterval(currentAttacker.icePunishmentIntervals[opponentId]);
+              delete currentAttacker.icePunishmentIntervals[opponentId];
+            }
+            return;
+          }
+          
+          // Проверяем, идет ли перезарядка спина у противника
+          if (currentTarget.rechargeEndTime > now) {
+            // Перезарядка идет - наносим урон
+            // Пересчитываем статистику атакующего для проверки крита
+            const currentAttackerStats = calculatePlayerStats(currentAttacker);
+            let actualIceDamage = iceDamage;
+            // Применяем крит к урону от ледяной кары
+            const critResult = applyCritToDamage(actualIceDamage, currentAttackerStats);
+            actualIceDamage = critResult.damage;
+            
+            currentTarget.roundHp = Math.max(0, currentTarget.roundHp - actualIceDamage);
+            io.to(roomId).emit('attack', {
+              fromPlayerSocketId: botId,
+              targetPlayerSocketId: opponentId,
+              damage: actualIceDamage,
+              matches: 'ice',
+              crit: critResult.isCrit,
+              comboInfo: { type: 'ice', text: '❄️ Абсолютный ноль', description: '25 урона в секунду во время перезарядки' }
+            });
+            updateRoomState(roomId);
+            
+            // Проверяем, не умер ли противник
+            if (currentTarget.roundHp <= 0) {
+              if (currentAttacker && currentAttacker.icePunishmentIntervals) {
+                clearInterval(currentAttacker.icePunishmentIntervals[opponentId]);
+                delete currentAttacker.icePunishmentIntervals[opponentId];
+              }
+            }
+          }
+          // Если перезарядка не идет, просто пропускаем цикл - не наносим урон
+        }, 1000);
+        
+        // Сохраняем интервал
+        bot.icePunishmentIntervals[opponentId] = iceInterval;
       }
     }
     
@@ -628,41 +923,46 @@ function handleBotSpin(botId, roomId) {
         type: 'bonus',
         text: `3+ БОНУСА`,
         description: character ? character.description : 'Способность персонажа',
-        damage: damage
+        damage: finalDamage
       };
-    } else if (damage > 0 && spinResult.comboDetails) {
+    } else if (finalDamage > 0 && spinResult.comboDetails) {
       // Используем детали комбинации из результата спина
       comboInfo = {
         type: 'combo',
         text: spinResult.comboDetails.text,
-        damage: damage,
-        description: `Урон: ${damage}`
+        damage: finalDamage,
+        description: `Урон: ${finalDamage}`
       };
-    } else if (damage > 0) {
+    } else if (finalDamage > 0) {
       // Для обычных комбинаций бота формируем базовую информацию
       comboInfo = {
         type: 'combo',
         text: `КОМБИНАЦИЯ`,
-        damage: damage,
-        description: `Урон: ${damage}`
+        damage: finalDamage,
+        description: `Урон: ${finalDamage}`
       };
     }
     
     // Отправляем атаку всем в комнате
-    if (damage > 0 || spinResult.matches === 'bonus') {
+    if (finalDamage > 0 || spinResult.matches === 'bonus') {
       io.to(roomId).emit('attack', {
         fromPlayerSocketId: botId,
         targetPlayerSocketId: opponentId,
-        damage: damage,
+        damage: finalDamage,
         matches: spinResult.matches,
+        crit: isCrit,
         comboInfo: comboInfo
       });
     }
     
     // Обновляем время последнего спина и перезарядки
-    const spinEndTime = Date.now();
     bot.lastSpinTime = spinEndTime;
-    bot.rechargeEndTime = spinEndTime + 3000; // 3 секунды перезарядки
+    let rechargeTime = 3000; // 3 секунды перезарядки
+    // Эффект быстрого удара (50% сокращение перезарядки)
+    if (bot.legendaryEffects && bot.legendaryEffects.fastStrike) {
+      rechargeTime = Math.floor(rechargeTime * 0.5);
+    }
+    bot.rechargeEndTime = spinEndTime + rechargeTime;
     
     // Обновляем состояние
     updateRoomState(roomId);
@@ -723,7 +1023,7 @@ function handleBotSpin(botId, roomId) {
       }, totalDelay);
     }
     
-    console.log(`Бот ${bot.nickname} атакует ${opponent.nickname} на ${damage} урона (Временное: ${bot.temporaryGold}, Постоянное: ${bot.permanentGold})`);
+    console.log(`Бот ${bot.nickname} атакует ${opponent.nickname} на ${finalDamage} урона (Временное: ${bot.temporaryGold}, Постоянное: ${bot.permanentGold})`);
   }, spinDuration);
 }
 
@@ -1116,6 +1416,24 @@ function handleBotCardPurchase(botId, roomId) {
       return;
     }
     
+    // Проверяем фазу игры - боты могут покупать карточки только в BREAK
+    if (room.gameStateController) {
+      const currentState = room.gameStateController.currentState;
+      if (currentState !== GAME_STATES.BREAK) {
+        // Неправильная фаза - устанавливаем флаг отказа и прекращаем попытки
+        if (!bot.cardPurchaseRefused) {
+          bot.cardPurchaseRefused = true;
+          console.log(`Бот ${bot.nickname} получил отказ на покупку карточек - неправильная фаза: ${currentState}`);
+        }
+        return;
+      }
+    }
+    
+    // Если бот уже получил отказ, прекращаем попытки
+    if (bot.cardPurchaseRefused) {
+      return;
+    }
+    
     // Генерируем предложения, если их еще нет
     if (!bot.cardShopOffers || bot.cardShopOffers.length === 0) {
       bot.cardShopOffers = generateCardShopOffers(bot);
@@ -1142,15 +1460,32 @@ function handleBotCardPurchase(botId, roomId) {
       }
     }
     
+    // Проверяем, есть ли доступные карточки для покупки (есть золото и карточки в предложениях)
+    const affordableCards = bot.cardShopOffers.filter(card => bot.permanentGold >= card.cost);
+    if (affordableCards.length === 0) {
+      // Нет доступных карточек для покупки - устанавливаем флаг отказа
+      if (!bot.cardPurchaseRefused) {
+        bot.cardPurchaseRefused = true;
+        console.log(`Бот ${bot.nickname} получил отказ на покупку карточек - нет доступных карточек или недостаточно золота`);
+      }
+      updateRoomState(roomId);
+      return;
+    }
+    
     // Бот покупает карточки в зависимости от паттерна поведения
+    let purchasedAny = false;
     bot.cardShopOffers.forEach(card => {
       if (Math.random() < cardPurchaseChance && bot.permanentGold >= card.cost) {
         const result = buyCard(bot, card.id);
         if (result.success) {
+          purchasedAny = true;
           console.log(`Бот ${bot.nickname} купил карточку ${card.name}`);
         }
       }
     });
+    
+    // Если бот не купил ни одной карточки (из-за вероятности), но мог бы купить,
+    // это не считается отказом - он может попробовать в следующий раз
     
     // Обновляем состояние комнаты
     updateRoomState(roomId);
@@ -1265,9 +1600,25 @@ function setGameState(roomId, newState) {
       break;
     case GAME_STATES.BATTLE:
       controller.preBattleEndTime = 0; // Бой начался, таймер больше не нужен
+      // Сбрасываем флаг отказа на атаку для всех ботов в комнате
+      room.players.forEach(playerId => {
+        const player = players.get(playerId);
+        if (player && player.isBot && player.attackRefused) {
+          player.attackRefused = false;
+          console.log(`Сброшен флаг отказа на атаку для бота ${player.nickname} при переходе в BATTLE`);
+        }
+      });
       break;
     case GAME_STATES.BREAK:
       controller.breakStartTime = now;
+      // Сбрасываем флаг отказа на покупку карточек для всех ботов в комнате
+      room.players.forEach(playerId => {
+        const player = players.get(playerId);
+        if (player && player.isBot && player.cardPurchaseRefused) {
+          player.cardPurchaseRefused = false;
+          console.log(`Сброшен флаг отказа на покупку карточек для бота ${player.nickname} при переходе в BREAK`);
+        }
+      });
       break;
     case GAME_STATES.ROUND_END:
       break;
@@ -1643,6 +1994,12 @@ function startNextRound(roomId) {
       p.lastRoundGoldEarned = 0;
       // Сбрасываем готовность (боты всегда готовы)
       p.isReady = p.isBot;
+      
+      // Сбрасываем флаги отказа для ботов при начале нового раунда
+      if (p.isBot) {
+        p.attackRefused = false;
+        p.cardPurchaseRefused = false;
+      }
       
       // Начисляем 20% от постоянного золота в конце раунда
       const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
