@@ -440,6 +440,13 @@ socket.on('roundStarted', (data) => {
     enableSpin();
 });
 
+// Обработчик кнопки обновления магазина
+if (refreshShopBtn) {
+    refreshShopBtn.addEventListener('click', () => {
+        refreshCardShop();
+    });
+}
+
 socket.on('gameEnded', (data) => {
     console.log('Игра окончена:', data);
     if (data.winner) {
@@ -546,15 +553,82 @@ function updateCardShop() {
     if (!player) return;
     
     // Обновляем золото
-    if (permGoldShop) permGoldShop.textContent = player.permanentGold || 0;
-    if (tempGoldShop) tempGoldShop.textContent = player.temporaryGold || 0;
+    const permGoldEl = document.getElementById('permGoldShop');
+    const tempGoldEl = document.getElementById('tempGoldShop');
+    if (permGoldEl) permGoldEl.textContent = player.permanentGold || 0;
+    if (tempGoldEl) tempGoldEl.textContent = player.temporaryGold || 0;
     
-    // TODO: Здесь будет генерация и отображение карточек
-    // Пока заглушка
-    if (cardsShopList) {
-        cardsShopList.innerHTML = '<p style="text-align: center; color: #666;">Система карточек в разработке...</p>';
+    // Отображаем карточки
+    const cardsShopList = document.getElementById('cardsShopList');
+    if (!cardsShopList) return;
+    
+    const offers = player.cardShopOffers || [];
+    if (offers.length === 0) {
+        cardsShopList.innerHTML = '<p style="text-align: center; color: #666;">Нет доступных карточек</p>';
+        return;
     }
+    
+    cardsShopList.innerHTML = offers.map(card => {
+        const ownedCount = (player.cardsOwned || {})[card.id] || 0;
+        const maxCount = card.rarity === 'legendary' ? 1 
+            : card.rarity === 'rare' ? 3 
+            : 5;
+        const canBuy = ownedCount < maxCount && (player.permanentGold || 0) >= card.cost;
+        const rarityClass = card.rarity === 'legendary' ? 'legendary' 
+            : card.rarity === 'rare' ? 'rare' 
+            : 'common';
+        const isAnti = card.isAnti || false;
+        
+        return `
+            <div class="card-offer ${rarityClass} ${isAnti ? 'anti' : ''}" data-card-id="${card.id}">
+                <div class="card-title">${card.name}</div>
+                <div class="card-description">${card.description}</div>
+                <div class="card-cost">💰 ${card.cost} золота</div>
+                ${ownedCount > 0 ? `<div class="card-owned">Куплено: ${ownedCount}/${maxCount}</div>` : ''}
+                <button class="card-buy-btn" ${!canBuy ? 'disabled' : ''} onclick="buyCard('${card.id}')">
+                    ${canBuy ? 'Купить' : (ownedCount >= maxCount ? 'Лимит' : 'Недостаточно золота')}
+                </button>
+            </div>
+        `;
+    }).join('');
 }
+
+// Покупка карточки
+function buyCard(cardId) {
+    if (!playerState.roomId) return;
+    socket.emit('buyCard', { roomId: playerState.roomId, cardId });
+}
+
+// Обновление магазина
+function refreshCardShop() {
+    if (!playerState.roomId) return;
+    socket.emit('refreshCardShop', { roomId: playerState.roomId });
+}
+
+// Обработчики событий карточек
+socket.on('cardBought', (data) => {
+    if (data.success) {
+        showError(data.message);
+        updateCardShop();
+    } else {
+        showError(data.message);
+    }
+});
+
+socket.on('cardShopRefreshed', (data) => {
+    if (data.success) {
+        showError(data.message);
+        if (data.offers) {
+            const player = roomState.players.find(p => p.socketId === playerState.socketId);
+            if (player) {
+                player.cardShopOffers = data.offers;
+            }
+        }
+        updateCardShop();
+    } else {
+        showError(data.message);
+    }
+});
 
 socket.on('playerLeft', (data) => {
     console.log('Игрок покинул комнату:', data);

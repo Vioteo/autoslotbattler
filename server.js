@@ -1059,7 +1059,9 @@ function updateRoomState(roomId) {
       lastRoundGoldEarned: p.lastRoundGoldEarned || 0,
       stylePoints: p.stylePoints || { health: 0, dodge: 0, critical: 0, healing: 0, armor: 0, freeze: 0, attack: 0 },
       cardsOwned: p.cardsOwned || {},
-      cardShopOffers: p.cardShopOffers || []
+      cardShopOffers: p.cardShopOffers || [],
+      antiCards: p.antiCards || {},
+      legendaryEffects: p.legendaryEffects || {}
     };
   }).filter(p => p !== null);
   
