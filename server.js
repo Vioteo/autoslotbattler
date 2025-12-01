@@ -18,6 +18,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Константы
 const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
 const BREAK_DURATION = 120000; // 2 минуты между боями
+const BREAK_DURATION = 120000; // 2 минуты между боями
 
 // Хранилище комнат
 const rooms = new Map();
@@ -907,6 +908,14 @@ function startNextRound(roomId) {
       p.duelStartTime = 0;
       p.temporaryGold = 30; // Выдаем 30 временного золота
       p.hasEndedTurn = false;
+      
+      // Боты покупают карточки между боями
+      if (p.isBot) {
+        // Запускаем покупку карточек для бота с небольшой задержкой
+        setTimeout(() => {
+          handleBotCardPurchase(id, roomId);
+        }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
+      }
     }
   });
   
