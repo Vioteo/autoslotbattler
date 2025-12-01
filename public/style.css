@@ -1050,21 +1050,23 @@ h1 {
     gap: 10px;
 }
 
-.spin-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-}
-
-.spin-info > button {
+#spinBtn {
     width: 100%;
     max-width: 300px;
 }
 
+.bottom-controls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 #endTurnBtn {
-    margin-top: 10px;
+    margin: 0;
 }
 
 .gold-display-spin {
