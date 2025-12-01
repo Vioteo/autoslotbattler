@@ -352,6 +352,11 @@ socket.on('roomStateUpdate', (data) => {
             // Обновляем состояние кнопки spin
             enableSpin();
             updateBattlePhase();
+            
+            // Если duelStartTime только что обновился и игрок в дуэли, запускаем таймер
+            if (player.isInDuel && player.duelStartTime && !battleTimerInterval) {
+                startBattleTimer(player.duelStartTime);
+            }
         }
     }
     if (data.pairs) {
