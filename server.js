@@ -1399,18 +1399,18 @@ function startNextRound(roomId) {
         p2.duelOpponent = pair[0];
         p2.duelStartTime = now; // Устанавливаем время начала дуэли
         
-        // Запускаем ботов, если они в дуэли (с учетом таймера 10 секунд + задержка спина)
-        // Боты должны начать делать спины ПОСЛЕ окончания 10-секундной задержки
+        // Запускаем ботов, если они в дуэли
+        // handleBotSpin сам проверит таймер PRE_BATTLE_DELAY внутри
         if (p1.isBot) {
-          // Ждем 10 секунд (PRE_BATTLE_DELAY) + небольшая задержка спина
-          const delay = PRE_BATTLE_DELAY + (p1.spinDelay || 0);
+          // Небольшая задержка перед первым спином (бот сам проверит таймер)
+          const delay = p1.spinDelay || 0;
           setTimeout(() => {
             handleBotSpin(p1.socketId, roomId);
           }, delay);
         }
         if (p2.isBot) {
-          // Ждем 10 секунд (PRE_BATTLE_DELAY) + небольшая задержка спина
-          const delay = PRE_BATTLE_DELAY + (p2.spinDelay || 0);
+          // Небольшая задержка перед первым спином (бот сам проверит таймер)
+          const delay = p2.spinDelay || 0;
           setTimeout(() => {
             handleBotSpin(p2.socketId, roomId);
           }, delay);

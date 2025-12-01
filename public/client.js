@@ -1568,7 +1568,10 @@ function startRecharge() {
 // Включение спина
 function enableSpin() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
-    if (!player) return;
+    if (!player) {
+        if (spinBtn) spinBtn.disabled = true;
+        return;
+    }
     
     const now = Date.now();
     
@@ -1588,13 +1591,11 @@ function enableSpin() {
         }
     }
     
+    // Кнопка доступна если: идет бой И нет перезарядки
+    // Дополнительные проверки (золото, таймер, hasEndedTurn) делаются при нажатии
     const canSpinNow = 
-        !gameState.isSpinning && // Не крутится сейчас
-        !isRecharging && // Не на перезарядке
-        player.isInDuel && // В дуэли
-        !player.hasEndedTurn && // Не закончил ход
-        (player.temporaryGold >= 5 || player.permanentGold >= 5) && // Есть золото
-        hasPassedPreBattleTimer; // Прошел таймер до боя
+        player.isInDuel && // В дуэли (идет бой)
+        !isRecharging; // Нет перезарядки
     
     gameState.canSpin = canSpinNow;
     if (spinBtn) {
