@@ -496,9 +496,9 @@ socket.on('attack', (data) => {
     if (data.targetPlayerSocketId === playerState.socketId) {
         // Мы получили урон
         takeDamage(data.damage, data.dodged || false);
-        // Показываем сообщение о комбинации противника
+        // Показываем всплывающую табличку урона у противника с комбинацией
         if (data.comboInfo) {
-            showComboMessage('enemy', data.comboInfo);
+            showEnemyDamagePopup(data.comboInfo, data.damage);
         }
     } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
@@ -1350,12 +1350,13 @@ function checkMatches() {
             
             if (totalLineMatches >= 3) {
                 totalMatches += totalLineMatches;
-                matchDetails.push({ line: lineIndex + 1, matches: totalLineMatches });
                 
                 // Определяем основной символ для совпадения (первый не-wild, или любой если все wild)
                 const matchedSymbol = Object.keys(symbolCounts).length > 0
                     ? Object.keys(symbolCounts).find(key => symbolCounts[key] === maxRegularMatches)
                     : 'wild';
+                
+                matchDetails.push({ line: lineIndex + 1, matches: totalLineMatches, symbol: matchedSymbol });
                 
                 const matchedIndices = [];
                 
@@ -1467,18 +1468,31 @@ function checkMatches() {
             'wild': 'WILD'
         };
         
+        // Функция для получения эмоджи символа
+        const getSymbolEmoji = (symbolName) => {
+            if (symbolName === 'wild') return WILD_SYMBOL.emoji;
+            if (symbolName === 'bonus') return BONUS_SYMBOL.emoji;
+            const symbol = SYMBOLS.find(s => s.name === symbolName);
+            return symbol ? symbol.emoji : '❓';
+        };
+        
         // Если несколько комбинаций, показываем все
         if (matchDetails.length > 1) {
             const comboTexts = matchDetails.map(m => {
                 const symbolName = symbolNames[m.symbol] || 'СИМВОЛОВ';
                 return `${m.matches} ${symbolName}`;
             });
+            // Берем первую комбинацию для отображения эмоджи
+            const firstMatch = matchDetails[0];
             comboInfo = {
                 type: 'combo',
                 text: `${matchDetails.length} КОМБИНАЦИИ`,
                 combos: comboTexts,
                 damage: damage,
-                description: `Урон: ${damage}`
+                description: `Урон: ${damage}`,
+                symbol: firstMatch.symbol,
+                symbolEmoji: getSymbolEmoji(firstMatch.symbol),
+                matches: firstMatch.matches
             };
         } else {
             // Одна комбинация
@@ -1488,7 +1502,10 @@ function checkMatches() {
                 type: 'combo',
                 text: `${firstMatch.matches} ${symbolName} ШАРИКА`,
                 damage: damage,
-                description: `Урон: ${damage}`
+                description: `Урон: ${damage}`,
+                symbol: firstMatch.symbol,
+                symbolEmoji: getSymbolEmoji(firstMatch.symbol),
+                matches: firstMatch.matches
             };
         }
     }
@@ -1504,13 +1521,7 @@ function checkMatches() {
             comboInfo: comboInfo
         });
         
-        // Показываем сообщение о комбинации над игроком после отправки
-        if (comboInfo) {
-            // Небольшая задержка для синхронизации с анимацией спина
-            setTimeout(() => {
-                showComboMessage('player', comboInfo);
-            }, 500);
-        }
+        // Убрали показ комбинации над игроком - теперь показывается только у противника
     }
     
     // Перезарядка уже началась при нажатии кнопки, не запускаем повторно
@@ -1847,9 +1858,11 @@ function showAttackAnimation(damage, isMyAttack = false, dodged = false, crit = 
     // HP обновляется через gameState от другого игрока, здесь только анимация
 }
 
-// Показ всплывающего сообщения о комбинации
+// Показ всплывающего сообщения о комбинации (только для противника, если нужно)
 function showComboMessage(target, comboInfo) {
     if (!comboInfo) return;
+    // Эта функция больше не используется для игрока, только для обратной совместимости
+    if (target === 'player') return;
     
     const containerId = target === 'player' ? 'playerComboMessages' : 'enemyComboMessages';
     const container = document.getElementById(containerId);
@@ -1899,6 +1912,81 @@ function showComboMessage(target, comboInfo) {
             }
         }, 500);
     }, 3000);
+}
+
+// Показ всплывающей таблички урона у противника с комбинацией
+function showEnemyDamagePopup(comboInfo, damage) {
+    if (!comboInfo || !damage) return;
+    
+    const enemyContainer = document.getElementById('enemyCharacterContainer');
+    if (!enemyContainer) return;
+    
+    // Создаем всплывающую табличку
+    const popup = document.createElement('div');
+    popup.className = 'enemy-damage-popup';
+    
+    let comboDisplay = '';
+    if (comboInfo.type === 'bonus') {
+        // Для бонуса показываем 3 бонусных символа
+        comboDisplay = `${BONUS_SYMBOL.emoji} ${BONUS_SYMBOL.emoji} ${BONUS_SYMBOL.emoji}`;
+    } else if (comboInfo.symbolEmoji) {
+        // Используем эмоджи из comboInfo (если есть)
+        const matches = comboInfo.matches || 3;
+        comboDisplay = `${comboInfo.symbolEmoji} ${comboInfo.symbolEmoji} ${comboInfo.symbolEmoji}`;
+    } else {
+        // Fallback: пытаемся извлечь из текста
+        const getSymbolEmoji = (symbolName) => {
+            if (symbolName === 'wild') return WILD_SYMBOL.emoji;
+            if (symbolName === 'bonus') return BONUS_SYMBOL.emoji;
+            const symbol = SYMBOLS.find(s => s.name === symbolName);
+            return symbol ? symbol.emoji : '❓';
+        };
+        
+        if (comboInfo.symbol) {
+            const emoji = getSymbolEmoji(comboInfo.symbol);
+            comboDisplay = `${emoji} ${emoji} ${emoji}`;
+        } else {
+            // Последняя попытка - извлекаем из text
+            const text = comboInfo.text || '';
+            const match = text.match(/(\d+)\s+(\w+)/);
+            if (match) {
+                const symbolName = match[2].toLowerCase();
+                let symbolEmoji = '❓';
+                if (symbolName.includes('красн')) symbolEmoji = SYMBOLS.find(s => s.name === 'red')?.emoji || '🔴';
+                else if (symbolName.includes('син')) symbolEmoji = SYMBOLS.find(s => s.name === 'blue')?.emoji || '🔵';
+                else if (symbolName.includes('зелен')) symbolEmoji = SYMBOLS.find(s => s.name === 'green')?.emoji || '🟢';
+                else if (symbolName.includes('желт')) symbolEmoji = SYMBOLS.find(s => s.name === 'yellow')?.emoji || '🟡';
+                else if (symbolName.includes('фиолет')) symbolEmoji = SYMBOLS.find(s => s.name === 'purple')?.emoji || '🟣';
+                else if (symbolName.includes('wild')) symbolEmoji = WILD_SYMBOL.emoji;
+                
+                comboDisplay = `${symbolEmoji} ${symbolEmoji} ${symbolEmoji}`;
+            } else {
+                comboDisplay = '❓ ❓ ❓';
+            }
+        }
+    }
+    
+    popup.innerHTML = `
+        <div class="enemy-damage-combo">${comboDisplay}</div>
+        <div class="enemy-damage-value">-${damage}</div>
+    `;
+    
+    enemyContainer.appendChild(popup);
+    
+    // Анимация появления
+    setTimeout(() => {
+        popup.classList.add('show');
+    }, 10);
+    
+    // Удаление через 2.5 секунды
+    setTimeout(() => {
+        popup.classList.add('hide');
+        setTimeout(() => {
+            if (popup.parentNode) {
+                popup.remove();
+            }
+        }, 500);
+    }, 2500);
 }
 
 // Показ результата игры (победа/поражение)

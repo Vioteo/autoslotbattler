@@ -1169,6 +1169,64 @@ h1 {
     gap: 5px;
 }
 
+/* Всплывающая табличка урона у противника */
+.enemy-damage-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    border: 3px solid #f44336;
+    border-radius: 15px;
+    padding: 15px 20px;
+    pointer-events: none;
+    z-index: 200;
+    opacity: 0;
+    scale: 0.8;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 25px rgba(244, 67, 54, 0.6);
+    min-width: 150px;
+    text-align: center;
+}
+
+.enemy-damage-popup.show {
+    opacity: 1;
+    scale: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.enemy-damage-popup.hide {
+    opacity: 0;
+    scale: 0.7;
+    transform: translate(-50%, -50%) scale(0.7) translateY(-30px);
+}
+
+.enemy-damage-combo {
+    font-size: 32px;
+    margin-bottom: 8px;
+    letter-spacing: 5px;
+    line-height: 1.2;
+}
+
+.enemy-damage-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #f44336;
+    text-shadow: 0 0 10px rgba(244, 67, 54, 0.8),
+                 0 0 20px rgba(244, 67, 54, 0.6),
+                 2px 2px 4px rgba(0, 0, 0, 0.8);
+    animation: damagePulse 0.5s ease;
+}
+
+@keyframes damagePulse {
+    0%, 100% { 
+        transform: scale(1);
+    }
+    50% { 
+        transform: scale(1.2);
+    }
+}
+
 .combo-message {
     position: relative;
     background: rgba(0, 0, 0, 0.9);
