@@ -593,16 +593,23 @@ function updateCardShop() {
     }).join('');
 }
 
-// Покупка карточки
-function buyCard(cardId) {
+// Покупка карточки (глобальная функция для onclick)
+window.buyCard = function(cardId) {
     if (!playerState.roomId) return;
     socket.emit('buyCard', { roomId: playerState.roomId, cardId });
-}
+};
 
 // Обновление магазина
 function refreshCardShop() {
     if (!playerState.roomId) return;
     socket.emit('refreshCardShop', { roomId: playerState.roomId });
+}
+
+// Инициализация обработчиков магазина
+if (refreshShopBtn) {
+    refreshShopBtn.addEventListener('click', () => {
+        refreshCardShop();
+    });
 }
 
 // Обработчики событий карточек
