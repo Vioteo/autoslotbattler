@@ -1168,8 +1168,7 @@ function spin() {
         return;
     }
     
-    // Проверяем перезарядку
-    const now = Date.now();
+    // Проверяем перезарядку (используем уже объявленную переменную now)
     if (gameState.isRecharging && now < gameState.rechargeEndTime) {
         // Штраф: добавляем +2 секунды
         const remaining = gameState.rechargeEndTime - now;
