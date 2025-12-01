@@ -130,8 +130,6 @@ const createRoomBtn = document.getElementById('createRoomBtn');
 const joinRoomBtn = document.getElementById('joinRoomBtn');
 const roomIdInput = document.getElementById('roomIdInput');
 const nicknameInput = document.getElementById('nicknameInput');
-const displayRoomId = document.getElementById('displayRoomId');
-const copyRoomIdBtn = document.getElementById('copyRoomIdBtn');
 const playersCount = document.getElementById('playersCount');
 const playersListWaiting = document.getElementById('playersList');
 const playersListGame = document.getElementById('playersListGame');
@@ -140,7 +138,6 @@ const startGameBtn = document.getElementById('startGameBtn');
 const refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
 const roomsList = document.getElementById('roomsList');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
-const gameRoomId = document.getElementById('gameRoomId');
 const currentRound = document.getElementById('currentRound');
 const playerNickname = document.getElementById('playerNickname');
 const leaveGameBtn = document.getElementById('leaveGameBtn');
@@ -241,9 +238,6 @@ socket.on('roomCreated', (data) => {
     console.log('Комната создана:', data);
     playerState.roomId = data.roomId;
     playerState.isHost = data.isHost || false;
-    if (displayRoomId) {
-        displayRoomId.textContent = data.roomId;
-    }
     if (hostControls) {
         hostControls.style.display = playerState.isHost ? 'block' : 'none';
     }
@@ -258,9 +252,6 @@ socket.on('roomJoined', (data) => {
     console.log('Присоединено к комнате:', data);
     playerState.roomId = data.roomId;
     playerState.isHost = data.isHost || false;
-    if (displayRoomId) {
-        displayRoomId.textContent = data.roomId;
-    }
     if (hostControls) {
         hostControls.style.display = playerState.isHost ? 'block' : 'none';
     }
@@ -309,8 +300,16 @@ socket.on('roomStateUpdate', (data) => {
         // Обновляем баланс противника
         const player = roomState.players.find(p => p.socketId === playerState.socketId);
         if (player) {
-            // Проверяем, закончил ли игрок бой или раунд
-            if (!player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
+            // Показываем статистику только если:
+            // 1. Игрок выбрал персонажа (characterId не null)
+            // 2. Игра началась (мы на игровом экране)
+            // 3. Прошел хотя бы один раунд (currentRound > 0)
+            // 4. Игрок закончил бой или раунд (не в дуэли или дуэль завершена)
+            const isInGame = gameScreen && gameScreen.classList.contains('active');
+            const hasCharacter = player.characterId !== null && player.characterId !== undefined;
+            const hasCompletedRound = roomState.currentRound > 0;
+            
+            if (isInGame && hasCharacter && hasCompletedRound && !player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
                 // Показываем статистику, если закончил бой или раунд
                 showRoundStats();
             }
@@ -344,9 +343,6 @@ socket.on('roundStarted', (data) => {
     roomState.pairs = data.pairs;
     if (currentRound) {
         currentRound.textContent = data.round;
-    }
-    if (gameRoomId && playerState.roomId) {
-        gameRoomId.textContent = playerState.roomId;
     }
     if (playerNickname && playerState.nickname) {
         playerNickname.textContent = playerState.nickname;
@@ -386,9 +382,6 @@ socket.on('gameEnded', (data) => {
 socket.on('gameStart', (data) => {
     console.log('Игра началась:', data);
     playerState.roomId = data.roomId;
-    if (gameRoomId) {
-        gameRoomId.textContent = data.roomId;
-    }
     if (playerNickname && playerState.nickname) {
         playerNickname.textContent = playerState.nickname;
     }
@@ -1667,9 +1660,6 @@ function resetToMenu() {
     if (roomIdInput) {
         roomIdInput.value = '';
     }
-    if (displayRoomId) {
-        displayRoomId.textContent = '-';
-    }
     if (playersCount) {
         playersCount.textContent = '1';
     }
@@ -1759,17 +1749,6 @@ if (startGameBtn) {
     });
 }
 
-copyRoomIdBtn.addEventListener('click', () => {
-    if (displayRoomId && copyRoomIdBtn) {
-        const roomId = displayRoomId.textContent;
-        navigator.clipboard.writeText(roomId).then(() => {
-            copyRoomIdBtn.textContent = 'Скопировано!';
-            setTimeout(() => {
-                copyRoomIdBtn.textContent = 'Копировать ID';
-            }, 2000);
-        });
-    }
-});
 
 if (leaveRoomBtn) {
     leaveRoomBtn.addEventListener('click', () => {
@@ -1961,6 +1940,13 @@ function showRoundStats() {
     
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (!player) return;
+    
+    // Проверяем, что игрок выбрал персонажа и находится в игре
+    const isInGame = gameScreen && gameScreen.classList.contains('active');
+    const hasCharacter = player.characterId !== null && player.characterId !== undefined;
+    const hasCompletedRound = roomState.currentRound > 0;
+    
+    if (!isInGame || !hasCharacter || !hasCompletedRound) return;
     
     // Показываем статистику только если не в дуэли или дуэль завершена, или закончил ход
     if (player.isInDuel && !player.duelStatus && !player.hasEndedTurn) return;
