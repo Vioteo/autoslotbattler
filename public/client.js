@@ -1565,19 +1565,25 @@ function updateCharacterStats() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (!player) return;
     
-    // Получаем статистику из карточек (пока заглушка, потом добавим реальную логику)
-    const attack = 10 + (player.attackStyle || 0);
-    const armor = 25 + (player.armorStyle || 0);
-    const dodge = 15 + (player.dodgeStyle || 0);
-    const crit = 10 + (player.critStyle || 0);
-    const critMult = 1.5 + (player.critMultiplierStyle || 0);
+    // Получаем статистику из stylePoints
+    const stylePoints = player.stylePoints || {};
+    const attackStyle = stylePoints.attack || 0;
+    const armorStyle = stylePoints.armor || 0;
+    const dodgeStyle = stylePoints.dodge || 0;
+    const critStyle = stylePoints.critical || 0;
+    
+    const attack = 10 + attackStyle;
+    const armor = 25 + armorStyle;
+    const dodge = 15 + dodgeStyle;
+    const crit = 10 + critStyle;
+    const critMult = 1.5;
     
     // Применяем пороговые бонусы
-    const attackBonus = getStyleBonus(player.attackStyle || 0);
-    const armorBonus = getStyleBonus(player.armorStyle || 0);
-    const dodgeBonus = getStyleBonus(player.dodgeStyle || 0);
-    const critBonus = getStyleBonus(player.critStyle || 0);
-    const critMultBonus = getStyleBonus(player.critMultiplierStyle || 0);
+    const attackBonus = getStyleBonus(attackStyle);
+    const armorBonus = getStyleBonus(armorStyle);
+    const dodgeBonus = getStyleBonus(dodgeStyle);
+    const critBonus = getStyleBonus(critStyle);
+    const critMultBonus = 0; // Крит множитель пока не зависит от стиля напрямую
     
     const finalAttack = attack + attackBonus;
     const finalArmor = armor + armorBonus;
@@ -1592,17 +1598,23 @@ function updateCharacterStats() {
     if (player.isInDuel && player.duelOpponent) {
         const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
         if (opponent) {
-            const oppAttack = 10 + (opponent.attackStyle || 0);
-            const oppArmor = 25 + (opponent.armorStyle || 0);
-            const oppDodge = 15 + (opponent.dodgeStyle || 0);
-            const oppCrit = 10 + (opponent.critStyle || 0);
-            const oppCritMult = 1.5 + (opponent.critMultiplierStyle || 0);
+            const oppStylePoints = opponent.stylePoints || {};
+            const oppAttackStyle = oppStylePoints.attack || 0;
+            const oppArmorStyle = oppStylePoints.armor || 0;
+            const oppDodgeStyle = oppStylePoints.dodge || 0;
+            const oppCritStyle = oppStylePoints.critical || 0;
             
-            const oppAttackBonus = getStyleBonus(opponent.attackStyle || 0);
-            const oppArmorBonus = getStyleBonus(opponent.armorStyle || 0);
-            const oppDodgeBonus = getStyleBonus(opponent.dodgeStyle || 0);
-            const oppCritBonus = getStyleBonus(opponent.critStyle || 0);
-            const oppCritMultBonus = getStyleBonus(opponent.critMultiplierStyle || 0);
+            const oppAttack = 10 + oppAttackStyle;
+            const oppArmor = 25 + oppArmorStyle;
+            const oppDodge = 15 + oppDodgeStyle;
+            const oppCrit = 10 + oppCritStyle;
+            const oppCritMult = 1.5;
+            
+            const oppAttackBonus = getStyleBonus(oppAttackStyle);
+            const oppArmorBonus = getStyleBonus(oppArmorStyle);
+            const oppDodgeBonus = getStyleBonus(oppDodgeStyle);
+            const oppCritBonus = getStyleBonus(oppCritStyle);
+            const oppCritMultBonus = 0;
             
             const finalOppAttack = oppAttack + oppAttackBonus;
             const finalOppArmor = oppArmor + oppArmorBonus;
