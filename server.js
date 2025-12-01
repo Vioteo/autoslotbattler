@@ -594,6 +594,21 @@ function botEndTurn(botId, roomId) {
   console.log(`Бот ${bot.nickname} закончил ход`);
 }
 
+// Обработка покупки карточек ботом (заглушка - полная реализация будет позже)
+function handleBotCardPurchase(botId, roomId) {
+  const bot = bots.get(botId);
+  if (!bot) {
+    console.warn(`Бот ${botId} не найден для покупки карточек`);
+    return;
+  }
+  
+  // Пока что просто логируем - полная реализация системы карточек будет добавлена позже
+  console.log(`Бот ${bot.nickname} (${botId}) пытается купить карточки в комнате ${roomId}`);
+  
+  // TODO: Реализовать логику покупки карточек ботами
+  // Боты должны покупать карточки случайным образом во время перерыва между боями
+}
+
 // Добавление ботов в комнату до 8 игроков
 function fillRoomWithBots(roomId) {
   const room = rooms.get(roomId);
