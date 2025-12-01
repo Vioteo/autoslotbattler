@@ -1222,11 +1222,18 @@ h1 {
 }
 
 .combo-description,
-.combo-damage {
+.combo-damage,
+.combo-multiple {
     font-size: 11px;
     opacity: 0.95;
     margin-top: 2px;
     font-weight: normal;
+}
+
+.combo-multiple {
+    font-size: 10px;
+    opacity: 0.85;
+    font-style: italic;
 }
 
 .character-container {

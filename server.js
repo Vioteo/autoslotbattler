@@ -15,6 +15,9 @@ const io = new Server(server, {
 // Статические файлы
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Константы
+const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
+
 // Хранилище комнат
 const rooms = new Map();
 
@@ -89,7 +92,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     spinDelay: isBot ? getRandomSpinDelay() : 0, // Случайная задержка для бота
     lastSpinTime: 0,
     rechargeEndTime: 0,
-    duelStartTime: 0, // Время начала дуэли (для таймера 3 секунды)
+    duelStartTime: 0, // Время начала дуэли (для таймера 10 секунд)
     // Экономика
     permanentGold: 0,
     temporaryGold: 0,
@@ -363,22 +366,22 @@ function handleBotSpin(botId, roomId) {
   
   const now = Date.now();
   
-  // Проверяем таймер перед боем (3 секунды) - строгая проверка
+  // СТРОГАЯ ПРОВЕРКА: Проверяем таймер перед боем (10 секунд) - боты НЕ должны атаковать до старта
   if (bot.duelStartTime > 0) {
     const timeSinceStart = now - bot.duelStartTime;
-    if (timeSinceStart < 3000) {
-      // Еще не прошло 3 секунды, планируем повторную попытку
-      const remaining = 3000 - timeSinceStart;
+    if (timeSinceStart < PRE_BATTLE_DELAY) {
+      // Еще не прошло 10 секунд, планируем повторную попытку
+      const remaining = PRE_BATTLE_DELAY - timeSinceStart;
       setTimeout(() => {
         handleBotSpin(botId, roomId);
-      }, remaining + 50); // Добавляем небольшую задержку для надежности
+      }, remaining + 100); // Добавляем задержку для надежности
       return;
     }
   } else {
-    // Если duelStartTime еще не установлен, ждем немного и повторяем
+    // Если duelStartTime еще не установлен, ждем и повторяем
     setTimeout(() => {
       handleBotSpin(botId, roomId);
-    }, 100);
+    }, 200);
     return;
   }
   
@@ -918,7 +921,7 @@ function startNextRound(roomId) {
         p2.duelOpponent = pair[0];
         p2.duelStartTime = now; // Устанавливаем время начала дуэли
         
-        // Запускаем ботов, если они в дуэли (с учетом таймера 3 секунды + задержка спина)
+        // Запускаем ботов, если они в дуэли (с учетом таймера 10 секунд + задержка спина)
         // Боты будут проверять таймер внутри handleBotSpin, поэтому запускаем их после установки duelStartTime
         if (p1.isBot) {
           const delay = (p1.spinDelay || 0); // Только задержка спина, таймер проверяется внутри
@@ -1114,10 +1117,11 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Проверяем таймер перед боем (3 секунды) - строгая проверка
+    // Проверяем таймер перед боем (10 секунд) - строгая проверка
     const now = Date.now();
-    if (attacker.duelStartTime > 0 && now < attacker.duelStartTime + 3000) {
-      socket.emit('roomError', { message: 'Бой еще не начался! Подождите 3 секунды' });
+    if (attacker.duelStartTime > 0 && now < attacker.duelStartTime + PRE_BATTLE_DELAY) {
+      const remaining = Math.ceil((attacker.duelStartTime + PRE_BATTLE_DELAY - now) / 1000);
+      socket.emit('roomError', { message: `Бой еще не начался! Подождите ${remaining} секунд` });
       return;
     }
     

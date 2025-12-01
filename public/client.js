@@ -1,3 +1,6 @@
+// Константы
+const PRE_BATTLE_DELAY = 10000; // 10 секунд до начала боя
+
 // Автоматическое определение сервера
 const getServerUrl = () => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -301,17 +304,18 @@ socket.on('roomStateUpdate', (data) => {
         const player = roomState.players.find(p => p.socketId === playerState.socketId);
         if (player) {
             // Показываем статистику только если:
-            // 1. Игрок в комнате (roomId не null)
-            // 2. Игрок выбрал персонажа (characterId не null)
-            // 3. Игра началась (мы на игровом экране)
+            // 1. Мы на игровом экране (не на меню)
+            // 2. Игрок в комнате (roomId не null)
+            // 3. Игрок выбрал персонажа (characterId не null)
             // 4. Прошел хотя бы один раунд (currentRound > 0)
             // 5. Игрок закончил бой или раунд (не в дуэли или дуэль завершена)
             const isInGame = gameScreen && gameScreen.classList.contains('active');
+            const isNotInMenu = menuScreen && !menuScreen.classList.contains('active');
             const hasRoom = playerState.roomId !== null;
             const hasCharacter = player.characterId !== null && player.characterId !== undefined;
             const hasCompletedRound = roomState.currentRound > 0;
             
-            if (isInGame && hasRoom && hasCharacter && hasCompletedRound && !player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
+            if (isInGame && isNotInMenu && hasRoom && hasCharacter && hasCompletedRound && !player.isInDuel && (player.duelStatus === 'winner' || player.duelStatus === 'loser' || player.hasEndedTurn)) {
                 // Показываем статистику, если закончил бой или раунд
                 showRoundStats();
             }
@@ -426,10 +430,7 @@ socket.on('attack', (data) => {
     } else if (data.fromPlayerSocketId === playerState.socketId) {
         // Это наша атака, показываем анимацию на противнике
         showAttackAnimation(data.damage, true);
-        // Показываем сообщение о нашей комбинации
-        if (data.comboInfo) {
-            showComboMessage('player', data.comboInfo);
-        }
+        // Сообщение о комбинации уже показано в checkMatches, не дублируем
         // Обновляем состояние для отображения урона боту
         setTimeout(() => {
             updatePlayersListGame();
@@ -684,11 +685,11 @@ function spin() {
         return;
     }
     
-    // Проверяем таймер перед боем (3 секунды)
+    // Проверяем таймер перед боем (10 секунд)
     if (player.duelStartTime) {
         const now = Date.now();
-        if (now < player.duelStartTime + 3000) {
-            const remaining = Math.ceil((player.duelStartTime + 3000 - now) / 1000);
+        if (now < player.duelStartTime + PRE_BATTLE_DELAY) {
+            const remaining = Math.ceil((player.duelStartTime + PRE_BATTLE_DELAY - now) / 1000);
             showError(`Бой еще не начался! Подождите ${remaining} секунд`);
             return;
         }
@@ -702,7 +703,7 @@ function spin() {
         return;
     }
     
-    // Проверяем, прошло ли 3 секунды с начала перезарядки
+    // Проверяем перезарядку
     const now = Date.now();
     if (gameState.isRecharging && now < gameState.rechargeEndTime) {
         // Штраф: добавляем +2 секунды
@@ -738,8 +739,11 @@ function spin() {
         if (rechargeText) {
             rechargeText.textContent = `Перезарядка: +2 сек штраф`;
         }
-        return; // Не позволяем спин, пока не прошло 3 секунды
+        return; // Не позволяем спин, пока не прошло 10 секунд
     }
+    
+    // НАЧИНАЕМ ПЕРЕЗАРЯДКУ С МОМЕНТА НАЖАТИЯ КНОПКИ
+    startRecharge();
     
     gameState.isSpinning = true;
     gameState.canSpin = false;
@@ -986,6 +990,7 @@ function checkMatches() {
     
     // Получаем символы из каждой линии
     let results;
+    const matchDetails = []; // Объявляем в начале функции
     
     // Используем новую структуру с рельсами
     if (slotReels[0] && slotReels[0].children.length >= 3) {
@@ -1104,7 +1109,6 @@ function checkMatches() {
     } else {
         // Подсчет совпадений по горизонтали (в каждой линии) с учетом wild
         let totalMatches = 0;
-        const matchDetails = [];
         
         results.forEach((line, lineIndex) => {
             // Подсчет wild символов
@@ -1242,8 +1246,7 @@ function checkMatches() {
             damage: 0
         };
     } else if (damage > 0 && matchDetails.length > 0) {
-        // Формируем информацию о первой комбинации
-        const firstMatch = matchDetails[0];
+        // Формируем информацию о комбинациях
         const symbolNames = {
             'red': 'КРАСНЫХ',
             'blue': 'СИНИХ',
@@ -1252,18 +1255,31 @@ function checkMatches() {
             'purple': 'ФИОЛЕТОВЫХ',
             'wild': 'WILD'
         };
-        const symbolName = symbolNames[firstMatch.symbol] || 'СИМВОЛОВ';
-        const lineDamage = 5 * firstMatch.matches;
-        const totalLines = matchDetails.length;
-        const comboText = totalLines > 1 
-            ? `${firstMatch.matches} ${symbolName} ШАРИКА (${totalLines} линии)`
-            : `${firstMatch.matches} ${symbolName} ШАРИКА`;
-        comboInfo = {
-            type: 'combo',
-            text: comboText,
-            damage: damage,
-            description: `Урон: ${damage}`
-        };
+        
+        // Если несколько комбинаций, показываем все
+        if (matchDetails.length > 1) {
+            const comboTexts = matchDetails.map(m => {
+                const symbolName = symbolNames[m.symbol] || 'СИМВОЛОВ';
+                return `${m.matches} ${symbolName}`;
+            });
+            comboInfo = {
+                type: 'combo',
+                text: `${matchDetails.length} КОМБИНАЦИИ`,
+                combos: comboTexts,
+                damage: damage,
+                description: `Урон: ${damage}`
+            };
+        } else {
+            // Одна комбинация
+            const firstMatch = matchDetails[0];
+            const symbolName = symbolNames[firstMatch.symbol] || 'СИМВОЛОВ';
+            comboInfo = {
+                type: 'combo',
+                text: `${firstMatch.matches} ${symbolName} ШАРИКА`,
+                damage: damage,
+                description: `Урон: ${damage}`
+            };
+        }
     }
     
     // Всегда отправляем атаку на сервер (золото тратится на сервере всегда, даже если нет комбинации)
@@ -1276,14 +1292,26 @@ function checkMatches() {
             matches: bonusCount >= 3 ? 'bonus' : 'normal',
             comboInfo: comboInfo
         });
+        
+        // Показываем сообщение о комбинации над игроком после отправки
+        if (comboInfo) {
+            // Небольшая задержка для синхронизации с анимацией спина
+            setTimeout(() => {
+                showComboMessage('player', comboInfo);
+            }, 500);
+        }
     }
     
-    // Всегда начинаем перезарядку после спина
-    startRecharge();
+    // Перезарядка уже началась при нажатии кнопки, не запускаем повторно
 }
 
 // Начало перезарядки
 function startRecharge() {
+    // Если перезарядка уже идет (штраф), не перезапускаем
+    if (gameState.isRecharging && gameState.rechargeEndTime > Date.now()) {
+        return;
+    }
+    
     gameState.isRecharging = true;
     gameState.rechargeTime = 3000; // 3 секунды
     gameState.rechargeEndTime = Date.now() + gameState.rechargeTime;
@@ -1294,6 +1322,11 @@ function startRecharge() {
     // Блокируем кнопку спин на 3 секунды
     if (spinBtn) {
         spinBtn.disabled = true;
+    }
+    
+    // Очищаем предыдущий интервал если есть
+    if (rechargeInterval) {
+        clearInterval(rechargeInterval);
     }
     
     rechargeInterval = setInterval(() => {
@@ -1312,6 +1345,7 @@ function startRecharge() {
         
         if (remaining <= 0) {
             clearInterval(rechargeInterval);
+            rechargeInterval = null;
             gameState.isRecharging = false;
             gameState.rechargeTime = 0;
             gameState.rechargeEndTime = 0;
@@ -1332,7 +1366,7 @@ function enableSpin() {
         player.isInDuel && // В дуэли
         !player.hasEndedTurn && // Не закончил ход
         (player.temporaryGold >= 5 || player.permanentGold >= 5) && // Есть золото
-        (!player.duelStartTime || Date.now() >= player.duelStartTime + 3000); // Прошел таймер до боя
+        (!player.duelStartTime || Date.now() >= player.duelStartTime + PRE_BATTLE_DELAY); // Прошел таймер до боя
     
     gameState.canSpin = canSpinNow;
     if (spinBtn) {
@@ -1405,10 +1439,20 @@ function showComboMessage(target, comboInfo) {
         `;
     } else {
         messageEl.className += ' combo-normal';
-        messageEl.innerHTML = `
-            <div class="combo-title">${comboInfo.text}</div>
-            <div class="combo-damage">Урон: ${comboInfo.damage}</div>
-        `;
+        if (comboInfo.combos && comboInfo.combos.length > 1) {
+            // Несколько комбинаций
+            messageEl.innerHTML = `
+                <div class="combo-title">${comboInfo.text}</div>
+                <div class="combo-multiple">${comboInfo.combos.join(', ')}</div>
+                <div class="combo-damage">Урон: ${comboInfo.damage}</div>
+            `;
+        } else {
+            // Одна комбинация
+            messageEl.innerHTML = `
+                <div class="combo-title">${comboInfo.text}</div>
+                <div class="combo-damage">Урон: ${comboInfo.damage}</div>
+            `;
+        }
     }
     
     container.appendChild(messageEl);
@@ -1979,7 +2023,7 @@ function updateBattlePhase() {
     if (!player.isInDuel) {
         battlePhase.textContent = 'Перерыв между боями';
         battlePhase.className = 'battle-phase phase-break';
-    } else if (player.duelStartTime && Date.now() < player.duelStartTime + 3000) {
+    } else if (player.duelStartTime && Date.now() < player.duelStartTime + PRE_BATTLE_DELAY) {
         battlePhase.textContent = 'Подготовка к бою';
         battlePhase.className = 'battle-phase phase-preparation';
     } else {
@@ -2006,7 +2050,7 @@ function startBattleTimer(duelStartTime) {
     
     battleTimerInterval = setInterval(() => {
         const now = Date.now();
-        const remaining = Math.max(0, duelStartTime + 3000 - now);
+        const remaining = Math.max(0, duelStartTime + PRE_BATTLE_DELAY - now);
         
         if (remaining <= 0) {
             clearInterval(battleTimerInterval);
@@ -2018,10 +2062,10 @@ function startBattleTimer(duelStartTime) {
             return;
         }
         
-        // Показываем секунды, но не показываем 0
+        // Показываем секунды
         const seconds = Math.ceil(remaining / 1000);
         if (battleTimerCountdown) {
-            battleTimerCountdown.textContent = seconds > 0 ? seconds : 1;
+            battleTimerCountdown.textContent = seconds;
         }
         updateBattlePhase();
     }, 100);
@@ -2125,12 +2169,14 @@ function showRoundStats() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (!player) return;
     
-    // Проверяем, что игрок выбрал персонажа и находится в игре
+    // Проверяем, что игрок выбрал персонажа и находится в игре (не на меню)
     const isInGame = gameScreen && gameScreen.classList.contains('active');
+    const isNotInMenu = menuScreen && !menuScreen.classList.contains('active');
     const hasCharacter = player.characterId !== null && player.characterId !== undefined;
     const hasCompletedRound = roomState.currentRound > 0;
+    const hasRoom = playerState.roomId !== null;
     
-    if (!isInGame || !hasCharacter || !hasCompletedRound) return;
+    if (!isInGame || !isNotInMenu || !hasRoom || !hasCharacter || !hasCompletedRound) return;
     
     // Показываем статистику только если не в дуэли или дуэль завершена, или закончил ход
     if (player.isInDuel && !player.duelStatus && !player.hasEndedTurn) return;
