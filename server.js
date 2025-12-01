@@ -61,6 +61,9 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     // Серии побед/поражений
     winStreak: 0,
     loseStreak: 0,
+    // Статистика
+    wins: 0,
+    losses: 0,
     lastRoundGoldBonus: 0, // Бонус процентов за последний раунд
     lastRoundGoldEarned: 0 // Золото, заработанное в последнем раунде
   };
@@ -242,7 +245,7 @@ function handleBotSpin(botId, roomId) {
     const remaining = bot.duelStartTime + 3000 - now;
     setTimeout(() => {
       handleBotSpin(botId, roomId);
-    }, remaining);
+    }, remaining + 100); // Добавляем небольшую задержку для надежности
     return;
   }
   
@@ -315,15 +318,20 @@ function handleBotSpin(botId, roomId) {
       // Проигравший теряет 20% от общего HP
       opponent.totalHp = Math.max(0, opponent.totalHp - Math.floor(opponent.totalHp * 0.2));
       
-      // Обновляем серии
+      // Обновляем серии и статистику
       bot.winStreak = (bot.winStreak || 0) + 1;
-      bot.loseStreak = 0;
-      opponent.winStreak = 0;
+      bot.loseStreak = 0; // Победа сбрасывает серию поражений
+      bot.wins = (bot.wins || 0) + 1;
+      
+      opponent.winStreak = 0; // Поражение сбрасывает серию побед
       opponent.loseStreak = (opponent.loseStreak || 0) + 1;
+      opponent.losses = (opponent.losses || 0) + 1;
       
       // Начисляем золото с учетом серий
       const winnerGold = awardGold(bot, true);
       const loserGold = awardGold(opponent, false);
+      // Победитель получает 10% золота проигравшего
+      const stolenGold = transferKillGold(bot, opponent);
       
       bot.duelStatus = 'winner';
       opponent.duelStatus = 'loser';
@@ -340,7 +348,7 @@ function handleBotSpin(botId, roomId) {
       updateRoomState(roomId);
       checkAllDuelsFinished(roomId);
       
-      console.log(`Дуэль завершена (бот). Победитель: ${bot.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%), Проигравший: ${opponent.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
+      console.log(`Дуэль завершена (бот). Победитель: ${bot.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%) + украдено ${stolenGold}, Проигравший: ${opponent.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
       return;
     }
     
@@ -458,6 +466,8 @@ function updateRoomState(roomId) {
       duelStartTime: p.duelStartTime || 0,
       winStreak: p.winStreak || 0,
       loseStreak: p.loseStreak || 0,
+      wins: p.wins || 0,
+      losses: p.losses || 0,
       lastRoundGoldBonus: p.lastRoundGoldBonus || 0,
       lastRoundGoldEarned: p.lastRoundGoldEarned || 0
     };
@@ -531,7 +541,7 @@ function calculateBonusPercent(streak, isWin) {
 
 // Начисление золота с учетом серий
 function awardGold(player, isWinner) {
-  const baseGold = isWinner ? 10 : 5; // Победитель: 10, проигравший: 5
+  const baseGold = 10; // И за победу, и за поражение одинаково: 10
   const streak = isWinner ? player.winStreak : player.loseStreak;
   const bonusPercent = calculateBonusPercent(streak, isWinner);
   const bonusGold = Math.floor(baseGold * bonusPercent / 100);
@@ -542,6 +552,42 @@ function awardGold(player, isWinner) {
   player.lastRoundGoldEarned = totalGold;
   
   return { baseGold, bonusGold, totalGold, bonusPercent };
+}
+
+// Передача 10% золота проигравшего победителю
+function transferKillGold(winner, loser) {
+  const loserPerm = loser.permanentGold || 0;
+  const loserTemp = loser.temporaryGold || 0;
+  const totalGold = loserPerm + loserTemp;
+  
+  if (totalGold <= 0) {
+    return 0;
+  }
+  
+  // 10% от всего золота проигравшего
+  const transferAmount = Math.floor(totalGold * 0.10);
+  if (transferAmount <= 0) {
+    return 0;
+  }
+  
+  let remaining = transferAmount;
+  
+  // Сначала забираем из временного золота
+  const fromTemp = Math.min(loserTemp, remaining);
+  loser.temporaryGold = loserTemp - fromTemp;
+  remaining -= fromTemp;
+  
+  // Остальное забираем из постоянного золота
+  if (remaining > 0) {
+    loser.permanentGold = Math.max(0, loserPerm - remaining);
+  }
+  
+  // Все украденное золото добавляем к постоянному золоту победителя
+  winner.permanentGold = (winner.permanentGold || 0) + transferAmount;
+  // Учитываем в статистике последнего раунда победителя
+  winner.lastRoundGoldEarned = (winner.lastRoundGoldEarned || 0) + transferAmount;
+  
+  return transferAmount;
 }
 
 // Проверка, оба ли игрока закончили ход
@@ -559,15 +605,20 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
     // Проигравший теряет 20% от общего HP
     loser.totalHp = Math.max(0, loser.totalHp - Math.floor(loser.totalHp * 0.2));
     
-    // Обновляем серии
+    // Обновляем серии и статистику
     winner.winStreak = (winner.winStreak || 0) + 1;
-    winner.loseStreak = 0;
+    winner.loseStreak = 0; // Победа сбрасывает серию поражений
+    winner.wins = (winner.wins || 0) + 1;
+    
     loser.loseStreak = (loser.loseStreak || 0) + 1;
-    loser.winStreak = 0;
+    loser.winStreak = 0; // Поражение сбрасывает серию побед
+    loser.losses = (loser.losses || 0) + 1;
     
     // Начисляем золото с учетом серий
     const winnerGold = awardGold(winner, true);
     const loserGold = awardGold(loser, false);
+    // Победитель получает 10% золота проигравшего
+    const stolenGold = transferKillGold(winner, loser);
     
     winner.duelStatus = 'winner';
     loser.duelStatus = 'loser';
@@ -584,7 +635,7 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
     updateRoomState(roomId);
     checkAllDuelsFinished(roomId);
     
-    console.log(`Оба игрока закончили ход. Победитель: ${winner.nickname} (HP: ${winner.roundHp} vs ${loser.roundHp}). Золото: ${winner.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%), ${loser.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
+    console.log(`Оба игрока закончили ход. Победитель: ${winner.nickname} (HP: ${winner.roundHp} vs ${loser.roundHp}). Золото: ${winner.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%) + украдено ${stolenGold}, ${loser.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
   }
 }
 
@@ -613,6 +664,14 @@ function startNextRound(roomId) {
       // Сбрасываем информацию о последнем раунде (будет обновлена в следующем раунде)
       p.lastRoundGoldBonus = 0;
       p.lastRoundGoldEarned = 0;
+      
+      // Начисляем 20% от постоянного золота в конце раунда
+      const interestGold = Math.floor((p.permanentGold || 0) * 0.2);
+      if (interestGold > 0) {
+        p.permanentGold = (p.permanentGold || 0) + interestGold;
+        p.lastRoundGoldEarned = interestGold;
+        p.lastRoundGoldBonus = 20; // 20% проценты
+      }
       
       p.roundHp = 100;
       p.isInDuel = false;
@@ -871,15 +930,20 @@ io.on('connection', (socket) => {
       // Проигравший теряет 20% от общего HP
       target.totalHp = Math.max(0, target.totalHp - Math.floor(target.totalHp * 0.2));
       
-      // Обновляем серии
+      // Обновляем серии и статистику
       attacker.winStreak = (attacker.winStreak || 0) + 1;
-      attacker.loseStreak = 0;
+      attacker.loseStreak = 0; // Победа сбрасывает серию поражений
+      attacker.wins = (attacker.wins || 0) + 1;
+      
       target.loseStreak = (target.loseStreak || 0) + 1;
-      target.winStreak = 0;
+      target.winStreak = 0; // Поражение сбрасывает серию побед
+      target.losses = (target.losses || 0) + 1;
       
       // Начисляем золото с учетом серий
       const winnerGold = awardGold(attacker, true);
       const loserGold = awardGold(target, false);
+      // Победитель получает 10% золота проигравшего
+      const stolenGold = transferKillGold(attacker, target);
       
       attacker.duelStatus = 'winner';
       target.duelStatus = 'loser';
@@ -898,7 +962,7 @@ io.on('connection', (socket) => {
       // Проверяем, все ли бои закончились
       checkAllDuelsFinished(roomId);
       
-      console.log(`Дуэль завершена. Победитель: ${attacker.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%), Проигравший: ${target.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
+      console.log(`Дуэль завершена. Победитель: ${attacker.nickname} +${winnerGold.totalGold} (${winnerGold.bonusPercent}%) + украдено ${stolenGold}, Проигравший: ${target.nickname} +${loserGold.totalGold} (${loserGold.bonusPercent}%)`);
     } else {
       // Обновляем состояние комнаты
       updateRoomState(roomId);

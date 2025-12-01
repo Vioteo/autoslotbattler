@@ -492,6 +492,24 @@ h1 {
     background: rgba(102, 126, 234, 0.2);
 }
 
+.stats-info {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.stats-item {
+    padding: 5px 10px;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 5px;
+    cursor: help;
+    transition: background 0.3s ease;
+}
+
+.stats-item:hover {
+    background: rgba(76, 175, 80, 0.2);
+}
+
 .round-reward-info {
     padding: 8px 12px;
     background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);

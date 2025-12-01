@@ -72,6 +72,8 @@ let playerState = {
     temporaryGold: 0,
     winStreak: 0,
     loseStreak: 0,
+    wins: 0,
+    losses: 0,
     lastRoundGoldBonus: 0,
     lastRoundGoldEarned: 0
 };
@@ -265,6 +267,7 @@ socket.on('roomStateUpdate', (data) => {
         updatePlayersListGame();
         updateGoldDisplay();
         updateStreakDisplay();
+        updateStatsDisplay();
         updateRoundRewardDisplay();
         
         // Обновляем баланс противника
@@ -310,6 +313,7 @@ socket.on('roundStarted', (data) => {
     updatePlayersListGame();
     updateGoldDisplay();
     updateStreakDisplay();
+    updateStatsDisplay();
     updateRoundRewardDisplay();
     
     // Запускаем таймер перед боем, если игрок в дуэли
@@ -643,23 +647,24 @@ function spinReels() {
     }
     
     slotReels.forEach((reel, reelIndex) => {
-        // Разная скорость для каждого столбца (от 1.5 до 2.5 секунд)
-        const baseSpeed = 1500 + Math.random() * 1000;
-        const speedVariation = 0.9 + (reelIndex * 0.12); // Разная скорость по столбцам
+        // Разная скорость для каждого столбца (от 1.0 до 1.8 секунд - быстрее)
+        const baseSpeed = 1000 + Math.random() * 800;
+        const speedVariation = 0.9 + (reelIndex * 0.1); // Разная скорость по столбцам
         const spinDuration = baseSpeed * speedVariation;
         
         // Задержка начала для каждого столбца (каскадный эффект)
-        const startDelay = reelIndex * 100;
+        const startDelay = reelIndex * 80;
         
         setTimeout(() => {
             reel.classList.add('spinning');
             
-            const symbols = Array.from(reel.children);
+            const originalSymbols = Array.from(reel.children);
             const symbolHeight = 60; // Высота символа
             
-            // Создаем дополнительные символы для плавной прокрутки
+            // Создаем дополнительные символы для плавной прокрутки (больше символов)
             const extraSymbols = [];
-            for (let i = 0; i < 8; i++) {
+            const totalSymbolsNeeded = 15; // Достаточно для плавной прокрутки
+            for (let i = 0; i < totalSymbolsNeeded; i++) {
                 const extraSymbol = document.createElement('div');
                 extraSymbol.className = 'slot-symbol';
                 const randomSymbol = getRandomSymbol();
@@ -689,7 +694,7 @@ function spinReels() {
                     });
                     
                     // Устанавливаем финальные символы и сбрасываем позиции
-                    symbols.forEach((symbol, index) => {
+                    originalSymbols.forEach((symbol, index) => {
                         setSymbol(symbol, finalSymbols[reelIndex][index]);
                         symbol.style.transform = 'translateY(0)';
                         symbol.style.transition = 'none';
@@ -708,27 +713,39 @@ function spinReels() {
                 
                 // Плавное замедление в конце (ease-out)
                 let easeFactor = 1;
-                if (progress > 0.6) {
-                    const slowProgress = (progress - 0.6) / 0.4;
+                if (progress > 0.7) {
+                    const slowProgress = (progress - 0.7) / 0.3;
                     easeFactor = 1 - (slowProgress * slowProgress * slowProgress);
                 }
                 
-                // Скорость прокрутки (замедляется к концу)
-                const baseSpeed = 2; // пикселей за кадр
-                const currentSpeed = baseSpeed * easeFactor;
+                // Скорость прокрутки (быстрее, замедляется к концу)
+                const maxSpeed = 10; // пикселей за кадр (быстрее)
+                const minSpeed = 0.5;
+                const currentSpeed = minSpeed + (maxSpeed - minSpeed) * easeFactor;
                 currentOffset += currentSpeed;
                 
-                // Обновляем позиции всех символов
+                // Обновляем позиции всех символов для плавной прокрутки (сверху вниз)
                 allSymbolsInReel.forEach((symbol, index) => {
-                    const position = (index * symbolHeight) - (currentOffset % symbolHeight);
-                    symbol.style.transform = `translateY(${position}px)`;
-                    symbol.style.transition = 'none';
+                    // Вычисляем позицию с учетом прокрутки (направление: сверху вниз)
+                    const totalHeight = allSymbolsInReel.length * symbolHeight;
+                    const normalizedOffset = currentOffset % totalHeight;
+                    // Начальная позиция символа - смещение (движение вниз = отрицательное значение translateY)
+                    const basePosition = index * symbolHeight;
+                    const position = basePosition - normalizedOffset;
                     
-                    // Обновляем символы, которые выходят за верхнюю границу
-                    if (position < -symbolHeight * 2) {
-                        const randomSymbol = getRandomSymbol();
-                        setSymbol(symbol, randomSymbol);
+                    // Если символ ушел вниз за пределы видимости, перемещаем его наверх
+                    if (position < -symbolHeight) {
+                        const newPosition = position + totalHeight;
+                        symbol.style.transform = `translateY(${newPosition}px)`;
+                        // Обновляем символ для эффекта бесконечной прокрутки
+                        if (newPosition < symbolHeight * 2) {
+                            const randomSymbol = getRandomSymbol();
+                            setSymbol(symbol, randomSymbol);
+                        }
+                    } else {
+                        symbol.style.transform = `translateY(${position}px)`;
                     }
+                    symbol.style.transition = 'none';
                 });
                 
                 requestAnimationFrame(animate);
@@ -907,22 +924,44 @@ function checkMatches() {
             if (matchedIndices.length >= 2) {
                 if (slotReels[0] && slotReels[0].children.length >= 3) {
                     // Создаем визуальную линию поверх рельсов
-                    const reelsContainer = document.querySelector('.slot-reels');
-                    if (reelsContainer) {
-                        const lineElement = document.createElement('div');
-                        lineElement.className = 'slot-line-temp';
-                        lineElement.style.position = 'absolute';
-                        lineElement.style.top = `${lineIndex * 60 + 30}px`;
-                        lineElement.style.left = '0';
-                        lineElement.style.right = '0';
-                        lineElement.style.height = '4px';
-                        lineElement.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
-                        lineElement.style.zIndex = '5';
-                        lineElement.style.borderRadius = '2px';
-                        lineElement.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.8)';
-                        reelsContainer.parentElement.style.position = 'relative';
-                        reelsContainer.parentElement.appendChild(lineElement);
-                        setTimeout(() => lineElement.remove(), 2000);
+                    const reelsWrapper = document.querySelector('.slot-reels-wrapper');
+                    if (reelsWrapper) {
+                        // Вычисляем позиции первого и последнего символа
+                        const firstReel = slotReels[matchedIndices[0]];
+                        const lastReel = slotReels[matchedIndices[matchedIndices.length - 1]];
+                        
+                        if (firstReel && lastReel) {
+                            const firstSymbol = firstReel.children[lineIndex];
+                            const lastSymbol = lastReel.children[lineIndex];
+                            
+                            if (firstSymbol && lastSymbol) {
+                                const firstRect = firstSymbol.getBoundingClientRect();
+                                const lastRect = lastSymbol.getBoundingClientRect();
+                                const wrapperRect = reelsWrapper.getBoundingClientRect();
+                                
+                                const lineElement = document.createElement('div');
+                                lineElement.className = 'slot-line-temp';
+                                lineElement.style.position = 'absolute';
+                                lineElement.style.top = `${firstRect.top - wrapperRect.top + firstRect.height / 2 - 2}px`;
+                                lineElement.style.left = `${firstRect.left - wrapperRect.left + firstRect.width / 2}px`;
+                                lineElement.style.width = `${lastRect.left - firstRect.left + lastRect.width / 2 - firstRect.width / 2}px`;
+                                lineElement.style.height = '4px';
+                                lineElement.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
+                                lineElement.style.zIndex = '15';
+                                lineElement.style.borderRadius = '2px';
+                                lineElement.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.8)';
+                                
+                                if (reelsWrapper.style.position !== 'relative') {
+                                    reelsWrapper.style.position = 'relative';
+                                }
+                                reelsWrapper.appendChild(lineElement);
+                                setTimeout(() => {
+                                    if (lineElement.parentNode) {
+                                        lineElement.remove();
+                                    }
+                                }, 2000);
+                            }
+                        }
                     }
                 } else {
                     const lineElement = document.getElementById(`line${lineIndex + 1}`);
@@ -1007,22 +1046,44 @@ function checkMatches() {
                     // Для новой структуры создаем временный контейнер для линии
                     if (slotReels[0] && slotReels[0].children.length >= 3) {
                         // Создаем визуальную линию поверх рельсов
-                        const reelsContainer = document.querySelector('.slot-reels');
-                        if (reelsContainer) {
-                            const lineElement = document.createElement('div');
-                            lineElement.className = 'slot-line-temp';
-                            lineElement.style.position = 'absolute';
-                            lineElement.style.top = `${lineIndex * 60 + 30}px`;
-                            lineElement.style.left = '0';
-                            lineElement.style.right = '0';
-                            lineElement.style.height = '4px';
-                            lineElement.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
-                            lineElement.style.zIndex = '5';
-                            lineElement.style.borderRadius = '2px';
-                            lineElement.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.8)';
-                            reelsContainer.parentElement.style.position = 'relative';
-                            reelsContainer.parentElement.appendChild(lineElement);
-                            setTimeout(() => lineElement.remove(), 2000);
+                        const reelsWrapper = document.querySelector('.slot-reels-wrapper');
+                        if (reelsWrapper) {
+                            // Вычисляем позиции первого и последнего символа
+                            const firstReel = slotReels[matchedIndices[0]];
+                            const lastReel = slotReels[matchedIndices[matchedIndices.length - 1]];
+                            
+                            if (firstReel && lastReel) {
+                                const firstSymbol = firstReel.children[lineIndex];
+                                const lastSymbol = lastReel.children[lineIndex];
+                                
+                                if (firstSymbol && lastSymbol) {
+                                    const firstRect = firstSymbol.getBoundingClientRect();
+                                    const lastRect = lastSymbol.getBoundingClientRect();
+                                    const wrapperRect = reelsWrapper.getBoundingClientRect();
+                                    
+                                    const lineElement = document.createElement('div');
+                                    lineElement.className = 'slot-line-temp';
+                                    lineElement.style.position = 'absolute';
+                                    lineElement.style.top = `${firstRect.top - wrapperRect.top + firstRect.height / 2 - 2}px`;
+                                    lineElement.style.left = `${firstRect.left - wrapperRect.left + firstRect.width / 2}px`;
+                                    lineElement.style.width = `${lastRect.left - firstRect.left + lastRect.width / 2 - firstRect.width / 2}px`;
+                                    lineElement.style.height = '4px';
+                                    lineElement.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
+                                    lineElement.style.zIndex = '15';
+                                    lineElement.style.borderRadius = '2px';
+                                    lineElement.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.8)';
+                                    
+                                    if (reelsWrapper.style.position !== 'relative') {
+                                        reelsWrapper.style.position = 'relative';
+                                    }
+                                    reelsWrapper.appendChild(lineElement);
+                                    setTimeout(() => {
+                                        if (lineElement.parentNode) {
+                                            lineElement.remove();
+                                        }
+                                    }, 2000);
+                                }
+                            }
                         }
                     } else {
                         const lineElement = document.getElementById(`line${lineIndex + 1}`);
@@ -1247,6 +1308,12 @@ function updatePlayersListGame() {
         if (player.loseStreak !== undefined) {
             playerState.loseStreak = player.loseStreak;
         }
+        if (player.wins !== undefined) {
+            playerState.wins = player.wins;
+        }
+        if (player.losses !== undefined) {
+            playerState.losses = player.losses;
+        }
         if (player.lastRoundGoldBonus !== undefined) {
             playerState.lastRoundGoldBonus = player.lastRoundGoldBonus;
         }
@@ -1255,6 +1322,7 @@ function updatePlayersListGame() {
         }
         updateGoldDisplay();
         updateStreakDisplay();
+        updateStatsDisplay();
         updateRoundRewardDisplay();
         
         // Обновляем состояние кнопки "Закончил ход"
@@ -1707,6 +1775,32 @@ function updateStreakDisplay() {
         const bonusPercent = Math.min(loseStreak * 3, 30);
         loseStreakDisplay.innerHTML = `💔 Поражений: <strong>${loseStreak}</strong>`;
         loseStreakDisplay.title = `Серия поражений: +3% за каждое поражение (макс. +30%)\nТекущий бонус: +${bonusPercent}%`;
+    }
+}
+
+// Обновление отображения статистики
+function updateStatsDisplay() {
+    const winsDisplay = document.getElementById('winsDisplay');
+    const lossesDisplay = document.getElementById('lossesDisplay');
+    
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (player) {
+        if (player.wins !== undefined) {
+            playerState.wins = player.wins;
+        }
+        if (player.losses !== undefined) {
+            playerState.losses = player.losses;
+        }
+    }
+    
+    if (winsDisplay) {
+        const wins = playerState.wins || 0;
+        winsDisplay.innerHTML = `✅ Побед: <strong>${wins}</strong>`;
+    }
+    
+    if (lossesDisplay) {
+        const losses = playerState.losses || 0;
+        lossesDisplay.innerHTML = `❌ Поражений: <strong>${losses}</strong>`;
     }
 }
 
