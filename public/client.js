@@ -437,6 +437,14 @@ socket.on('roomError', (data) => {
     showError(data.message);
 });
 
+socket.on('characterSelected', (data) => {
+    console.log('Персонаж выбран:', data);
+    // Переключаемся на экран ожидания после выбора персонажа
+    showScreen(waitingScreen);
+    // Обновляем список игроков чтобы увидеть статус выбора
+    socket.emit('getRooms');
+});
+
 // Инициализация игры
 function initGame() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
@@ -1322,9 +1330,27 @@ function updatePlayersListWaiting() {
     playersListWaiting.innerHTML = roomState.players.map(player => {
         const isHost = player.socketId === (roomState.players[0]?.socketId);
         const isBot = player.isBot || false;
+        const hasCharacter = player.characterId ? true : false;
+        
+        // Находим информацию о персонаже
+        let characterInfo = '';
+        if (hasCharacter) {
+            const character = CHARACTERS.find(c => c.id === player.characterId);
+            if (character) {
+                characterInfo = ` ${character.emoji} ${character.name}`;
+            }
+        }
+        
+        const statusText = isBot ? '✅ Выбрал' : (hasCharacter ? '✅ Выбрал' : '⏳ Выбирает...');
+        
         return `
             <div class="player-item-waiting ${isHost ? 'host' : ''}">
-                <span>${player.nickname}${isHost ? ' (Хост)' : ''}${isBot ? ' 🤖' : ''}</span>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span>${player.nickname}${isHost ? ' (Хост)' : ''}${isBot ? ' 🤖' : ''}</span>
+                    <span style="font-size: 12px; color: ${hasCharacter ? '#4caf50' : '#ff9800'};">
+                        ${statusText}${characterInfo}
+                    </span>
+                </div>
                 <span>HP: ${player.totalHp}</span>
             </div>
         `;
@@ -1825,6 +1851,8 @@ function startBattleTimer(duelStartTime) {
 function updateGoldDisplay() {
     const tempGoldEl = document.getElementById('tempGoldDisplay');
     const permGoldEl = document.getElementById('permGoldDisplay');
+    const tempGoldStatsEl = document.getElementById('tempGoldDisplayStats');
+    const permGoldStatsEl = document.getElementById('permGoldDisplayStats');
     
     // Обновляем из состояния комнаты
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
@@ -1842,6 +1870,12 @@ function updateGoldDisplay() {
     }
     if (permGoldEl) {
         permGoldEl.textContent = playerState.permanentGold || 0;
+    }
+    if (tempGoldStatsEl) {
+        tempGoldStatsEl.textContent = playerState.temporaryGold || 0;
+    }
+    if (permGoldStatsEl) {
+        permGoldStatsEl.textContent = playerState.permanentGold || 0;
     }
 }
 

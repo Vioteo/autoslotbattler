@@ -90,25 +90,6 @@
                         </div>
                         <div class="player-info">
                             <span>Ваш ник: <strong id="playerNickname">-</strong></span>
-                            <div class="streak-info" id="streakInfo" style="margin-top: 10px; font-size: 14px;">
-                                <span class="streak-item" id="winStreakDisplay" title="Серия побед: +5% за каждую победу (макс. +50%)">
-                                    🏆 Побед: <strong>0</strong>
-                                </span>
-                                <span class="streak-item" id="loseStreakDisplay" title="Серия поражений: +3% за каждое поражение (макс. +30%)">
-                                    💔 Поражений: <strong>0</strong>
-                                </span>
-                            </div>
-                            <div class="stats-info" id="statsInfo" style="margin-top: 10px; font-size: 14px;">
-                                <span class="stats-item" id="winsDisplay" title="Всего побед">
-                                    ✅ Побед: <strong>0</strong>
-                                </span>
-                                <span class="stats-item" id="lossesDisplay" title="Всего поражений">
-                                    ❌ Поражений: <strong>0</strong>
-                                </span>
-                            </div>
-                            <div class="round-reward-info" id="roundRewardInfo" style="margin-top: 10px; font-size: 14px; display: none;">
-                                <span id="roundRewardText" title="Золото, полученное в конце раунда с учетом бонусов от серий"></span>
-                            </div>
                         </div>
                     </div>
                     
@@ -230,6 +211,45 @@
 
                     <div class="game-footer">
                         <button id="leaveGameBtn" class="btn btn-secondary">Покинуть игру</button>
+                    </div>
+                </div>
+                
+                <!-- Правая панель со статистикой -->
+                <div class="stats-sidebar">
+                    <h3>Статистика</h3>
+                    <div class="stats-content">
+                        <div class="gold-info-section">
+                            <h4>Золото</h4>
+                            <div class="gold-display-stats">
+                                <div>💵 Временное: <strong id="tempGoldDisplayStats">0</strong></div>
+                                <div>💰 Постоянное: <strong id="permGoldDisplayStats">0</strong></div>
+                            </div>
+                        </div>
+                        <div class="streak-info-section">
+                            <h4>Серии</h4>
+                            <div class="streak-info" id="streakInfo">
+                                <div class="streak-item" id="winStreakDisplay" title="Серия побед: +5% за каждую победу (макс. +50%)">
+                                    🏆 Побед: <strong>0</strong>
+                                </div>
+                                <div class="streak-item" id="loseStreakDisplay" title="Серия поражений: +3% за каждое поражение (макс. +30%)">
+                                    💔 Поражений: <strong>0</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stats-info-section">
+                            <h4>Боевая статистика</h4>
+                            <div class="stats-info" id="statsInfo">
+                                <div class="stats-item" id="winsDisplay" title="Всего побед">
+                                    ✅ Побед: <strong>0</strong>
+                                </div>
+                                <div class="stats-item" id="lossesDisplay" title="Всего поражений">
+                                    ❌ Поражений: <strong>0</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="round-reward-info" id="roundRewardInfo" style="display: none; margin-top: 15px; padding: 10px; background: rgba(76, 175, 80, 0.1); border-radius: 5px;">
+                            <span id="roundRewardText" title="Золото, полученное в конце раунда с учетом бонусов от серий"></span>
+                        </div>
                     </div>
                 </div>
             </div>

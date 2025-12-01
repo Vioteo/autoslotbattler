@@ -17,10 +17,14 @@ body {
 .container {
     background: white;
     border-radius: 20px;
-    padding: 40px;
-    max-width: 1400px;
+    padding: 20px;
+    max-width: 1600px;
     width: 100%;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 h1 {
@@ -195,20 +199,72 @@ h1 {
 
 .game-layout {
     display: flex;
-    gap: 20px;
+    gap: 15px;
+    height: 100%;
+    overflow: hidden;
 }
 
 .players-sidebar {
-    width: 250px;
+    width: 220px;
     background: #f8f9fa;
     border-radius: 10px;
     padding: 15px;
-    max-height: 600px;
+    max-height: calc(100vh - 100px);
     overflow-y: auto;
+    flex-shrink: 0;
 }
 
 .players-sidebar h3 {
     margin-bottom: 15px;
+    color: #333;
+    font-size: 16px;
+}
+
+.stats-sidebar {
+    width: 220px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.stats-sidebar h3 {
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 16px;
+}
+
+.stats-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.stats-content h4 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.gold-info-section,
+.streak-info-section,
+.stats-info-section {
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.gold-display-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 13px;
+}
+
+.gold-display-stats div {
     color: #333;
 }
 
@@ -286,13 +342,20 @@ h1 {
 
 .game-main {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    max-height: calc(100vh - 140px);
 }
 
 .duels-container {
-    margin: 20px 0;
+    margin: 10px 0;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
+    max-height: 120px;
+    overflow-y: auto;
 }
 
 .duel-pair {
@@ -461,11 +524,11 @@ h1 {
 .game-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    padding: 15px;
+    align-items: center;
+    padding: 10px 15px;
     background: #f8f9fa;
     border-radius: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .player-info {
@@ -474,18 +537,25 @@ h1 {
     align-items: flex-end;
 }
 
-.streak-info {
+.room-info-small {
     display: flex;
     gap: 15px;
-    flex-wrap: wrap;
+    font-size: 14px;
+}
+
+.streak-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .streak-item {
-    padding: 5px 10px;
+    padding: 6px 10px;
     background: rgba(102, 126, 234, 0.1);
     border-radius: 5px;
     cursor: help;
     transition: background 0.3s ease;
+    font-size: 12px;
 }
 
 .streak-item:hover {
@@ -494,16 +564,17 @@ h1 {
 
 .stats-info {
     display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .stats-item {
-    padding: 5px 10px;
+    padding: 6px 10px;
     background: rgba(76, 175, 80, 0.1);
     border-radius: 5px;
     cursor: help;
     transition: background 0.3s ease;
+    font-size: 12px;
 }
 
 .stats-item:hover {
@@ -625,11 +696,11 @@ h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 30px;
+    padding: 15px;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     border-radius: 15px;
-    margin-bottom: 20px;
-    min-height: 200px;
+    margin-bottom: 15px;
+    min-height: 150px;
 }
 
 .character-container {
@@ -640,8 +711,8 @@ h1 {
 }
 
 .character-avatar {
-    font-size: 80px;
-    margin-bottom: 10px;
+    font-size: 50px;
+    margin-bottom: 5px;
     animation: float 3s ease-in-out infinite;
 }
 
@@ -732,7 +803,7 @@ h1 {
 
 /* Игровой автомат */
 .slot-machine-container {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .slot-machine {
@@ -758,12 +829,12 @@ h1 {
 /* Новая структура с рельсами (столбцами) */
 .slot-reels-wrapper {
     position: relative;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     overflow: hidden;
     border-radius: 15px;
     background: rgba(0, 0, 0, 0.2);
     padding: 0;
-    min-height: 200px;
+    min-height: 150px;
 }
 
 .slot-border {
@@ -796,38 +867,38 @@ h1 {
 
 .slot-reels {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
-    padding: 12px 5px;
-    min-height: 200px;
+    padding: 8px 5px;
+    min-height: 150px;
     position: relative;
 }
 
 .slot-reel {
     position: relative;
-    width: 60px;
-    height: 180px;
+    width: 50px;
+    height: 135px;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border-radius: 8px;
     border: 2px solid rgba(255, 255, 255, 0.3);
     display: flex;
     flex-direction: column;
 }
 
 .slot-symbol {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 45px;
     background: white;
-    border-radius: 10px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
+    font-size: 24px;
     font-weight: bold;
-    border: 3px solid #333;
+    border: 2px solid #333;
     transition: transform 0.1s linear, opacity 0.1s linear;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
     position: relative;
     flex-shrink: 0;
 }
@@ -937,7 +1008,7 @@ h1 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
 }
 
 .spin-info {
@@ -974,8 +1045,8 @@ h1 {
 .btn-spin {
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
     color: white;
-    padding: 20px 60px;
-    font-size: 24px;
+    padding: 12px 40px;
+    font-size: 18px;
     font-weight: bold;
     border: none;
     border-radius: 50px;
@@ -983,7 +1054,7 @@ h1 {
     transition: all 0.3s ease;
     box-shadow: 0 5px 15px rgba(238, 90, 111, 0.4);
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
 
 .btn-spin:hover:not(:disabled) {
@@ -1029,7 +1100,8 @@ h1 {
 
 .game-footer {
     text-align: center;
-    margin-top: 20px;
+    margin-top: 10px;
+    padding: 10px 0;
 }
 
 /* Анимация урона */

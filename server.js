@@ -124,6 +124,11 @@ function createBot(roomId) {
   const botId = `BOT_${botIdCounter}`;
   const botName = botNames[Math.floor(Math.random() * botNames.length)];
   const bot = createPlayer(botId, botName, roomId, true);
+  
+  // Автоматически назначаем случайного персонажа боту
+  const randomCharacter = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+  bot.characterId = randomCharacter.id;
+  
   bots.set(botId, bot);
   players.set(botId, bot);
   return bot;
@@ -533,7 +538,15 @@ function fillRoomWithBots(roomId) {
     // Отправляем обновление списка игроков
     const playersInRoom = room.players.map(id => {
       const p = players.get(id);
-      return p ? { socketId: id, nickname: p.nickname, totalHp: p.totalHp, roundHp: p.roundHp, isEliminated: p.isEliminated } : null;
+      return p ? { 
+        socketId: id, 
+        nickname: p.nickname, 
+        totalHp: p.totalHp, 
+        roundHp: p.roundHp, 
+        isEliminated: p.isEliminated,
+        isBot: p.isBot || false,
+        characterId: p.characterId || null
+      } : null;
     }).filter(p => p !== null);
     
     io.to(roomId).emit('playerJoined', {
@@ -602,6 +615,7 @@ function updateRoomState(roomId) {
       duelOpponent: p.duelOpponent,
       duelStatus: p.duelStatus,
       isBot: p.isBot || false,
+      characterId: p.characterId || null,
       permanentGold: p.permanentGold || 0,
       temporaryGold: p.temporaryGold || 0,
       hasEndedTurn: p.hasEndedTurn || false,
@@ -913,7 +927,9 @@ io.on('connection', (socket) => {
       nickname: player.nickname,
       totalHp: player.totalHp,
       roundHp: player.roundHp,
-      isEliminated: player.isEliminated
+      isEliminated: player.isEliminated,
+      isBot: player.isBot || false,
+      characterId: player.characterId || null
     }];
     socket.emit('playerJoined', {
       roomId,
@@ -961,7 +977,15 @@ io.on('connection', (socket) => {
     // Отправляем список игроков в комнате
     const playersInRoom = room.players.map(id => {
       const p = players.get(id);
-      return p ? { socketId: id, nickname: p.nickname, totalHp: p.totalHp, roundHp: p.roundHp, isEliminated: p.isEliminated } : null;
+      return p ? { 
+        socketId: id, 
+        nickname: p.nickname, 
+        totalHp: p.totalHp, 
+        roundHp: p.roundHp, 
+        isEliminated: p.isEliminated,
+        isBot: p.isBot || false,
+        characterId: p.characterId || null
+      } : null;
     }).filter(p => p !== null);
     
     // Уведомляем всех в комнате о подключении нового игрока
