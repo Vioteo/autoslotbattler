@@ -45,6 +45,15 @@
             </div>
         </div>
 
+        <div id="characterSelectScreen" class="screen">
+            <div class="character-select-content">
+                <h2>Выберите персонажа</h2>
+                <p style="margin-bottom: 20px; color: #666;">Каждый персонаж имеет уникальную способность, активируемую при совпадении 3 бонусных символов</p>
+                <div class="characters-grid" id="charactersGrid"></div>
+                <button id="confirmCharacterBtn" class="btn btn-primary" style="margin-top: 20px; display: none;">Подтвердить выбор</button>
+            </div>
+        </div>
+
         <div id="waitingScreen" class="screen">
             <div class="waiting-content">
                 <h2>Ожидание игроков...</h2>
@@ -115,7 +124,7 @@
                         <div class="hp-bar" id="playerHpBar">
                             <div class="hp-fill" id="playerHpFill" style="width: 100%"></div>
                         </div>
-                        <div class="hp-text" id="playerHpText">100 / 100</div>
+                        <div class="hp-text" id="playerHpText">200 / 200</div>
                     </div>
                 </div>
                 
@@ -133,7 +142,7 @@
                         <div class="hp-bar" id="enemyHpBar">
                             <div class="hp-fill" id="enemyHpFill" style="width: 100%"></div>
                         </div>
-                        <div class="hp-text" id="enemyHpText">100 / 100</div>
+                        <div class="hp-text" id="enemyHpText">200 / 200</div>
                     </div>
                     <div class="gold-display-enemy" id="enemyGoldDisplay" style="display: none;">
                         <div>💵 Временное: <span id="enemyTempGold">0</span></div>

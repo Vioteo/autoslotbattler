@@ -37,6 +37,42 @@ const botNames = [
   'Бот-Стрелок', 'Бот-Защитник', 'Бот-Атакующий', 'Бот-Стратег'
 ];
 
+// Персонажи с уникальными способностями
+const CHARACTERS = [
+  {
+    id: 'merchant',
+    name: 'Торговец',
+    emoji: '💰',
+    ability: 'gold',
+    description: '+25 постоянного золота',
+    abilityValue: 25
+  },
+  {
+    id: 'healer',
+    name: 'Лекарь',
+    emoji: '💚',
+    ability: 'heal',
+    description: 'Восстановление текущего здоровья',
+    abilityValue: 50 // Восстанавливает 50 HP
+  },
+  {
+    id: 'guardian',
+    name: 'Страж',
+    emoji: '🛡️',
+    ability: 'block',
+    description: 'Блокирование следующего урона',
+    abilityValue: 1 // Блокирует 1 атаку
+  },
+  {
+    id: 'berserker',
+    name: 'Берсерк',
+    emoji: '⚔️',
+    ability: 'damage',
+    description: 'Нанесение 50 урона',
+    abilityValue: 50
+  }
+];
+
 // Структура данных игрока
 function createPlayer(socketId, nickname, roomId, isBot = false) {
   return {
@@ -44,7 +80,7 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     nickname: nickname || `Игрок ${socketId.substring(0, 6)}`,
     roomId: roomId,
     totalHp: 100,
-    roundHp: 100,
+    roundHp: 200,
     isEliminated: false,
     isInDuel: false,
     duelOpponent: null,
@@ -65,7 +101,10 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     wins: 0,
     losses: 0,
     lastRoundGoldBonus: 0, // Бонус процентов за последний раунд
-    lastRoundGoldEarned: 0 // Золото, заработанное в последнем раунде
+    lastRoundGoldEarned: 0, // Золото, заработанное в последнем раунде
+    // Персонаж
+    characterId: null, // ID выбранного персонажа
+    hasBlock: false // Есть ли блок от следующего урона
   };
 }
 
@@ -128,7 +167,7 @@ function simulateBotSpin() {
     results.push(lineSymbols);
   }
   
-  // Подсчет бонусов (3+ бонусов = 25 урона)
+  // Подсчет бонусов (3+ бонусов = способность персонажа)
   let bonusCount = 0;
   results.forEach(line => {
     line.forEach(symbol => {
@@ -137,7 +176,7 @@ function simulateBotSpin() {
   });
   
   if (bonusCount >= 3) {
-    return { damage: 25, matches: 'bonus' };
+    return { matches: 'bonus', bonusCount };
   }
   
   // Подсчет совпадений по горизонтали с учетом wild
@@ -186,8 +225,8 @@ function simulateBotSpin() {
 // Принятие решения ботом: делать ли еще спин или закончить ход
 function botDecideAction(bot, opponent) {
   const spinCost = 5;
-  const botHpPercent = bot.roundHp / 100;
-  const opponentHpPercent = opponent.roundHp / 100;
+  const botHpPercent = bot.roundHp / 200;
+  const opponentHpPercent = opponent.roundHp / 200;
   
   // Если у бота нет золота - заканчивает ход
   if (bot.temporaryGold < spinCost && bot.permanentGold < spinCost) {
@@ -223,6 +262,61 @@ function botDecideAction(bot, opponent) {
   return 'endTurn';
 }
 
+// Обработка способности персонажа
+function useCharacterAbility(player, opponent, roomId) {
+  if (!player.characterId) return null;
+  
+  const character = CHARACTERS.find(c => c.id === player.characterId);
+  if (!character) return null;
+  
+  const result = {
+    ability: character.ability,
+    characterName: character.name,
+    message: ''
+  };
+  
+  switch (character.ability) {
+    case 'gold':
+      // +25 постоянного золота
+      player.permanentGold = (player.permanentGold || 0) + character.abilityValue;
+      result.message = `${character.name}: +${character.abilityValue} постоянного золота`;
+      break;
+      
+    case 'heal':
+      // Восстановление текущего здоровья
+      const healAmount = Math.min(character.abilityValue, 200 - player.roundHp);
+      player.roundHp = Math.min(200, player.roundHp + character.abilityValue);
+      result.message = `${character.name}: восстановлено ${healAmount} HP`;
+      result.healAmount = healAmount;
+      break;
+      
+    case 'block':
+      // Блокирование следующего урона
+      player.hasBlock = true;
+      result.message = `${character.name}: следующий урон будет заблокирован`;
+      break;
+      
+    case 'damage':
+      // Нанесение 50 урона
+      if (opponent && opponent.hasBlock) {
+        opponent.hasBlock = false;
+        result.message = `${character.name}: урон заблокирован защитой противника`;
+        result.damage = 0;
+      } else {
+        const damage = character.abilityValue;
+        if (opponent) {
+          opponent.roundHp = Math.max(0, opponent.roundHp - damage);
+        }
+        result.message = `${character.name}: нанесено ${damage} урона`;
+        result.damage = damage;
+      }
+      break;
+  }
+  
+  updateRoomState(roomId);
+  return result;
+}
+
 // Обработка спина бота
 function handleBotSpin(botId, roomId) {
   const bot = bots.get(botId);
@@ -239,13 +333,22 @@ function handleBotSpin(botId, roomId) {
   
   const now = Date.now();
   
-  // Проверяем таймер перед боем (3 секунды)
-  if (bot.duelStartTime > 0 && now < bot.duelStartTime + 3000) {
-    // Еще не прошло 3 секунды, планируем повторную попытку
-    const remaining = bot.duelStartTime + 3000 - now;
+  // Проверяем таймер перед боем (3 секунды) - строгая проверка
+  if (bot.duelStartTime > 0) {
+    const timeSinceStart = now - bot.duelStartTime;
+    if (timeSinceStart < 3000) {
+      // Еще не прошло 3 секунды, планируем повторную попытку
+      const remaining = 3000 - timeSinceStart;
+      setTimeout(() => {
+        handleBotSpin(botId, roomId);
+      }, remaining + 50); // Добавляем небольшую задержку для надежности
+      return;
+    }
+  } else {
+    // Если duelStartTime еще не установлен, ждем немного и повторяем
     setTimeout(() => {
       handleBotSpin(botId, roomId);
-    }, remaining + 100); // Добавляем небольшую задержку для надежности
+    }, 100);
     return;
   }
   
@@ -292,18 +395,57 @@ function handleBotSpin(botId, roomId) {
   // Планируем нанесение урона после завершения спина
   setTimeout(() => {
     const spinResult = simulateBotSpin();
-    const damage = spinResult.damage;
+    let damage = 0;
     
-    // Наносим урон противнику
-    opponent.roundHp = Math.max(0, opponent.roundHp - damage);
+    // Если 3+ бонусных символа - используем способность персонажа
+    if (spinResult.matches === 'bonus' && bot.characterId) {
+      const abilityResult = useCharacterAbility(bot, opponent, roomId);
+      if (abilityResult) {
+        if (abilityResult.ability === 'damage' && abilityResult.damage) {
+          damage = abilityResult.damage;
+        }
+        
+        // Отправляем информацию о способности
+        io.to(roomId).emit('abilityUsed', {
+          fromPlayerSocketId: botId,
+          targetPlayerSocketId: opponentId,
+          ability: abilityResult.ability,
+          message: abilityResult.message,
+          damage: abilityResult.damage || 0,
+          healAmount: abilityResult.healAmount || 0
+        });
+      }
+    } else {
+      // Обычный урон от совпадений
+      damage = spinResult.damage || 0;
+      
+      // Проверяем блок противника
+      if (opponent && opponent.hasBlock && damage > 0) {
+        opponent.hasBlock = false;
+        damage = 0;
+        io.to(roomId).emit('abilityUsed', {
+          fromPlayerSocketId: opponentId,
+          targetPlayerSocketId: botId,
+          ability: 'block',
+          message: 'Урон заблокирован защитой',
+          damage: 0
+        });
+      }
+      
+      if (damage > 0) {
+        opponent.roundHp = Math.max(0, opponent.roundHp - damage);
+      }
+    }
     
     // Отправляем атаку всем в комнате
-    io.to(roomId).emit('attack', {
-      fromPlayerSocketId: botId,
-      targetPlayerSocketId: opponentId,
-      damage: damage,
-      matches: spinResult.matches
-    });
+    if (damage > 0 || spinResult.matches === 'bonus') {
+      io.to(roomId).emit('attack', {
+        fromPlayerSocketId: botId,
+        targetPlayerSocketId: opponentId,
+        damage: damage,
+        matches: spinResult.matches
+      });
+    }
     
     // Обновляем время последнего спина и перезарядки
     const spinEndTime = Date.now();
@@ -673,7 +815,7 @@ function startNextRound(roomId) {
         p.lastRoundGoldBonus = 20; // 20% проценты
       }
       
-      p.roundHp = 100;
+      p.roundHp = 200;
       p.isInDuel = false;
       p.duelOpponent = null;
       p.duelStatus = null;
@@ -704,14 +846,15 @@ function startNextRound(roomId) {
         p2.duelStartTime = now; // Устанавливаем время начала дуэли
         
         // Запускаем ботов, если они в дуэли (с учетом таймера 3 секунды + задержка спина)
+        // Боты будут проверять таймер внутри handleBotSpin, поэтому запускаем их после установки duelStartTime
         if (p1.isBot) {
-          const delay = 3000 + (p1.spinDelay || 0); // 3 секунды таймера + задержка спина
+          const delay = (p1.spinDelay || 0); // Только задержка спина, таймер проверяется внутри
           setTimeout(() => {
             handleBotSpin(p1.socketId, roomId);
           }, delay);
         }
         if (p2.isBot) {
-          const delay = 3000 + (p2.spinDelay || 0); // 3 секунды таймера + задержка спина
+          const delay = (p2.spinDelay || 0); // Только задержка спина, таймер проверяется внутри
           setTimeout(() => {
             handleBotSpin(p2.socketId, roomId);
           }, delay);
@@ -909,18 +1052,56 @@ io.on('connection', (socket) => {
     attacker.lastSpinTime = now;
     attacker.rechargeEndTime = now + 3000; // 3 секунды перезарядки
     
-    // Наносим урон по HP раунда (боты получают урон так же, как и обычные игроки)
-    target.roundHp = Math.max(0, target.roundHp - damage);
+    let finalDamage = damage;
     
-    console.log(`Урон нанесен: ${attacker.nickname} -> ${target.nickname}, урон: ${damage}, HP после: ${target.roundHp}`);
+    // Если 3+ бонусных символа - используем способность персонажа
+    if (matches === 'bonus' && attacker.characterId) {
+      const abilityResult = useCharacterAbility(attacker, target, roomId);
+      if (abilityResult) {
+        if (abilityResult.ability === 'damage' && abilityResult.damage) {
+          finalDamage = abilityResult.damage;
+        } else {
+          finalDamage = 0;
+        }
+        
+        // Отправляем информацию о способности
+        io.to(roomId).emit('abilityUsed', {
+          fromPlayerSocketId: fromPlayerSocketId,
+          targetPlayerSocketId: targetPlayerSocketId,
+          ability: abilityResult.ability,
+          message: abilityResult.message,
+          damage: abilityResult.damage || 0,
+          healAmount: abilityResult.healAmount || 0
+        });
+      }
+    } else if (damage > 0) {
+      // Обычный урон - проверяем блок противника
+      if (target.hasBlock) {
+        target.hasBlock = false;
+        finalDamage = 0;
+        io.to(roomId).emit('abilityUsed', {
+          fromPlayerSocketId: targetPlayerSocketId,
+          targetPlayerSocketId: fromPlayerSocketId,
+          ability: 'block',
+          message: 'Урон заблокирован защитой',
+          damage: 0
+        });
+      } else if (finalDamage > 0) {
+        target.roundHp = Math.max(0, target.roundHp - finalDamage);
+      }
+    }
+    
+    console.log(`Урон нанесен: ${attacker.nickname} -> ${target.nickname}, урон: ${finalDamage}, HP после: ${target.roundHp}`);
     
     // Отправляем атаку всем в комнате
-    io.to(roomId).emit('attack', {
-      fromPlayerSocketId: fromPlayerSocketId,
-      targetPlayerSocketId: targetPlayerSocketId,
-      damage: damage,
-      matches: matches
-    });
+    if (finalDamage > 0 || matches === 'bonus') {
+      io.to(roomId).emit('attack', {
+        fromPlayerSocketId: fromPlayerSocketId,
+        targetPlayerSocketId: targetPlayerSocketId,
+        damage: finalDamage,
+        matches: matches
+      });
+    }
     
     // Обновляем состояние комнаты сразу после нанесения урона
     updateRoomState(roomId);
@@ -995,6 +1176,31 @@ io.on('connection', (socket) => {
   });
 
   // Начало игры (только хост может запустить)
+  // Обработка выбора персонажа
+  socket.on('selectCharacter', (data) => {
+    const { roomId, characterId } = data;
+    const player = players.get(socket.id);
+    const room = rooms.get(roomId);
+    
+    if (!player || !room || room.gameInProgress) {
+      socket.emit('roomError', { message: 'Нельзя выбрать персонажа сейчас' });
+      return;
+    }
+    
+    // Проверяем, что персонаж существует
+    const character = CHARACTERS.find(c => c.id === characterId);
+    if (!character) {
+      socket.emit('roomError', { message: 'Неверный персонаж' });
+      return;
+    }
+    
+    player.characterId = characterId;
+    updateRoomState(roomId);
+    
+    socket.emit('characterSelected', { characterId, character });
+    console.log(`Игрок ${player.nickname} выбрал персонажа: ${character.name}`);
+  });
+
   socket.on('startGame', (data) => {
     const { roomId } = data;
     const room = rooms.get(roomId);
@@ -1007,6 +1213,22 @@ io.on('connection', (socket) => {
     // Проверяем, что только хост может запустить игру
     if (room.hostId !== socket.id) {
       socket.emit('roomError', { message: 'Только хост может запустить игру' });
+      return;
+    }
+    
+    // Проверяем, что все реальные игроки выбрали персонажа
+    const realPlayers = room.players.filter(id => {
+      const p = players.get(id);
+      return p && !p.isBot;
+    });
+    
+    const playersWithoutCharacter = realPlayers.filter(id => {
+      const p = players.get(id);
+      return !p.characterId;
+    });
+    
+    if (playersWithoutCharacter.length > 0) {
+      socket.emit('roomError', { message: 'Не все игроки выбрали персонажа' });
       return;
     }
     

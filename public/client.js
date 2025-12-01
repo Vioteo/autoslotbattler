@@ -46,13 +46,49 @@ const WILD_SYMBOL = { emoji: '⭐', color: '#ffd700', name: 'wild', weight: 5 };
 // Бонус символ
 const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 3 };
 
+// Персонажи (должны совпадать с сервером)
+const CHARACTERS = [
+    {
+        id: 'merchant',
+        name: 'Торговец',
+        emoji: '💰',
+        ability: 'gold',
+        description: '+25 постоянного золота',
+        abilityValue: 25
+    },
+    {
+        id: 'healer',
+        name: 'Лекарь',
+        emoji: '💚',
+        ability: 'heal',
+        description: 'Восстановление текущего здоровья',
+        abilityValue: 50
+    },
+    {
+        id: 'guardian',
+        name: 'Страж',
+        emoji: '🛡️',
+        ability: 'block',
+        description: 'Блокирование следующего урона',
+        abilityValue: 1
+    },
+    {
+        id: 'berserker',
+        name: 'Берсерк',
+        emoji: '⚔️',
+        ability: 'damage',
+        description: 'Нанесение 50 урона',
+        abilityValue: 50
+    }
+];
+
 // Игровое состояние
 let gameState = {
-    roundHp: 100,
+    roundHp: 200,
     totalHp: 100,
-    enemyRoundHp: 100,
+    enemyRoundHp: 200,
     enemyTotalHp: 100,
-    maxHp: 100,
+    maxHp: 200,
     isRecharging: false,
     rechargeTime: 0,
     canSpin: true,
@@ -89,6 +125,7 @@ let roomState = {
 const connectionStatus = document.getElementById('connectionStatus');
 const statusText = document.getElementById('statusText');
 const menuScreen = document.getElementById('menuScreen');
+const characterSelectScreen = document.getElementById('characterSelectScreen');
 const waitingScreen = document.getElementById('waitingScreen');
 const gameScreen = document.getElementById('gameScreen');
 const createRoomBtn = document.getElementById('createRoomBtn');
@@ -215,7 +252,8 @@ socket.on('roomCreated', (data) => {
     }
     // Запрашиваем обновление списка игроков
     socket.emit('getRooms');
-    showScreen(waitingScreen);
+    // Показываем экран выбора персонажа
+    showCharacterSelect();
     hideError();
 });
 
@@ -231,7 +269,8 @@ socket.on('roomJoined', (data) => {
     }
     // Запрашиваем обновление списка игроков
     socket.emit('getRooms');
-    showScreen(waitingScreen);
+    // Показываем экран выбора персонажа
+    showCharacterSelect();
     hideError();
 });
 
@@ -402,7 +441,7 @@ socket.on('roomError', (data) => {
 function initGame() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player) {
-        gameState.roundHp = player.roundHp || 100;
+        gameState.roundHp = player.roundHp || 200;
         gameState.totalHp = player.totalHp || 100;
     }
     
@@ -413,13 +452,13 @@ function initGame() {
     );
     
     if (opponent) {
-        gameState.enemyRoundHp = opponent.roundHp || 100;
+        gameState.enemyRoundHp = opponent.roundHp || 200;
         gameState.enemyTotalHp = opponent.totalHp || 100;
         playerState.currentOpponent = opponent.socketId;
         playerState.isInDuel = true;
     }
     
-    gameState.maxHp = 100;
+    gameState.maxHp = 200;
     gameState.isRecharging = false;
     gameState.rechargeTime = 0;
     gameState.canSpin = true;
@@ -486,7 +525,7 @@ function updateGameState(data) {
     // Обновляем состояние из roomStateUpdate
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (player) {
-        gameState.roundHp = player.roundHp || 100;
+        gameState.roundHp = player.roundHp || 200;
         gameState.totalHp = player.totalHp || 100;
     }
     
@@ -495,7 +534,7 @@ function updateGameState(data) {
         (player && player.isInDuel && p.socketId === player.duelOpponent)
     );
     if (opponent) {
-        gameState.enemyRoundHp = opponent.roundHp || 100;
+        gameState.enemyRoundHp = opponent.roundHp || 200;
         gameState.enemyTotalHp = opponent.totalHp || 100;
     }
     updateHpBars();
@@ -647,13 +686,13 @@ function spinReels() {
     }
     
     slotReels.forEach((reel, reelIndex) => {
-        // Разная скорость для каждого столбца (от 1.0 до 1.8 секунд - быстрее)
-        const baseSpeed = 1000 + Math.random() * 800;
-        const speedVariation = 0.9 + (reelIndex * 0.1); // Разная скорость по столбцам
+        // Разная скорость для каждого столбца (от 1.2 до 2.0 секунд для более плавной анимации)
+        const baseSpeed = 1200 + Math.random() * 800;
+        const speedVariation = 0.85 + (reelIndex * 0.12); // Разная скорость по столбцам
         const spinDuration = baseSpeed * speedVariation;
         
         // Задержка начала для каждого столбца (каскадный эффект)
-        const startDelay = reelIndex * 80;
+        const startDelay = reelIndex * 120;
         
         setTimeout(() => {
             reel.classList.add('spinning');
@@ -661,9 +700,9 @@ function spinReels() {
             const originalSymbols = Array.from(reel.children);
             const symbolHeight = 60; // Высота символа
             
-            // Создаем дополнительные символы для плавной прокрутки (больше символов)
+            // Создаем дополнительные символы для плавной прокрутки (больше символов для бесшовной прокрутки)
             const extraSymbols = [];
-            const totalSymbolsNeeded = 15; // Достаточно для плавной прокрутки
+            const totalSymbolsNeeded = 20; // Больше символов для более плавной прокрутки
             for (let i = 0; i < totalSymbolsNeeded; i++) {
                 const extraSymbol = document.createElement('div');
                 extraSymbol.className = 'slot-symbol';
@@ -685,7 +724,7 @@ function spinReels() {
                 const progress = elapsed / spinDuration;
                 
                 if (remaining <= 0) {
-                    // Остановка - устанавливаем финальные символы
+                    // Остановка - устанавливаем финальные символы с плавной анимацией
                     reel.classList.remove('spinning');
                     
                     // Удаляем дополнительные символы
@@ -693,11 +732,17 @@ function spinReels() {
                         if (s.parentNode) s.remove();
                     });
                     
-                    // Устанавливаем финальные символы и сбрасываем позиции
+                    // Устанавливаем финальные символы с плавным переходом
                     originalSymbols.forEach((symbol, index) => {
                         setSymbol(symbol, finalSymbols[reelIndex][index]);
+                        // Плавный переход к финальной позиции
+                        symbol.style.transition = 'transform 0.2s ease-out';
                         symbol.style.transform = 'translateY(0)';
-                        symbol.style.transition = 'none';
+                        
+                        // Убираем transition после завершения
+                        setTimeout(() => {
+                            symbol.style.transition = 'none';
+                        }, 200);
                     });
                     
                     completedReels++;
@@ -706,21 +751,23 @@ function spinReels() {
                     if (completedReels === totalReels) {
                         setTimeout(() => {
                             checkMatches();
-                        }, 300);
+                        }, 400);
                     }
                     return;
                 }
                 
-                // Плавное замедление в конце (ease-out)
+                // Плавное замедление в конце с более реалистичной кривой
                 let easeFactor = 1;
-                if (progress > 0.7) {
-                    const slowProgress = (progress - 0.7) / 0.3;
-                    easeFactor = 1 - (slowProgress * slowProgress * slowProgress);
+                if (progress > 0.5) {
+                    // Более плавное и длительное замедление
+                    const slowProgress = (progress - 0.5) / 0.5;
+                    // Используем более плавную кривую замедления
+                    easeFactor = 1 - Math.pow(slowProgress, 2.5);
                 }
                 
-                // Скорость прокрутки (быстрее, замедляется к концу)
-                const maxSpeed = 10; // пикселей за кадр (быстрее)
-                const minSpeed = 0.5;
+                // Скорость прокрутки с более плавным изменением
+                const maxSpeed = 12; // пикселей за кадр
+                const minSpeed = 0.3;
                 const currentSpeed = minSpeed + (maxSpeed - minSpeed) * easeFactor;
                 currentOffset += currentSpeed;
                 
@@ -731,20 +778,19 @@ function spinReels() {
                     const normalizedOffset = currentOffset % totalHeight;
                     // Начальная позиция символа - смещение (движение вниз = отрицательное значение translateY)
                     const basePosition = index * symbolHeight;
-                    const position = basePosition - normalizedOffset;
+                    let position = basePosition - normalizedOffset;
                     
                     // Если символ ушел вниз за пределы видимости, перемещаем его наверх
                     if (position < -symbolHeight) {
-                        const newPosition = position + totalHeight;
-                        symbol.style.transform = `translateY(${newPosition}px)`;
+                        position = position + totalHeight;
                         // Обновляем символ для эффекта бесконечной прокрутки
-                        if (newPosition < symbolHeight * 2) {
+                        if (position < symbolHeight * 2 && position > -symbolHeight) {
                             const randomSymbol = getRandomSymbol();
                             setSymbol(symbol, randomSymbol);
                         }
-                    } else {
-                        symbol.style.transform = `translateY(${position}px)`;
                     }
+                    
+                    symbol.style.transform = `translateY(${position}px)`;
                     symbol.style.transition = 'none';
                 });
                 
@@ -1100,8 +1146,9 @@ function checkMatches() {
         damage = baseDamage * totalMatches;
     }
     
-    if (damage > 0 && playerState.currentOpponent) {
+    if ((damage > 0 || bonusCount >= 3) && playerState.currentOpponent) {
         // Отправляем атаку на сервер (золото тратится на сервере)
+        // Если 3+ бонусов, сервер обработает способность персонажа
         socket.emit('attack', {
             roomId: playerState.roomId,
             fromPlayerSocketId: playerState.socketId,
@@ -1389,7 +1436,7 @@ function updatePlayersListGame() {
                           player.duelStatus === 'loser' ? 'loser' :
                           player.isInDuel ? 'in-duel' : '';
         
-        const roundHpPercent = (player.roundHp / 100) * 100;
+        const roundHpPercent = (player.roundHp / 200) * 100;
         const totalHpPercent = (player.totalHp / 100) * 100;
         
         return `
@@ -1495,9 +1542,57 @@ function updateConnectionStatus(status, text) {
 
 function showScreen(screen) {
     menuScreen.classList.remove('active');
+    characterSelectScreen.classList.remove('active');
     waitingScreen.classList.remove('active');
     gameScreen.classList.remove('active');
     screen.classList.add('active');
+}
+
+// Показ экрана выбора персонажа
+function showCharacterSelect() {
+    const charactersGrid = document.getElementById('charactersGrid');
+    const confirmBtn = document.getElementById('confirmCharacterBtn');
+    let selectedCharacterId = null;
+    
+    if (!charactersGrid) return;
+    
+    charactersGrid.innerHTML = CHARACTERS.map(char => `
+        <div class="character-card" data-character-id="${char.id}">
+            <div class="character-emoji">${char.emoji}</div>
+            <div class="character-name">${char.name}</div>
+            <div class="character-description">${char.description}</div>
+        </div>
+    `).join('');
+    
+    // Обработчики выбора персонажа
+    charactersGrid.querySelectorAll('.character-card').forEach(card => {
+        card.addEventListener('click', () => {
+            // Убираем выделение с других карточек
+            charactersGrid.querySelectorAll('.character-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            // Выделяем выбранную карточку
+            card.classList.add('selected');
+            selectedCharacterId = card.dataset.characterId;
+            if (confirmBtn) {
+                confirmBtn.style.display = 'block';
+            }
+        });
+    });
+    
+    // Обработчик подтверждения выбора
+    if (confirmBtn) {
+        confirmBtn.onclick = () => {
+            if (selectedCharacterId) {
+                socket.emit('selectCharacter', {
+                    roomId: playerState.roomId,
+                    characterId: selectedCharacterId
+                });
+            }
+        };
+    }
+    
+    showScreen(characterSelectScreen);
 }
 
 function showError(message) {
@@ -1570,11 +1665,11 @@ function resetGame() {
     if (vsText) vsText.style.display = 'block';
     
     gameState = {
-        roundHp: 100,
+        roundHp: 200,
         totalHp: 100,
-        enemyRoundHp: 100,
+        enemyRoundHp: 200,
         enemyTotalHp: 100,
-        maxHp: 100,
+        maxHp: 200,
         isRecharging: false,
         rechargeTime: 0,
         canSpin: true,
@@ -1709,17 +1804,19 @@ function startBattleTimer(duelStartTime) {
     battleTimerInterval = setInterval(() => {
         const now = Date.now();
         const remaining = Math.max(0, duelStartTime + 3000 - now);
-        const seconds = Math.ceil(remaining / 1000);
-        
-        if (battleTimerCountdown) {
-            battleTimerCountdown.textContent = seconds;
-        }
         
         if (remaining <= 0) {
             clearInterval(battleTimerInterval);
             battleTimerInterval = null;
             battleTimer.style.display = 'none';
             if (vsText) vsText.style.display = 'block';
+            return;
+        }
+        
+        // Показываем секунды, но не показываем 0
+        const seconds = Math.ceil(remaining / 1000);
+        if (battleTimerCountdown) {
+            battleTimerCountdown.textContent = seconds > 0 ? seconds : 1;
         }
     }, 100);
 }
