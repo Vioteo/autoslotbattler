@@ -785,7 +785,7 @@ function handleBotSpin(botId, roomId) {
       if (abilityResult) {
         if (abilityResult.ability === 'damage' && abilityResult.damage) {
           // Применяем антикарты противника к статистике атакующего для крита
-          const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, targetAntiCards);
+          const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, opponent);
           // Применяем крит к урону от способности
           const critResult = applyCritToDamage(abilityResult.damage, attackerStatsWithAntiCards);
           finalDamage = finalDamage + critResult.damage;
@@ -808,7 +808,7 @@ function handleBotSpin(botId, roomId) {
           if (potentialHeal > 0) {
             const regenerationDamage = Math.floor(potentialHeal * 0.2);
             // Применяем антикарты противника к статистике атакующего для крита
-            const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, targetAntiCards);
+            const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, opponent);
             // Применяем крит к урону от регенерации
             const critResult = applyCritToDamage(regenerationDamage, attackerStatsWithAntiCards);
             const finalRegenDamage = critResult.damage;
@@ -842,10 +842,8 @@ function handleBotSpin(botId, roomId) {
         if (abilityResult.ability === 'damage' && finalDamage > 0) {
           // Проверяем уклонение
           const dodgeRoll = Math.random() * 100;
-          let effectiveDodge = targetStats.dodge;
-          if (targetAntiCards[CARD_TYPES.DODGE]) {
-            effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
-          }
+          const dodgeReduction = getAntiCardEffect(opponent, CARD_TYPES.DODGE);
+          let effectiveDodge = targetStats.dodge * (1 - dodgeReduction);
           
           if (dodgeRoll < effectiveDodge) {
             dodged = true;
@@ -876,13 +874,9 @@ function handleBotSpin(botId, roomId) {
           } else {
             // Применяем броню
             const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
-            const armorReduction = targetStats.armor / 100;
-            if (targetAntiCards[CARD_TYPES.ARMOR]) {
-              const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
-              finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
-            } else {
-              finalDamage = Math.floor(finalDamage * (1 - armorReduction));
-            }
+            const armorReduction = getAntiCardEffect(opponent, CARD_TYPES.ARMOR);
+            const effectiveArmor = targetStats.armor * (1 - armorReduction);
+            finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
             // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
             if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
               armorReduced = true;
