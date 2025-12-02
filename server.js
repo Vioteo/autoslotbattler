@@ -357,7 +357,7 @@ function createBot(roomId) {
 }
 
 // Симуляция спина для бота (как у реального игрока)
-function simulateBotSpin() {
+function simulateBotSpin(bot = null) {
   // Символы с весами (как на клиенте)
   const SYMBOLS = [
     { name: 'red', weight: 20 },
