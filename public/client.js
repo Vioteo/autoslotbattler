@@ -478,9 +478,17 @@ socket.on('roomStateUpdate', (data) => {
                 if (!gameState.isRecharging || player.rechargeEndTime > gameState.rechargeEndTime) {
                     gameState.isRecharging = true;
                     gameState.rechargeEndTime = player.rechargeEndTime;
-                    // Используем исходное время из initialRechargeTime или вычисляем
+                    // При синхронизации из roomStateUpdate не обновляем initialRechargeTime
+                    // Оно должно быть установлено из spinRecharge от сервера
                     const remaining = player.rechargeEndTime - now;
+                    // Если initialRechargeTime не установлен, используем базовое значение
                     if (!gameState.initialRechargeTime || gameState.initialRechargeTime === 0) {
+                        gameState.initialRechargeTime = 3000; // Базовое время перезарядки
+                    }
+                    // Убеждаемся, что исходное время не меньше оставшегося (это ошибка)
+                    if (gameState.initialRechargeTime < remaining) {
+                        // Если исходное время меньше оставшегося, значит оно было установлено неправильно
+                        // Используем оставшееся время как исходное
                         gameState.initialRechargeTime = remaining;
                     }
                     gameState.rechargeTime = remaining;
@@ -774,9 +782,11 @@ socket.on('spinRecharge', (data) => {
         const now = Date.now();
         
         // Если серверное время больше клиентского - используем серверное
+        // Всегда обновляем из серверных данных - сервер является источником истины
         if (serverRechargeEndTime > gameState.rechargeEndTime || !gameState.isRecharging) {
             gameState.isRecharging = true;
-            gameState.initialRechargeTime = serverRechargeTime; // Сохраняем исходное время
+            // Сервер отправляет исходное время перезарядки - используем его всегда
+            gameState.initialRechargeTime = serverRechargeTime;
             gameState.rechargeTime = serverRechargeTime;
             gameState.rechargeEndTime = serverRechargeEndTime;
             gameState.rechargeStartTime = serverRechargeEndTime - serverRechargeTime;
@@ -801,6 +811,13 @@ socket.on('spinRecharge', (data) => {
             
             // Обновляем визуализацию перезарядки
             updateRechargeDisplay();
+        } else {
+            // Если перезарядка уже идет, но серверное время меньше клиентского,
+            // все равно обновляем исходное время из серверных данных
+            if (gameState.isRecharging && serverRechargeEndTime === gameState.rechargeEndTime) {
+                // Обновляем исходное время из серверных данных (сервер - источник истины)
+                gameState.initialRechargeTime = serverRechargeTime;
+            }
         }
     } 
     // Обновляем перезарядку для противника (бота или другого игрока)
@@ -810,7 +827,8 @@ socket.on('spinRecharge', (data) => {
         const now = Date.now();
         
         if (serverRechargeEndTime > now) {
-            gameState.enemyInitialRechargeTime = serverRechargeTime; // Сохраняем исходное время
+            // Сервер отправляет исходное время перезарядки - используем его всегда
+            gameState.enemyInitialRechargeTime = serverRechargeTime;
             gameState.enemyRechargeTime = serverRechargeTime;
             gameState.enemyRechargeEndTime = serverRechargeEndTime;
             gameState.enemyRechargeStartTime = serverRechargeEndTime - serverRechargeTime;
@@ -1035,8 +1053,8 @@ function updateReadyCount() {
         return;
     }
     
-    // Подсчитываем живых игроков (totalHp > 0)
-    const alivePlayers = roomState.players.filter(p => p && p.totalHp > 0);
+    // Подсчитываем живых реальных игроков (totalHp > 0, не копии)
+    const alivePlayers = roomState.players.filter(p => p && p.totalHp > 0 && !p.isCopy);
     const readyPlayers = alivePlayers.filter(p => p.isReady === true);
     
     const totalAlive = alivePlayers.length;
@@ -2328,8 +2346,28 @@ function updateRechargeDisplay() {
     
     const now = Date.now();
     const remaining = Math.max(0, gameState.rechargeEndTime - now);
-    // Используем исходное время для расчета прогресса, чтобы оно не менялось
-    const totalRechargeTime = gameState.initialRechargeTime || gameState.rechargeTime || 1;
+    // Используем исходное время для расчета прогресса - оно должно быть установлено при получении данных от сервера
+    let totalRechargeTime = gameState.initialRechargeTime || 0;
+    
+    // Если исходное время не установлено или меньше оставшегося, это указывает на ошибку
+    if (!totalRechargeTime || totalRechargeTime <= 0) {
+        // Если исходное время не установлено, используем базовое значение
+        totalRechargeTime = 3000; // Базовое время перезарядки
+        gameState.initialRechargeTime = totalRechargeTime;
+    }
+    
+    // Если исходное время меньше оставшегося, это указывает на ошибку - исправляем
+    if (totalRechargeTime < remaining) {
+        // Это ошибка - исходное время не может быть меньше оставшегося
+        // В этом случае используем оставшееся время как исходное (временное решение)
+        console.warn('Ошибка: исходное время перезарядки меньше оставшегося', {
+            initial: totalRechargeTime,
+            remaining: remaining
+        });
+        totalRechargeTime = remaining;
+        gameState.initialRechargeTime = totalRechargeTime;
+    }
+    
     const progress = totalRechargeTime > 0 ? 1 - (remaining / totalRechargeTime) : 0;
     
     if (rechargeFill) {

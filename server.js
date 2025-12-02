@@ -2121,7 +2121,13 @@ function fillRoomWithBots(roomId) {
   const room = rooms.get(roomId);
   if (!room || room.gameInProgress) return;
   
-  const neededBots = 8 - room.players.length;
+  // Считаем только реальных игроков (без копий)
+  const realPlayers = room.players.filter(id => {
+    const p = players.get(id);
+    return p && !p.isCopy;
+  });
+  
+  const neededBots = Math.max(0, 8 - realPlayers.length);
   for (let i = 0; i < neededBots; i++) {
     const bot = createBot(roomId);
     room.players.push(bot.socketId);
@@ -2378,6 +2384,7 @@ function updateRoomState(roomId) {
       duelOpponent: p.duelOpponent,
       duelStatus: p.duelStatus,
       isBot: p.isBot || false,
+      isCopy: p.isCopy || false,
       characterId: p.characterId || null,
       permanentGold: p.permanentGold || 0,
       temporaryGold: p.temporaryGold || 0,
@@ -2450,17 +2457,17 @@ function checkAllPlayersReady(roomId) {
     return;
   }
   
-  // Получаем всех живых игроков (totalHp > 0)
+  // Получаем всех живых реальных игроков (totalHp > 0, не копии)
   const alivePlayers = room.players.filter(id => {
     const p = players.get(id);
-    return p && p.totalHp > 0;
+    return p && p.totalHp > 0 && !p.isCopy;
   });
   
   if (alivePlayers.length < 2) {
     return; // Недостаточно игроков
   }
   
-  // Проверяем, все ли живые игроки готовы
+  // Проверяем, все ли живые реальные игроки готовы
   const allReady = alivePlayers.every(id => {
     const p = players.get(id);
     return p && p.isReady === true;
@@ -2783,6 +2790,36 @@ function checkBothEndedTurn(roomId, player1Id, player2Id) {
 function startNextRound(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
+  
+  // Удаляем все копии игроков, которые остались от предыдущего раунда
+  const copiesToRemove = [];
+  room.players.forEach(id => {
+    const p = players.get(id);
+    if (p && p.isCopy) {
+      copiesToRemove.push(id);
+    }
+  });
+  
+  // Удаляем копии из комнаты и из хранилища игроков
+  copiesToRemove.forEach(copyId => {
+    // Удаляем из массива игроков комнаты
+    const index = room.players.indexOf(copyId);
+    if (index !== -1) {
+      room.players.splice(index, 1);
+    }
+    
+    // Очищаем интервалы ледяной кары для копии
+    const copy = players.get(copyId);
+    if (copy) {
+      clearIcePunishmentIntervals(copy);
+      // Удаляем из хранилища игроков
+      players.delete(copyId);
+    }
+  });
+  
+  if (copiesToRemove.length > 0) {
+    console.log(`Удалено ${copiesToRemove.length} копий игроков из комнаты ${roomId} перед началом раунда`);
+  }
   
   const activePlayers = room.players.filter(id => {
     const p = players.get(id);
