@@ -137,15 +137,15 @@ const CARDS = [
   { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар в сердце', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки', bonus: { critical: 2, critMultiplier: 0.1, freeze: 0.3 } },
   { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бессмертный регенератор', description: '+20 HP, +10 HP при спине', bonus: { health: 20, healing: 10 } },
   { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Невидимая стена', description: '+2% уклонения, +2% брони', bonus: { dodge: 2, armor: 2 } },
-  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+6 к урону, +2% крита, +0.1 к множителю', bonus: { attack: 6, critical: 2, critMultiplier: 0.1 } },
-  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+6 к урону, +2% уклонения', bonus: { attack: 6, dodge: 2 } },
-  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+6 к урону, +2% брони', bonus: { attack: 6, armor: 2 } },
-  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+6 к урону, +20 HP', bonus: { attack: 6, health: 20 } },
-  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+6 к урону, +10 HP при спине', bonus: { attack: 6, healing: 10 } },
+  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+4 к урону, +2% крита, +0.1 к множителю', bonus: { attack: 4, critical: 2, critMultiplier: 0.1 } },
+  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+4 к урону, +2% уклонения', bonus: { attack: 4, dodge: 2 } },
+  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+4 к урону, +2% брони', bonus: { attack: 4, armor: 2 } },
+  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+4 к урону, +20 HP', bonus: { attack: 4, health: 20 } },
+  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+4 к урону, +10 HP при спине', bonus: { attack: 4, healing: 10 } },
   { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическое исцеление', description: '+2% крита, +0.1 к множителю, +10 HP при спине', bonus: { critical: 2, critMultiplier: 0.1, healing: 10 } },
   { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной щит', description: '+0.3 сек заморозки, +2% брони', bonus: { freeze: 0.3, armor: 2 } },
   { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Морозный призрак', description: '+0.3 сек заморозки, +2% уклонения', bonus: { freeze: 0.3, dodge: 2 } },
-  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+6 к урону, +0.3 сек заморозки', bonus: { attack: 6, freeze: 0.3 } },
+  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+4 к урону, +0.3 сек заморозки', bonus: { attack: 4, freeze: 0.3 } },
   { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическая защита', description: '+2% крита, +0.1 к множителю, +2% брони', bonus: { critical: 2, critMultiplier: 0.1, armor: 2 } },
   { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровый крит', description: '+20 HP, +2% крита, +0.1 к множителю', bonus: { health: 20, critical: 2, critMultiplier: 0.1 } },
   
@@ -156,10 +156,10 @@ const CARDS = [
   { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня бога войны', description: '+4% снижение урона', bonus: { armor: 4 } },
   { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Аптечка самурая', description: '+20 HP при спине', bonus: { healing: 20 } },
   { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Вечная мерзлота', description: '+0.6 сек к перезарядке противника', bonus: { freeze: 0.6 } },
-  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+12 к базовому урону', bonus: { attack: 12 } },
+  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+8 к базовому урону', bonus: { attack: 8 } },
   
   // Легендарные карточки (20 золота, 1 раз, требуют 10 очков стиля)
-  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '⚡ Молния-убийца', description: '50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike', bonus: { attack: 4 } },
+  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '⚡ Молния-убийца', description: '50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike', bonus: { attack: 2.67 } },
   { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '💎 Бессмертие дракона', description: '+40% к макс. HP', requiresStyle: 10, legendaryEffect: 'vitality', bonus: { health: 4 } },
   { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '✨ Феникс возрождения', description: '20% от восстановленного HP как урон врагу', requiresStyle: 10, legendaryEffect: 'regeneration', bonus: { healing: 4 } },
   { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '❄️ Абсолютный ноль', description: '25 урона в секунду во время перезарядки врага', requiresStyle: 10, legendaryEffect: 'icePunishment', bonus: { freeze: 4 } },
@@ -178,7 +178,7 @@ const CARDS = [
 
 // Набор характеристик для предметов (на основе комбинированных карт)
 const ITEM_CHARACTERISTICS = [
-  { type: CARD_TYPES.ATTACK, description: '+6 к урону', bonus: { attack: 6 } },
+  { type: CARD_TYPES.ATTACK, description: '+4 к урону', bonus: { attack: 4 } },
   { type: CARD_TYPES.HEALTH, description: '+20 HP', bonus: { health: 20 } },
   { type: CARD_TYPES.DODGE, description: '+2% уклонения', bonus: { dodge: 2 } },
   { type: CARD_TYPES.ARMOR, description: '+2% брони', bonus: { armor: 2 } },
@@ -1084,6 +1084,17 @@ function handleBotSpin(botId, roomId) {
         const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
         bot.rechargeEndTime = botNow + reducedRechargeTime;
       }
+    }
+    
+    // Отправляем информацию о перезарядке бота противнику
+    const opponentSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === opponentId);
+    if (opponentSocket) {
+      const currentNow = Date.now();
+      opponentSocket.emit('spinRecharge', {
+        playerSocketId: botId,
+        rechargeTime: Math.max(0, bot.rechargeEndTime - currentNow),
+        rechargeEndTime: bot.rechargeEndTime
+      });
     }
     
     // Эффект ледяной кары (25 урона в секунду во время перезарядки спина противника)
@@ -2371,9 +2382,45 @@ function updateRoomState(roomId) {
       cardsOwned: p.cardsOwned || {},
       cardShopOffers: p.cardShopOffers || (p.isBot ? [] : generateCardShopOffers(p)), // Генерируем предложения, если их нет (для не-ботов)
       antiCards: p.antiCards || {},
-      legendaryEffects: p.legendaryEffects || {}
+      legendaryEffects: p.legendaryEffects || {},
+      rechargeEndTime: p.rechargeEndTime || 0
     };
   }).filter(p => p !== null);
+  
+  // Добавляем ботов в список игроков для отправки
+  const botsInRoom = Array.from(bots.values()).filter(bot => bot.roomId === roomId);
+  botsInRoom.forEach(bot => {
+    const stats = calculatePlayerStats(bot);
+    playersInRoom.push({
+      socketId: bot.socketId,
+      nickname: bot.nickname,
+      totalHp: bot.totalHp,
+      roundHp: bot.roundHp,
+      maxHp: stats.maxHp,
+      isEliminated: bot.isEliminated,
+      isInDuel: bot.isInDuel,
+      duelOpponent: bot.duelOpponent,
+      duelStatus: bot.duelStatus,
+      isBot: true,
+      characterId: bot.characterId || null,
+      permanentGold: bot.permanentGold || 0,
+      temporaryGold: bot.temporaryGold || 0,
+      hasEndedTurn: bot.hasEndedTurn || false,
+      isReady: bot.isReady || false,
+      winStreak: bot.winStreak || 0,
+      loseStreak: bot.loseStreak || 0,
+      wins: bot.wins || 0,
+      losses: bot.losses || 0,
+      lastRoundGoldBonus: bot.lastRoundGoldBonus || 0,
+      lastRoundGoldEarned: bot.lastRoundGoldEarned || 0,
+      stylePoints: bot.stylePoints || { health: 0, dodge: 0, critical: 0, healing: 0, armor: 0, freeze: 0, attack: 0 },
+      cardsOwned: bot.cardsOwned || {},
+      cardShopOffers: [],
+      antiCards: bot.antiCards || {},
+      legendaryEffects: bot.legendaryEffects || {},
+      rechargeEndTime: bot.rechargeEndTime || 0
+    });
+  });
   
   io.to(roomId).emit('roomStateUpdate', {
     players: playersInRoom,
@@ -3013,7 +3060,11 @@ io.on('connection', (socket) => {
     if (!room || !room.gameInProgress) return;
     
     const attacker = players.get(fromPlayerSocketId);
-    const target = players.get(targetPlayerSocketId);
+    // Проверяем цель в players и bots (боты хранятся отдельно)
+    let target = players.get(targetPlayerSocketId);
+    if (!target) {
+      target = bots.get(targetPlayerSocketId);
+    }
     
     if (!attacker || !target || !attacker.isInDuel || attacker.duelOpponent !== targetPlayerSocketId) {
       socket.emit('roomError', { message: 'Нельзя атаковать сейчас' });
@@ -3066,6 +3117,16 @@ io.on('connection', (socket) => {
       rechargeTime: baseRechargeTime,
       rechargeEndTime: attacker.rechargeEndTime
     });
+    
+    // Отправляем информацию о перезарядке игрока противнику (если есть)
+    const targetSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === targetPlayerSocketId);
+    if (targetSocket) {
+      targetSocket.emit('spinRecharge', {
+        playerSocketId: fromPlayerSocketId,
+        rechargeTime: baseRechargeTime,
+        rechargeEndTime: attacker.rechargeEndTime
+      });
+    }
     
     // Тратим золото на спин (5 золота) - ВСЕГДА, даже если нет комбинации
     // Применяем эффект предмета: -1 к стоимости спина
@@ -3427,6 +3488,16 @@ io.on('connection', (socket) => {
           rechargeTime: attacker.rechargeEndTime - now,
           rechargeEndTime: attacker.rechargeEndTime
         });
+        
+        // Отправляем обновление перезарядки игрока противнику
+        const targetSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === targetPlayerSocketId);
+        if (targetSocket) {
+          targetSocket.emit('spinRecharge', {
+            playerSocketId: fromPlayerSocketId,
+            rechargeTime: attacker.rechargeEndTime - now,
+            rechargeEndTime: attacker.rechargeEndTime
+          });
+        }
       }
       
       // Эффект ледяной кары (25 урона в секунду во время перезарядки спина противника)
@@ -3440,7 +3511,11 @@ io.on('connection', (socket) => {
         if (!attacker.icePunishmentIntervals[targetPlayerSocketId]) {
           const iceDamage = 25;
           const iceInterval = setInterval(() => {
-            const currentTarget = players.get(targetPlayerSocketId);
+            // Проверяем цель в players и bots (боты хранятся отдельно)
+            let currentTarget = players.get(targetPlayerSocketId);
+            if (!currentTarget) {
+              currentTarget = bots.get(targetPlayerSocketId);
+            }
             const currentAttacker = players.get(fromPlayerSocketId);
             const now = Date.now();
             

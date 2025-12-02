@@ -108,15 +108,15 @@ const CARDS = [
   { id: 'critical_freeze_combined', bonus: { critical: 2, critMultiplier: 0.1, freeze: 0.3 } },
   { id: 'health_healing_combined', bonus: { health: 20, healing: 10 } },
   { id: 'dodge_armor_combined', bonus: { dodge: 2, armor: 2 } },
-  { id: 'attack_critical_combined', bonus: { attack: 6, critical: 2, critMultiplier: 0.1 } },
-  { id: 'attack_dodge_combined', bonus: { attack: 6, dodge: 2 } },
-  { id: 'attack_armor_combined', bonus: { attack: 6, armor: 2 } },
-  { id: 'attack_health_combined', bonus: { attack: 6, health: 20 } },
-  { id: 'attack_healing_combined', bonus: { attack: 6, healing: 10 } },
+  { id: 'attack_critical_combined', bonus: { attack: 4, critical: 2, critMultiplier: 0.1 } },
+  { id: 'attack_dodge_combined', bonus: { attack: 4, dodge: 2 } },
+  { id: 'attack_armor_combined', bonus: { attack: 4, armor: 2 } },
+  { id: 'attack_health_combined', bonus: { attack: 4, health: 20 } },
+  { id: 'attack_healing_combined', bonus: { attack: 4, healing: 10 } },
   { id: 'critical_healing_combined', bonus: { critical: 2, critMultiplier: 0.1, healing: 10 } },
   { id: 'freeze_armor_combined', bonus: { freeze: 0.3, armor: 2 } },
   { id: 'freeze_dodge_combined', bonus: { freeze: 0.3, dodge: 2 } },
-  { id: 'attack_freeze_combined', bonus: { attack: 6, freeze: 0.3 } },
+  { id: 'attack_freeze_combined', bonus: { attack: 4, freeze: 0.3 } },
   { id: 'critical_armor_combined', bonus: { critical: 2, critMultiplier: 0.1, armor: 2 } },
   { id: 'health_critical_combined', bonus: { health: 20, critical: 2, critMultiplier: 0.1 } },
   // Редкие карточки
@@ -126,9 +126,9 @@ const CARDS = [
   { id: 'armor_rare', bonus: { armor: 4 } },
   { id: 'healing_rare', bonus: { healing: 20 } },
   { id: 'freeze_rare', bonus: { freeze: 0.6 } },
-  { id: 'attack_rare', bonus: { attack: 12 } },
+  { id: 'attack_rare', bonus: { attack: 8 } },
   // Легендарные карточки
-  { id: 'attack_legendary', bonus: { attack: 4 } },
+  { id: 'attack_legendary', bonus: { attack: 2.67 } },
   { id: 'health_legendary', bonus: { health: 4 } },
   { id: 'healing_legendary', bonus: { healing: 4 } },
   { id: 'freeze_legendary', bonus: { freeze: 4 } },
@@ -148,7 +148,12 @@ let gameState = {
     rechargeTime: 0,
     canSpin: true,
     isSpinning: false,
-    rechargeEndTime: 0
+    rechargeEndTime: 0,
+    rechargeEffects: [], // Эффекты, влияющие на перезарядку игрока
+    // Перезарядка противника
+    enemyRechargeTime: 0,
+    enemyRechargeEndTime: 0,
+    enemyRechargeEffects: [] // Эффекты, влияющие на перезарядку противника
 };
 
 // Состояние игрока
@@ -218,6 +223,10 @@ const spinBtn = document.getElementById('spinBtn');
 const rechargeBar = document.getElementById('rechargeBar');
 const rechargeFill = document.getElementById('rechargeFill');
 const rechargeText = document.getElementById('rechargeText');
+const enemyRechargeIndicator = document.getElementById('enemyRechargeIndicator');
+const enemyRechargeBar = document.getElementById('enemyRechargeBar');
+const enemyRechargeFill = document.getElementById('enemyRechargeFill');
+const enemyRechargeText = document.getElementById('enemyRechargeText');
 const playerHpFill = document.getElementById('playerHpFill');
 const playerHpText = document.getElementById('playerHpText');
 const enemyHpFill = document.getElementById('enemyHpFill');
@@ -459,7 +468,7 @@ socket.on('roomStateUpdate', (data) => {
                 }
             }
             
-            // Синхронизируем перезарядку с сервером при обновлении состояния
+            // Синхронизируем перезарядку игрока с сервером при обновлении состояния
             if (player.rechargeEndTime && player.rechargeEndTime > Date.now()) {
                 const now = Date.now();
                 if (!gameState.isRecharging || player.rechargeEndTime > gameState.rechargeEndTime) {
@@ -470,6 +479,7 @@ socket.on('roomStateUpdate', (data) => {
                     if (!rechargeInterval) {
                         rechargeInterval = setInterval(() => {
                             updateRechargeDisplay();
+                            updateEnemyRechargeDisplay();
                         }, 50);
                     }
                 }
@@ -483,6 +493,47 @@ socket.on('roomStateUpdate', (data) => {
                     gameState.isRecharging = false;
                     gameState.rechargeTime = 0;
                     gameState.rechargeEndTime = 0;
+                    gameState.rechargeEffects = [];
+                }
+            }
+            
+            // Синхронизируем перезарядку противника с сервером
+            if (player.isInDuel && player.duelOpponent) {
+                const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+                if (opponent && opponent.rechargeEndTime && opponent.rechargeEndTime > Date.now()) {
+                    const now = Date.now();
+                    if (opponent.rechargeEndTime !== gameState.enemyRechargeEndTime) {
+                        gameState.enemyRechargeTime = opponent.rechargeEndTime - now;
+                        gameState.enemyRechargeEndTime = opponent.rechargeEndTime;
+                        
+                        // Определяем эффекты противника
+                        const effects = [];
+                        if (opponent.legendaryEffects && opponent.legendaryEffects.fastStrike) {
+                            effects.push('⚡ Быстрый удар');
+                        }
+                        gameState.enemyRechargeEffects = effects;
+                        
+                        if (enemyRechargeIndicator) {
+                            enemyRechargeIndicator.style.display = 'block';
+                        }
+                        
+                        if (!rechargeInterval) {
+                            rechargeInterval = setInterval(() => {
+                                updateRechargeDisplay();
+                                updateEnemyRechargeDisplay();
+                            }, 50);
+                        }
+                        
+                        updateEnemyRechargeDisplay();
+                    }
+                } else if (opponent && (!opponent.rechargeEndTime || opponent.rechargeEndTime <= Date.now())) {
+                    // Перезарядка противника закончилась
+                    if (enemyRechargeIndicator) {
+                        enemyRechargeIndicator.style.display = 'none';
+                    }
+                    gameState.enemyRechargeTime = 0;
+                    gameState.enemyRechargeEndTime = 0;
+                    gameState.enemyRechargeEffects = [];
                 }
             }
             
@@ -567,7 +618,7 @@ socket.on('roundStarted', (data) => {
         lastDuelStartTime = null;
     }
     
-    // Синхронизируем перезарядку с сервером, если она есть
+    // Синхронизируем перезарядку игрока с сервером, если она есть
     if (player && player.rechargeEndTime && player.rechargeEndTime > Date.now()) {
         const now = Date.now();
         gameState.isRecharging = true;
@@ -577,7 +628,38 @@ socket.on('roundStarted', (data) => {
         if (!rechargeInterval) {
             rechargeInterval = setInterval(() => {
                 updateRechargeDisplay();
+                updateEnemyRechargeDisplay();
             }, 50);
+        }
+    }
+    
+    // Синхронизируем перезарядку противника с сервером
+    if (player && player.isInDuel && player.duelOpponent) {
+        const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
+        if (opponent && opponent.rechargeEndTime && opponent.rechargeEndTime > Date.now()) {
+            const now = Date.now();
+            gameState.enemyRechargeTime = opponent.rechargeEndTime - now;
+            gameState.enemyRechargeEndTime = opponent.rechargeEndTime;
+            
+            // Определяем эффекты противника
+            const effects = [];
+            if (opponent.legendaryEffects && opponent.legendaryEffects.fastStrike) {
+                effects.push('⚡ Быстрый удар');
+            }
+            gameState.enemyRechargeEffects = effects;
+            
+            if (enemyRechargeIndicator) {
+                enemyRechargeIndicator.style.display = 'block';
+            }
+            
+            if (!rechargeInterval) {
+                rechargeInterval = setInterval(() => {
+                    updateRechargeDisplay();
+                    updateEnemyRechargeDisplay();
+                }, 50);
+            }
+            
+            updateEnemyRechargeDisplay();
         }
     }
     
@@ -649,7 +731,10 @@ socket.on('heal', (data) => {
 socket.on('spinRecharge', (data) => {
     console.log('Получена информация о перезарядке:', data);
     
-    // Обновляем перезарядку только если это для текущего игрока
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    const opponent = player && player.isInDuel ? roomState.players.find(p => p.socketId === player.duelOpponent) : null;
+    
+    // Обновляем перезарядку для текущего игрока
     if (data.playerSocketId === playerState.socketId) {
         // Синхронизируем с серверными данными
         const serverRechargeEndTime = data.rechargeEndTime;
@@ -662,20 +747,62 @@ socket.on('spinRecharge', (data) => {
             gameState.rechargeTime = serverRechargeTime;
             gameState.rechargeEndTime = serverRechargeEndTime;
             
+            // Определяем эффекты для отображения
+            const effects = [];
+            if (player && player.legendaryEffects && player.legendaryEffects.fastStrike) {
+                effects.push('⚡ Быстрый удар');
+            }
+            if (data.freezeApplied && data.freezeApplied > 0) {
+                effects.push(`❄️ Заморозка +${data.freezeApplied}с`);
+            }
+            gameState.rechargeEffects = effects;
+            
             // Запускаем интервал обновления, если его нет
             if (!rechargeInterval) {
                 rechargeInterval = setInterval(() => {
                     updateRechargeDisplay();
+                    updateEnemyRechargeDisplay();
                 }, 50);
             }
             
             // Обновляем визуализацию перезарядки
             updateRechargeDisplay();
         }
+    } 
+    // Обновляем перезарядку для противника (бота или другого игрока)
+    else if (opponent && data.playerSocketId === opponent.socketId) {
+        const serverRechargeEndTime = data.rechargeEndTime;
+        const serverRechargeTime = data.rechargeTime;
+        const now = Date.now();
         
-        // Если есть заморозка, показываем информацию
-        if (data.freezeApplied && data.freezeApplied > 0) {
-            console.log(`Применена заморозка: +${data.freezeApplied} сек`);
+        if (serverRechargeEndTime > now) {
+            gameState.enemyRechargeTime = serverRechargeTime;
+            gameState.enemyRechargeEndTime = serverRechargeEndTime;
+            
+            // Определяем эффекты для отображения
+            const effects = [];
+            if (opponent.legendaryEffects && opponent.legendaryEffects.fastStrike) {
+                effects.push('⚡ Быстрый удар');
+            }
+            if (data.freezeApplied && data.freezeApplied > 0) {
+                effects.push(`❄️ Заморозка +${data.freezeApplied}с`);
+            }
+            gameState.enemyRechargeEffects = effects;
+            
+            // Показываем индикатор перезарядки противника
+            if (enemyRechargeIndicator) {
+                enemyRechargeIndicator.style.display = 'block';
+            }
+            
+            // Запускаем интервал обновления, если его нет
+            if (!rechargeInterval) {
+                rechargeInterval = setInterval(() => {
+                    updateRechargeDisplay();
+                    updateEnemyRechargeDisplay();
+                }, 50);
+            }
+            
+            updateEnemyRechargeDisplay();
         }
     }
 });
@@ -1572,17 +1699,21 @@ function spin() {
                 rechargeFill.style.width = `${progress * 100}%`;
             }
             if (rechargeText) {
+                const totalTime = (gameState.rechargeTime / 1000).toFixed(1);
+                const remainingTime = (timeRemaining / 1000).toFixed(1);
                 rechargeText.textContent = timeRemaining > 0 
-                    ? `Перезарядка: ${(timeRemaining / 1000).toFixed(1)}с (+2 сек штраф)`
+                    ? `Перезарядка: ${remainingTime}с / ${totalTime}с (+2 сек штраф)`
                     : 'Готово';
             }
             if (timeRemaining <= 0) {
                 clearInterval(rechargeInterval);
+                rechargeInterval = null;
                 gameState.isRecharging = false;
                 gameState.rechargeTime = 0;
                 gameState.rechargeEndTime = 0;
                 enableSpin();
             }
+            updateEnemyRechargeDisplay();
         }, 50);
         
         if (rechargeText) {
@@ -2181,9 +2312,17 @@ function checkMatches() {
     // Перезарядка уже началась при нажатии кнопки, не запускаем повторно
 }
 
-// Обновление визуализации перезарядки
+// Обновление визуализации перезарядки игрока
 function updateRechargeDisplay() {
-    if (!gameState.isRecharging) return;
+    if (!gameState.isRecharging) {
+        if (rechargeFill) {
+            rechargeFill.style.width = '100%';
+        }
+        if (rechargeText) {
+            rechargeText.textContent = 'Готово';
+        }
+        return;
+    }
     
     const now = Date.now();
     const remaining = Math.max(0, gameState.rechargeEndTime - now);
@@ -2193,8 +2332,13 @@ function updateRechargeDisplay() {
         rechargeFill.style.width = `${progress * 100}%`;
     }
     if (rechargeText) {
+        const totalTime = (gameState.rechargeTime / 1000).toFixed(1);
+        const remainingTime = (remaining / 1000).toFixed(1);
+        const effectsText = gameState.rechargeEffects && gameState.rechargeEffects.length > 0 
+            ? ` (${gameState.rechargeEffects.join(', ')})` 
+            : '';
         rechargeText.textContent = remaining > 0 
-            ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
+            ? `Перезарядка: ${remainingTime}с / ${totalTime}с${effectsText}`
             : 'Готово';
     }
     
@@ -2206,7 +2350,44 @@ function updateRechargeDisplay() {
         gameState.isRecharging = false;
         gameState.rechargeTime = 0;
         gameState.rechargeEndTime = 0;
+        gameState.rechargeEffects = [];
         enableSpin();
+    }
+}
+
+// Обновление визуализации перезарядки противника
+function updateEnemyRechargeDisplay() {
+    const now = Date.now();
+    const remaining = Math.max(0, gameState.enemyRechargeEndTime - now);
+    
+    if (remaining <= 0 || gameState.enemyRechargeEndTime === 0) {
+        // Перезарядка закончилась или не установлена
+        if (enemyRechargeIndicator) {
+            enemyRechargeIndicator.style.display = 'none';
+        }
+        gameState.enemyRechargeTime = 0;
+        gameState.enemyRechargeEndTime = 0;
+        gameState.enemyRechargeEffects = [];
+        return;
+    }
+    
+    // Показываем индикатор
+    if (enemyRechargeIndicator) {
+        enemyRechargeIndicator.style.display = 'block';
+    }
+    
+    const progress = gameState.enemyRechargeTime > 0 ? 1 - (remaining / gameState.enemyRechargeTime) : 0;
+    
+    if (enemyRechargeFill) {
+        enemyRechargeFill.style.width = `${progress * 100}%`;
+    }
+    if (enemyRechargeText) {
+        const totalTime = (gameState.enemyRechargeTime / 1000).toFixed(1);
+        const remainingTime = (remaining / 1000).toFixed(1);
+        const effectsText = gameState.enemyRechargeEffects && gameState.enemyRechargeEffects.length > 0 
+            ? ` (${gameState.enemyRechargeEffects.join(', ')})` 
+            : '';
+        enemyRechargeText.textContent = `Перезарядка противника: ${remainingTime}с / ${totalTime}с${effectsText}`;
     }
 }
 
@@ -2220,9 +2401,9 @@ function startRecharge() {
     // Используем дефолтное время, если сервер еще не отправил данные
     // Сервер отправит точное время через spinRecharge
     if (!gameState.isRecharging || gameState.rechargeTime === 0) {
-        gameState.isRecharging = true;
+    gameState.isRecharging = true;
         gameState.rechargeTime = 3000; // Дефолтное время (будет обновлено сервером)
-        gameState.rechargeEndTime = Date.now() + gameState.rechargeTime;
+    gameState.rechargeEndTime = Date.now() + gameState.rechargeTime;
     }
     
     const endTime = gameState.rechargeEndTime;
@@ -2240,6 +2421,7 @@ function startRecharge() {
     // Запускаем обновление визуализации
     rechargeInterval = setInterval(() => {
         updateRechargeDisplay();
+        updateEnemyRechargeDisplay();
     }, 50);
     
     // Сразу обновляем отображение
