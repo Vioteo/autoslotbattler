@@ -145,14 +145,18 @@ let gameState = {
     maxHp: 100,
     enemyMaxHp: 100,
     isRecharging: false,
-    rechargeTime: 0,
+    rechargeTime: 0, // Начальное время перезарядки (не меняется)
+    initialRechargeTime: 0, // Исходное время перезарядки для расчета прогресса
     canSpin: true,
     isSpinning: false,
     rechargeEndTime: 0,
+    rechargeStartTime: 0, // Время начала перезарядки
     rechargeEffects: [], // Эффекты, влияющие на перезарядку игрока
     // Перезарядка противника
-    enemyRechargeTime: 0,
+    enemyRechargeTime: 0, // Начальное время перезарядки (не меняется)
+    enemyInitialRechargeTime: 0, // Исходное время перезарядки для расчета прогресса
     enemyRechargeEndTime: 0,
+    enemyRechargeStartTime: 0, // Время начала перезарядки
     enemyRechargeEffects: [] // Эффекты, влияющие на перезарядку противника
 };
 
@@ -474,7 +478,13 @@ socket.on('roomStateUpdate', (data) => {
                 if (!gameState.isRecharging || player.rechargeEndTime > gameState.rechargeEndTime) {
                     gameState.isRecharging = true;
                     gameState.rechargeEndTime = player.rechargeEndTime;
-                    gameState.rechargeTime = player.rechargeEndTime - now;
+                    // Используем исходное время из initialRechargeTime или вычисляем
+                    const remaining = player.rechargeEndTime - now;
+                    if (!gameState.initialRechargeTime || gameState.initialRechargeTime === 0) {
+                        gameState.initialRechargeTime = remaining;
+                    }
+                    gameState.rechargeTime = remaining;
+                    gameState.rechargeStartTime = player.rechargeEndTime - gameState.initialRechargeTime;
                     updateRechargeDisplay();
                     if (!rechargeInterval) {
                         rechargeInterval = setInterval(() => {
@@ -492,7 +502,9 @@ socket.on('roomStateUpdate', (data) => {
                     }
                     gameState.isRecharging = false;
                     gameState.rechargeTime = 0;
+                    gameState.initialRechargeTime = 0;
                     gameState.rechargeEndTime = 0;
+                    gameState.rechargeStartTime = 0;
                     gameState.rechargeEffects = [];
                 }
             }
@@ -503,8 +515,14 @@ socket.on('roomStateUpdate', (data) => {
                 if (opponent && opponent.rechargeEndTime && opponent.rechargeEndTime > Date.now()) {
                     const now = Date.now();
                     if (opponent.rechargeEndTime !== gameState.enemyRechargeEndTime) {
-                        gameState.enemyRechargeTime = opponent.rechargeEndTime - now;
+                        const remaining = opponent.rechargeEndTime - now;
+                        gameState.enemyRechargeTime = remaining;
                         gameState.enemyRechargeEndTime = opponent.rechargeEndTime;
+                        // Используем исходное время из initialRechargeTime или вычисляем
+                        if (!gameState.enemyInitialRechargeTime || gameState.enemyInitialRechargeTime === 0) {
+                            gameState.enemyInitialRechargeTime = remaining;
+                        }
+                        gameState.enemyRechargeStartTime = opponent.rechargeEndTime - gameState.enemyInitialRechargeTime;
                         
                         // Определяем эффекты противника
                         const effects = [];
@@ -532,7 +550,9 @@ socket.on('roomStateUpdate', (data) => {
                         enemyRechargeIndicator.style.display = 'none';
                     }
                     gameState.enemyRechargeTime = 0;
+                    gameState.enemyInitialRechargeTime = 0;
                     gameState.enemyRechargeEndTime = 0;
+                    gameState.enemyRechargeStartTime = 0;
                     gameState.enemyRechargeEffects = [];
                 }
             }
@@ -621,9 +641,15 @@ socket.on('roundStarted', (data) => {
     // Синхронизируем перезарядку игрока с сервером, если она есть
     if (player && player.rechargeEndTime && player.rechargeEndTime > Date.now()) {
         const now = Date.now();
+        const remaining = player.rechargeEndTime - now;
         gameState.isRecharging = true;
         gameState.rechargeEndTime = player.rechargeEndTime;
-        gameState.rechargeTime = player.rechargeEndTime - now;
+        gameState.rechargeTime = remaining;
+        // Используем исходное время из initialRechargeTime или вычисляем
+        if (!gameState.initialRechargeTime || gameState.initialRechargeTime === 0) {
+            gameState.initialRechargeTime = remaining;
+        }
+        gameState.rechargeStartTime = player.rechargeEndTime - gameState.initialRechargeTime;
         updateRechargeDisplay();
         if (!rechargeInterval) {
             rechargeInterval = setInterval(() => {
@@ -638,8 +664,14 @@ socket.on('roundStarted', (data) => {
         const opponent = roomState.players.find(p => p.socketId === player.duelOpponent);
         if (opponent && opponent.rechargeEndTime && opponent.rechargeEndTime > Date.now()) {
             const now = Date.now();
-            gameState.enemyRechargeTime = opponent.rechargeEndTime - now;
+            const remaining = opponent.rechargeEndTime - now;
+            gameState.enemyRechargeTime = remaining;
             gameState.enemyRechargeEndTime = opponent.rechargeEndTime;
+            // Используем исходное время из initialRechargeTime или вычисляем
+            if (!gameState.enemyInitialRechargeTime || gameState.enemyInitialRechargeTime === 0) {
+                gameState.enemyInitialRechargeTime = remaining;
+            }
+            gameState.enemyRechargeStartTime = opponent.rechargeEndTime - gameState.enemyInitialRechargeTime;
             
             // Определяем эффекты противника
             const effects = [];
@@ -744,8 +776,10 @@ socket.on('spinRecharge', (data) => {
         // Если серверное время больше клиентского - используем серверное
         if (serverRechargeEndTime > gameState.rechargeEndTime || !gameState.isRecharging) {
             gameState.isRecharging = true;
+            gameState.initialRechargeTime = serverRechargeTime; // Сохраняем исходное время
             gameState.rechargeTime = serverRechargeTime;
             gameState.rechargeEndTime = serverRechargeEndTime;
+            gameState.rechargeStartTime = serverRechargeEndTime - serverRechargeTime;
             
             // Определяем эффекты для отображения
             const effects = [];
@@ -776,8 +810,10 @@ socket.on('spinRecharge', (data) => {
         const now = Date.now();
         
         if (serverRechargeEndTime > now) {
+            gameState.enemyInitialRechargeTime = serverRechargeTime; // Сохраняем исходное время
             gameState.enemyRechargeTime = serverRechargeTime;
             gameState.enemyRechargeEndTime = serverRechargeEndTime;
+            gameState.enemyRechargeStartTime = serverRechargeEndTime - serverRechargeTime;
             
             // Определяем эффекты для отображения
             const effects = [];
@@ -1682,44 +1718,10 @@ function spin() {
     
     // Проверяем перезарядку (используем уже объявленную переменную now)
     if (gameState.isRecharging && now < gameState.rechargeEndTime) {
-        // Штраф: добавляем +2 секунды
-        const remaining = gameState.rechargeEndTime - now;
-        gameState.rechargeTime = remaining + 2000;
-        gameState.rechargeEndTime = now + gameState.rechargeTime;
-        
-        // Обновляем интервал перезарядки
-        if (rechargeInterval) {
-            clearInterval(rechargeInterval);
-        }
-        rechargeInterval = setInterval(() => {
-            const currentTime = Date.now();
-            const timeRemaining = Math.max(0, gameState.rechargeEndTime - currentTime);
-            const progress = 1 - (timeRemaining / gameState.rechargeTime);
-            if (rechargeFill) {
-                rechargeFill.style.width = `${progress * 100}%`;
-            }
-            if (rechargeText) {
-                const totalTime = (gameState.rechargeTime / 1000).toFixed(1);
-                const remainingTime = (timeRemaining / 1000).toFixed(1);
-                rechargeText.textContent = timeRemaining > 0 
-                    ? `Перезарядка: ${remainingTime}с / ${totalTime}с (+2 сек штраф)`
-                    : 'Готово';
-            }
-            if (timeRemaining <= 0) {
-                clearInterval(rechargeInterval);
-                rechargeInterval = null;
-                gameState.isRecharging = false;
-                gameState.rechargeTime = 0;
-                gameState.rechargeEndTime = 0;
-                enableSpin();
-            }
-            updateEnemyRechargeDisplay();
-        }, 50);
-        
-        if (rechargeText) {
-            rechargeText.textContent = `Перезарядка: +2 сек штраф`;
-        }
-        return; // Не позволяем спин, пока не прошло 10 секунд
+        // Перезарядка еще идет - не позволяем спин
+        const remaining = Math.ceil((gameState.rechargeEndTime - now) / 1000);
+        showError(`Оружие перезаряжается. Подождите ${remaining} секунд`);
+        return;
     }
     
     // НАЧИНАЕМ ПЕРЕЗАРЯДКУ С МОМЕНТА НАЖАТИЯ КНОПКИ
@@ -2326,13 +2328,15 @@ function updateRechargeDisplay() {
     
     const now = Date.now();
     const remaining = Math.max(0, gameState.rechargeEndTime - now);
-    const progress = gameState.rechargeTime > 0 ? 1 - (remaining / gameState.rechargeTime) : 0;
+    // Используем исходное время для расчета прогресса, чтобы оно не менялось
+    const totalRechargeTime = gameState.initialRechargeTime || gameState.rechargeTime || 1;
+    const progress = totalRechargeTime > 0 ? 1 - (remaining / totalRechargeTime) : 0;
     
     if (rechargeFill) {
-        rechargeFill.style.width = `${progress * 100}%`;
+        rechargeFill.style.width = `${Math.max(0, Math.min(100, progress * 100))}%`;
     }
     if (rechargeText) {
-        const totalTime = (gameState.rechargeTime / 1000).toFixed(1);
+        const totalTime = (totalRechargeTime / 1000).toFixed(1);
         const remainingTime = (remaining / 1000).toFixed(1);
         const effectsText = gameState.rechargeEffects && gameState.rechargeEffects.length > 0 
             ? ` (${gameState.rechargeEffects.join(', ')})` 
@@ -2349,7 +2353,9 @@ function updateRechargeDisplay() {
         }
         gameState.isRecharging = false;
         gameState.rechargeTime = 0;
+        gameState.initialRechargeTime = 0;
         gameState.rechargeEndTime = 0;
+        gameState.rechargeStartTime = 0;
         gameState.rechargeEffects = [];
         enableSpin();
     }
@@ -2376,13 +2382,15 @@ function updateEnemyRechargeDisplay() {
         enemyRechargeIndicator.style.display = 'block';
     }
     
-    const progress = gameState.enemyRechargeTime > 0 ? 1 - (remaining / gameState.enemyRechargeTime) : 0;
+    // Используем исходное время для расчета прогресса, чтобы оно не менялось
+    const totalEnemyRechargeTime = gameState.enemyInitialRechargeTime || gameState.enemyRechargeTime || 1;
+    const progress = totalEnemyRechargeTime > 0 ? 1 - (remaining / totalEnemyRechargeTime) : 0;
     
     if (enemyRechargeFill) {
-        enemyRechargeFill.style.width = `${progress * 100}%`;
+        enemyRechargeFill.style.width = `${Math.max(0, Math.min(100, progress * 100))}%`;
     }
     if (enemyRechargeText) {
-        const totalTime = (gameState.enemyRechargeTime / 1000).toFixed(1);
+        const totalTime = (totalEnemyRechargeTime / 1000).toFixed(1);
         const remainingTime = (remaining / 1000).toFixed(1);
         const effectsText = gameState.enemyRechargeEffects && gameState.enemyRechargeEffects.length > 0 
             ? ` (${gameState.enemyRechargeEffects.join(', ')})` 

@@ -694,6 +694,7 @@ function handleBotSpin(botId, roomId) {
   bot.lastSpinTime = now;
   let baseRechargeTime = 3000; // 3 секунды перезарядки (базовое время)
   bot.rechargeEndTime = now + baseRechargeTime;
+  bot.initialRechargeTime = baseRechargeTime; // Сохраняем исходное время перезарядки
   
   // Применяем эффект предмета: -1 к стоимости спина
   let spinCost = 5;
@@ -1046,28 +1047,35 @@ function handleBotSpin(botId, roomId) {
       if (effectiveFreeze > 0) {
         const freezeTime = effectiveFreeze * 1000; // в миллисекундах
         const baseRechargeTime = 3000; // Базовое время перезарядки
+        let initialRechargeTime = baseRechargeTime + freezeTime;
         if (opponent.rechargeEndTime > spinEndTime) {
           // Если уже идет перезарядка, добавляем время заморозки
           opponent.rechargeEndTime += freezeTime;
+          if (opponent.initialRechargeTime) {
+            initialRechargeTime = opponent.initialRechargeTime + freezeTime;
+          }
         } else {
           // Если перезарядка не идет, устанавливаем базовое время + заморозка
           opponent.rechargeEndTime = spinEndTime + baseRechargeTime + freezeTime;
         }
+        opponent.initialRechargeTime = initialRechargeTime;
         
         // Применяем fastStrike цели ПОСЛЕ всех модификаторов (включая заморозку)
         if (opponent.legendaryEffects && opponent.legendaryEffects.fastStrike) {
           const currentRechargeTime = opponent.rechargeEndTime - spinEndTime;
           const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
           opponent.rechargeEndTime = spinEndTime + reducedRechargeTime;
+          opponent.initialRechargeTime = reducedRechargeTime;
         }
         
         // Отправляем обновление перезарядки противнику с учетом заморозки и fastStrike
+        // Отправляем исходное время перезарядки, а не оставшееся
         const opponentSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === opponentId);
         if (opponentSocket) {
-          const currentNow = Date.now();
+          const rechargeTimeToSend = opponent.initialRechargeTime || initialRechargeTime;
           opponentSocket.emit('spinRecharge', {
             playerSocketId: opponentId,
-            rechargeTime: Math.max(0, opponent.rechargeEndTime - currentNow),
+            rechargeTime: rechargeTimeToSend,
             rechargeEndTime: opponent.rechargeEndTime,
             freezeApplied: effectiveFreeze
           });
@@ -1083,16 +1091,19 @@ function handleBotSpin(botId, roomId) {
       if (currentRechargeTime > 0) {
         const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
         bot.rechargeEndTime = botNow + reducedRechargeTime;
+        // Обновляем исходное время перезарядки после применения fastStrike
+        bot.initialRechargeTime = reducedRechargeTime;
       }
     }
     
     // Отправляем информацию о перезарядке бота противнику
+    // Отправляем исходное время перезарядки, а не оставшееся
     const opponentSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === opponentId);
     if (opponentSocket) {
-      const currentNow = Date.now();
+      const initialRechargeTime = bot.initialRechargeTime || 3000;
       opponentSocket.emit('spinRecharge', {
         playerSocketId: botId,
-        rechargeTime: Math.max(0, bot.rechargeEndTime - currentNow),
+        rechargeTime: initialRechargeTime,
         rechargeEndTime: bot.rechargeEndTime
       });
     }
@@ -3110,6 +3121,7 @@ io.on('connection', (socket) => {
     attacker.lastSpinTime = now;
     let baseRechargeTime = 3000; // 3 секунды перезарядки (базовое время)
     attacker.rechargeEndTime = now + baseRechargeTime;
+    attacker.initialRechargeTime = baseRechargeTime; // Сохраняем исходное время перезарядки
     
     // Отправляем информацию о перезарядке клиенту (пока без fastStrike)
     socket.emit('spinRecharge', {
@@ -3447,28 +3459,35 @@ io.on('connection', (socket) => {
         if (effectiveFreeze > 0) {
           const freezeTime = effectiveFreeze * 1000; // в миллисекундах
           const baseRechargeTime = 3000; // Базовое время перезарядки
+          let initialRechargeTime = baseRechargeTime + freezeTime;
           if (target.rechargeEndTime > now) {
             // Если уже идет перезарядка, добавляем время заморозки
             target.rechargeEndTime += freezeTime;
+            if (target.initialRechargeTime) {
+              initialRechargeTime = target.initialRechargeTime + freezeTime;
+            }
           } else {
             // Если перезарядка не идет, устанавливаем базовое время + заморозка
             target.rechargeEndTime = now + baseRechargeTime + freezeTime;
           }
+          target.initialRechargeTime = initialRechargeTime;
           
           // Применяем fastStrike цели ПОСЛЕ всех модификаторов (включая заморозку)
           if (target.legendaryEffects && target.legendaryEffects.fastStrike) {
             const currentRechargeTime = target.rechargeEndTime - now;
             const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
             target.rechargeEndTime = now + reducedRechargeTime;
+            target.initialRechargeTime = reducedRechargeTime;
           }
           
           // Отправляем обновление перезарядки противнику с учетом заморозки и fastStrike
+          // Отправляем исходное время перезарядки, а не оставшееся
           const targetSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === targetPlayerSocketId);
           if (targetSocket) {
-            const currentNow = Date.now();
+            const rechargeTimeToSend = target.initialRechargeTime || (baseRechargeTime + freezeTime);
             targetSocket.emit('spinRecharge', {
               playerSocketId: targetPlayerSocketId,
-              rechargeTime: target.rechargeEndTime - currentNow,
+              rechargeTime: rechargeTimeToSend,
               rechargeEndTime: target.rechargeEndTime,
               freezeApplied: effectiveFreeze
             });
@@ -3481,11 +3500,12 @@ io.on('connection', (socket) => {
         const currentRechargeTime = attacker.rechargeEndTime - now;
         const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
         attacker.rechargeEndTime = now + reducedRechargeTime;
+        attacker.initialRechargeTime = reducedRechargeTime; // Обновляем исходное время
         
-        // Отправляем обновление перезарядки атакующему
+        // Отправляем обновление перезарядки атакующему с исходным временем
         socket.emit('spinRecharge', {
           playerSocketId: fromPlayerSocketId,
-          rechargeTime: attacker.rechargeEndTime - now,
+          rechargeTime: reducedRechargeTime,
           rechargeEndTime: attacker.rechargeEndTime
         });
         
