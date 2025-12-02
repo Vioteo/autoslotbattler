@@ -237,6 +237,35 @@ const itemSelectScreen = document.getElementById('itemSelectScreen');
 const itemsList = document.getElementById('itemsList');
 const itemSelectTimerCountdown = document.getElementById('itemSelectTimerCountdown');
 const cardsShopList = document.getElementById('cardsShopList');
+
+// Обновление текста и состояния кнопки SPIN в зависимости от стоимости и золота
+function updateSpinButtonCost() {
+    if (!spinBtn) return;
+
+    const player = roomState.players
+        ? roomState.players.find(p => p.socketId === playerState.socketId)
+        : null;
+
+    const spinCost = 5;
+    let tempGold = 0;
+    let permGold = 0;
+
+    if (player) {
+        tempGold = player.temporaryGold || 0;
+        permGold = player.permanentGold || 0;
+    }
+
+    const totalGold = tempGold + permGold;
+    const hasEnoughGold = totalGold >= spinCost;
+
+    // Базовый текст с ценой
+    spinBtn.textContent = `SPIN (${spinCost}💰)`;
+
+    // Если не хватает золота, явно подсвечиваем
+    if (!hasEnoughGold) {
+        spinBtn.textContent = `SPIN (${spinCost}💰, нет золота)`;
+    }
+}
 const refreshShopBtn = document.getElementById('refreshShopBtn');
 const permGoldShop = document.getElementById('permGoldShop');
 const tempGoldShop = document.getElementById('tempGoldShop');
