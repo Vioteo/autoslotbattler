@@ -81,8 +81,8 @@ const CHARACTERS = [
     name: 'Торговец',
     emoji: '💰',
     ability: 'gold',
-    description: '+25 постоянного золота',
-    abilityValue: 25
+    description: '+15 постоянного золота',
+    abilityValue: 15
   },
   {
     id: 'healer',
@@ -130,55 +130,128 @@ const CARD_RARITIES = {
 // Определение карточек
 const CARDS = [
   // Комбинированные карточки (5 золота, до 5 раз)
-  { id: 'health_dodge_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ёжик в тумане', description: '+20 HP, +2% уклонения' },
-  { id: 'health_armor_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бронированный хомяк', description: '+20 HP, +2% брони' },
-  { id: 'dodge_critical_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ниндзя-снайпер', description: '+2% уклонения, +2% крита, +0.1 к множителю' },
-  { id: 'armor_healing_combined', type: CARD_TYPES.ARMOR, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Черепаха-медсестра', description: '+2% брони, +10 HP при спине' },
-  { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар в сердце', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки' },
-  { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бессмертный регенератор', description: '+20 HP, +10 HP при спине' },
-  { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Невидимая стена', description: '+2% уклонения, +2% брони' },
-  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+6 к урону, +2% крита, +0.1 к множителю' },
-  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+6 к урону, +2% уклонения' },
-  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+6 к урону, +2% брони' },
-  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+6 к урону, +20 HP' },
-  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+6 к урону, +10 HP при спине' },
-  { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическое исцеление', description: '+2% крита, +0.1 к множителю, +10 HP при спине' },
-  { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной щит', description: '+0.3 сек заморозки, +2% брони' },
-  { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Морозный призрак', description: '+0.3 сек заморозки, +2% уклонения' },
-  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+6 к урону, +0.3 сек заморозки' },
-  { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическая защита', description: '+2% крита, +0.1 к множителю, +2% брони' },
-  { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровый крит', description: '+20 HP, +2% крита, +0.1 к множителю' },
+  { id: 'health_dodge_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ёжик в тумане', description: '+20 HP, +2% уклонения', bonus: { health: 20, dodge: 2 } },
+  { id: 'health_armor_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бронированный хомяк', description: '+20 HP, +2% брони', bonus: { health: 20, armor: 2 } },
+  { id: 'dodge_critical_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ниндзя-снайпер', description: '+2% уклонения, +2% крита, +0.1 к множителю', bonus: { dodge: 2, critical: 2, critMultiplier: 0.1 } },
+  { id: 'armor_healing_combined', type: CARD_TYPES.ARMOR, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Черепаха-медсестра', description: '+2% брони, +10 HP при спине', bonus: { armor: 2, healing: 10 } },
+  { id: 'critical_freeze_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар в сердце', description: '+2% крита, +0.1 к множителю, +0.3 сек заморозки', bonus: { critical: 2, critMultiplier: 0.1, freeze: 0.3 } },
+  { id: 'health_healing_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Бессмертный регенератор', description: '+20 HP, +10 HP при спине', bonus: { health: 20, healing: 10 } },
+  { id: 'dodge_armor_combined', type: CARD_TYPES.DODGE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Невидимая стена', description: '+2% уклонения, +2% брони', bonus: { dodge: 2, armor: 2 } },
+  { id: 'attack_critical_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критический пинок', description: '+6 к урону, +2% крита, +0.1 к множителю', bonus: { attack: 6, critical: 2, critMultiplier: 0.1 } },
+  { id: 'attack_dodge_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Удар из-за угла', description: '+6 к урону, +2% уклонения', bonus: { attack: 6, dodge: 2 } },
+  { id: 'attack_armor_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Таранный удар', description: '+6 к урону, +2% брони', bonus: { attack: 6, armor: 2 } },
+  { id: 'attack_health_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Живучий боец', description: '+6 к урону, +20 HP', bonus: { attack: 6, health: 20 } },
+  { id: 'attack_healing_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Боевой медик', description: '+6 к урону, +10 HP при спине', bonus: { attack: 6, healing: 10 } },
+  { id: 'critical_healing_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическое исцеление', description: '+2% крита, +0.1 к множителю, +10 HP при спине', bonus: { critical: 2, critMultiplier: 0.1, healing: 10 } },
+  { id: 'freeze_armor_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной щит', description: '+0.3 сек заморозки, +2% брони', bonus: { freeze: 0.3, armor: 2 } },
+  { id: 'freeze_dodge_combined', type: CARD_TYPES.FREEZE, secondaryType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Морозный призрак', description: '+0.3 сек заморозки, +2% уклонения', bonus: { freeze: 0.3, dodge: 2 } },
+  { id: 'attack_freeze_combined', type: CARD_TYPES.ATTACK, secondaryType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Ледяной удар', description: '+6 к урону, +0.3 сек заморозки', bonus: { attack: 6, freeze: 0.3 } },
+  { id: 'critical_armor_combined', type: CARD_TYPES.CRITICAL, secondaryType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Критическая защита', description: '+2% крита, +0.1 к множителю, +2% брони', bonus: { critical: 2, critMultiplier: 0.1, armor: 2 } },
+  { id: 'health_critical_combined', type: CARD_TYPES.HEALTH, secondaryType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, stylePoints: 1, isHybrid: true, name: 'Здоровый крит', description: '+20 HP, +2% крита, +0.1 к множителю', bonus: { health: 20, critical: 2, critMultiplier: 0.1 } },
   
   // Редкие карточки (10 золота, до 3 раз)
-  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Сердце терминатора', description: '+67 HP' },
-  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Мастер побега', description: '+4% уклонения' },
-  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Убийственный взгляд', description: '+4% крита, +0.2 к множителю' },
-  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня бога войны', description: '+4% снижение урона' },
-  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Аптечка самурая', description: '+20 HP при спине' },
-  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Вечная мерзлота', description: '+0.6 сек к перезарядке противника' },
-  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+12 к базовому урону' },
+  { id: 'health_rare', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Сердце терминатора', description: '+67 HP', bonus: { health: 67 } },
+  { id: 'dodge_rare', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Мастер побега', description: '+4% уклонения', bonus: { dodge: 4 } },
+  { id: 'critical_rare', type: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Убийственный взгляд', description: '+4% крита, +0.2 к множителю', bonus: { critical: 4, critMultiplier: 0.2 } },
+  { id: 'armor_rare', type: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Броня бога войны', description: '+4% снижение урона', bonus: { armor: 4 } },
+  { id: 'healing_rare', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Аптечка самурая', description: '+20 HP при спине', bonus: { healing: 20 } },
+  { id: 'freeze_rare', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Вечная мерзлота', description: '+0.6 сек к перезарядке противника', bonus: { freeze: 0.6 } },
+  { id: 'attack_rare', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, stylePoints: 2, name: 'Кувалда разрушения', description: '+12 к базовому урону', bonus: { attack: 12 } },
   
   // Легендарные карточки (20 золота, 1 раз, требуют 10 очков стиля)
-  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '⚡ Молния-убийца', description: '+4 атака, 50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike' },
-  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '💎 Бессмертие дракона', description: '+4 здоровье, +40% к макс. HP', requiresStyle: 10, legendaryEffect: 'vitality' },
-  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '✨ Феникс возрождения', description: '+4 лечение, полное восстановление HP при бонусе', requiresStyle: 10, legendaryEffect: 'regeneration' },
-  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '❄️ Абсолютный ноль', description: '+4 заморозка, 25 урона в секунду во время перезарядки врага', requiresStyle: 10, legendaryEffect: 'icePunishment' },
-  { id: 'health_legendary2', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '🔥 Мстительная кровь', description: '+4 здоровье, 10% от потерянного HP врагу', requiresStyle: 10, legendaryEffect: 'vengefulHealth' },
-  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '🛡️ Зеркало богов', description: '+4 уклонение, 50% уклоненного урона врагу', requiresStyle: 10, legendaryEffect: 'reflection' },
+  { id: 'attack_legendary', type: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '⚡ Молния-убийца', description: '50% сокращение перезарядки', requiresStyle: 10, legendaryEffect: 'fastStrike', bonus: { attack: 4 } },
+  { id: 'health_legendary', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '💎 Бессмертие дракона', description: '+40% к макс. HP', requiresStyle: 10, legendaryEffect: 'vitality', bonus: { health: 4 } },
+  { id: 'healing_legendary', type: CARD_TYPES.HEALING, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '✨ Феникс возрождения', description: '20% от восстановленного HP как урон врагу', requiresStyle: 10, legendaryEffect: 'regeneration', bonus: { healing: 4 } },
+  { id: 'freeze_legendary', type: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '❄️ Абсолютный ноль', description: '25 урона в секунду во время перезарядки врага', requiresStyle: 10, legendaryEffect: 'icePunishment', bonus: { freeze: 4 } },
+  { id: 'health_legendary2', type: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '🔥 Мстительная кровь', description: '10% от потерянного HP врагу', requiresStyle: 10, legendaryEffect: 'vengefulHealth', bonus: { health: 4 } },
+  { id: 'dodge_legendary', type: CARD_TYPES.DODGE, rarity: CARD_RARITIES.LEGENDARY, cost: 20, stylePoints: 4, name: '🛡️ Зеркало богов', description: '50% уклоненного урона врагу', requiresStyle: 10, legendaryEffect: 'reflection', bonus: { dodge: 4 } },
   
   // Антикарты (5 золота, до 5 раз)
-  { id: 'anti_dodge', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Клей для ног', description: '-2% уклонения противника', isAnti: true },
-  { id: 'anti_armor', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Ржавчина щита', description: '-2% брони противника', isAnti: true },
-  { id: 'anti_critical', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Слепота удачи', description: '-2% крита, -0.1 к множителю противника', isAnti: true },
-  { id: 'anti_freeze', type: 'anti', antiType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Горячий чай', description: '-0.3 сек к перезарядке противника', isAnti: true },
-  { id: 'anti_attack', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Размягчение кулака', description: '-2 к базовому урону противника', isAnti: true },
-  
-  // Редкие антикарты (10 золота, до 3 раз)
-  { id: 'anti_dodge_rare', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Цементные ботинки', description: '-4% уклонения противника', isAnti: true },
-  { id: 'anti_armor_rare', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Растворитель брони', description: '-4% брони противника', isAnti: true },
-  { id: 'anti_critical_rare', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Проклятие неудачи', description: '-4% крита, -0.2 к множителю противника', isAnti: true },
-  { id: 'anti_attack_rare', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.RARE, cost: 10, name: 'Ослабление воина', description: '-4 к базовому урону противника', isAnti: true }
+  { id: 'anti_dodge', type: 'anti', antiType: CARD_TYPES.DODGE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Клей для ног', description: '-10% к уклонению противника', isAnti: true },
+  { id: 'anti_armor', type: 'anti', antiType: CARD_TYPES.ARMOR, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Ржавчина щита', description: '-10% к броне противника', isAnti: true },
+  { id: 'anti_critical', type: 'anti', antiType: CARD_TYPES.CRITICAL, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Слепота удачи', description: '-10% к криту и множителю противника', isAnti: true },
+  { id: 'anti_freeze', type: 'anti', antiType: CARD_TYPES.FREEZE, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Горячий чай', description: '-10% к заморозке противника', isAnti: true },
+  { id: 'anti_attack', type: 'anti', antiType: CARD_TYPES.ATTACK, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Размягчение кулака', description: '-10% к атаке противника', isAnti: true },
+  { id: 'anti_health', type: 'anti', antiType: CARD_TYPES.HEALTH, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Ослабление здоровья', description: '-10% к добавочному здоровью противника', isAnti: true },
+  { id: 'anti_healing', type: 'anti', antiType: CARD_TYPES.HEALING, rarity: CARD_RARITIES.COMMON, cost: 5, name: 'Подавление лечения', description: '-10% к лечению противника', isAnti: true }
 ];
+
+// Набор характеристик для предметов (на основе комбинированных карт)
+const ITEM_CHARACTERISTICS = [
+  { type: CARD_TYPES.ATTACK, description: '+6 к урону', bonus: { attack: 6 } },
+  { type: CARD_TYPES.HEALTH, description: '+20 HP', bonus: { health: 20 } },
+  { type: CARD_TYPES.DODGE, description: '+2% уклонения', bonus: { dodge: 2 } },
+  { type: CARD_TYPES.ARMOR, description: '+2% брони', bonus: { armor: 2 } },
+  { type: CARD_TYPES.CRITICAL, description: '+2% крита, +0.1 к множителю', bonus: { critical: 2, critMultiplier: 0.1 } },
+  { type: CARD_TYPES.HEALING, description: '+10 HP при спине', bonus: { healing: 10 } },
+  { type: CARD_TYPES.FREEZE, description: '+0.3 сек заморозки', bonus: { freeze: 0.3 } }
+];
+
+// Эффекты предметов
+const ITEM_EFFECTS = {
+  GUARANTEED_WILD: 'guaranteedWild', // Гарантированный wild при спине
+  GUARANTEED_WILD_COUNT: 'guaranteedWildCount', // +2 вайлда при спине
+  TEMP_GOLD_BONUS: 'tempGoldBonus', // +20 временного золота в каждом бою
+  SPIN_COST_REDUCTION: 'spinCostReduction', // -1 к стоимости спина
+  BONUS_WEIGHT_INCREASE: 'bonusWeightIncrease' // +3 к весу бонусного эффекта
+};
+
+// Шаблоны названий для предметов
+const ITEM_NAME_TEMPLATES = {
+  [CARD_TYPES.ATTACK]: ['Ударный молоток', 'Боевой топор', 'Разрушительный меч', 'Атакующий кинжал', 'Силовой кулак'],
+  [CARD_TYPES.HEALTH]: ['Сердце воина', 'Живучий амулет', 'Броня здоровья', 'Эликсир жизни', 'Щит выносливости'],
+  [CARD_TYPES.DODGE]: ['Сапоги скорости', 'Плащ невидимости', 'Кольцо уклонения', 'Ботинки проворства', 'Маска ловкости'],
+  [CARD_TYPES.ARMOR]: ['Бронированный щит', 'Защитный панцирь', 'Стальная броня', 'Крепкий шлем', 'Щит обороны'],
+  [CARD_TYPES.CRITICAL]: ['Критический клинок', 'Убийственный взгляд', 'Точный прицел', 'Смертельный удар', 'Критический урон'],
+  [CARD_TYPES.HEALING]: ['Аптечка выживания', 'Регенеративный бальзам', 'Исцеляющий источник', 'Лечебный эликсир', 'Восстановительное зелье'],
+  [CARD_TYPES.FREEZE]: ['Ледяной кристалл', 'Морозный амулет', 'Холодное кольцо', 'Ледяная перчатка', 'Замороженный артефакт']
+};
+
+// Описания эффектов
+const ITEM_EFFECT_DESCRIPTIONS = {
+  [ITEM_EFFECTS.GUARANTEED_WILD]: 'Гарантированный wild при спине',
+  [ITEM_EFFECTS.GUARANTEED_WILD_COUNT]: '+2 вайлда при спине',
+  [ITEM_EFFECTS.TEMP_GOLD_BONUS]: '+20 временного золота в каждом бою',
+  [ITEM_EFFECTS.SPIN_COST_REDUCTION]: '-1 к стоимости спина',
+  [ITEM_EFFECTS.BONUS_WEIGHT_INCREASE]: 'Увеличенный шанс выпадения бонусного эффекта (+3 к весу)'
+};
+
+// Генерация предмета
+function generateItem(excludedEffects = []) {
+  // Выбираем случайную характеристику
+  const characteristic = ITEM_CHARACTERISTICS[Math.floor(Math.random() * ITEM_CHARACTERISTICS.length)];
+  
+  // Выбираем случайный эффект, исключая уже использованные
+  const availableEffects = Object.values(ITEM_EFFECTS).filter(effect => !excludedEffects.includes(effect));
+  const effect = availableEffects[Math.floor(Math.random() * availableEffects.length)];
+  
+  // Генерируем название на основе типа характеристики
+  const templates = ITEM_NAME_TEMPLATES[characteristic.type];
+  const name = templates[Math.floor(Math.random() * templates.length)];
+  
+  return {
+    id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    name: name,
+    characteristic: characteristic,
+    effect: effect,
+    effectDescription: ITEM_EFFECT_DESCRIPTIONS[effect],
+    description: `${characteristic.description}, ${ITEM_EFFECT_DESCRIPTIONS[effect]}`
+  };
+}
+
+// Генерация набора предметов для выбора (2 предмета без дубликатов эффектов)
+function generateItemChoices() {
+  const items = [];
+  const usedEffects = [];
+  
+  for (let i = 0; i < 2; i++) {
+    const item = generateItem(usedEffects);
+    items.push(item);
+    usedEffects.push(item.effect);
+  }
+  
+  return items;
+}
 
 // Структура данных игрока
 function createPlayer(socketId, nickname, roomId, isBot = false) {
@@ -228,10 +301,13 @@ function createPlayer(socketId, nickname, roomId, isBot = false) {
     antiCards: {}, // { antiType: value } - антикарты, снижающие характеристики противника
     legendaryEffects: {}, // { effectType: true } - активные эффекты легендарных карт
     icePunishmentIntervals: {}, // { targetSocketId: intervalId } - активные интервалы ледяной кары
-    styleThresholdRewards: {}, // { styleType: [4, 10, 20] } - отслеживание выданных наград за пороги стиля
     // Флаги отказа действий (для ботов - до первого отказа)
     attackRefused: false, // Бот получил отказ на атаку (неправильная фаза или нет золота)
-    cardPurchaseRefused: false // Бот получил отказ на покупку карточек (неправильная фаза или нет золота)
+    cardPurchaseRefused: false, // Бот получил отказ на покупку карточек (неправильная фаза или нет золота)
+    // Предмет
+    selectedItem: null, // Выбранный предмет: { id, name, characteristic, effect, effectDescription, description }
+    itemChoices: null, // Предложенные предметы для выбора
+    itemBonus: {} // Бонусы от предмета: { attack, health, dodge, armor, critical, critMultiplier, healing, freeze }
   };
 }
 
@@ -291,10 +367,18 @@ function simulateBotSpin() {
     { name: 'purple', weight: 20 }
   ];
   const WILD_SYMBOL = { name: 'wild', weight: 5 };
-  const BONUS_SYMBOL = { name: 'bonus', weight: 10 };
+  // Применяем эффект предмета: +3 к весу бонусного эффекта
+  let bonusWeight = 8;
+  if (bot && bot.selectedItem && bot.selectedItem.effect === ITEM_EFFECTS.BONUS_WEIGHT_INCREASE) {
+    bonusWeight += 3;
+  }
+  const BONUS_SYMBOL = { name: 'bonus', weight: bonusWeight };
   
   // Генерация случайного символа с учетом весов
-  function getRandomSymbol() {
+  function getRandomSymbol(guaranteedWild = false) {
+    if (guaranteedWild) {
+      return 'wild';
+    }
     const allSymbols = [...SYMBOLS, WILD_SYMBOL, BONUS_SYMBOL];
     const totalWeight = allSymbols.reduce((sum, symbol) => sum + symbol.weight, 0);
     let random = Math.random() * totalWeight;
@@ -308,12 +392,27 @@ function simulateBotSpin() {
     return SYMBOLS[0].name;
   }
   
+  // Проверяем эффекты предмета: гарантированный wild при спине
+  const hasGuaranteedWild = bot && bot.selectedItem && bot.selectedItem.effect === ITEM_EFFECTS.GUARANTEED_WILD;
+  const hasGuaranteedWildCount = bot && bot.selectedItem && bot.selectedItem.effect === ITEM_EFFECTS.GUARANTEED_WILD_COUNT;
+  let wildCount = 0;
+  if (hasGuaranteedWildCount) {
+    wildCount = 2; // +2 вайлда
+  } else if (hasGuaranteedWild) {
+    wildCount = 1; // 1 вайлд
+  }
+  
   // Генерируем 3 линии по 5 символов (как на клиенте)
   const results = [];
   for (let line = 0; line < 3; line++) {
     const lineSymbols = [];
     for (let i = 0; i < 5; i++) {
-      lineSymbols.push(getRandomSymbol());
+      // Применяем гарантированные wild символы
+      if (wildCount > 0 && line === 0 && i < wildCount) {
+        lineSymbols.push('wild');
+      } else {
+        lineSymbols.push(getRandomSymbol(false));
+      }
     }
     results.push(lineSymbols);
   }
@@ -405,7 +504,11 @@ function simulateBotSpin() {
 // Принятие решения ботом: делать ли еще спин или закончить ход
 // БОТЫ ДОЛЖНЫ АКТИВНО ИСПОЛЬЗОВАТЬ ВРЕМЕННОЕ ЗОЛОТО, ТАК КАК ОНО ТЕРЯЕТСЯ В КОНЦЕ РАУНДА
 function botDecideAction(bot, opponent) {
-  const spinCost = 5;
+  // Применяем эффект предмета: -1 к стоимости спина
+  let spinCost = 5;
+  if (bot.selectedItem && bot.selectedItem.effect === ITEM_EFFECTS.SPIN_COST_REDUCTION) {
+    spinCost = Math.max(1, spinCost - 1); // Минимум 1 золото
+  }
   const botHpPercent = bot.roundHp / 100;
   const opponentHpPercent = opponent.roundHp / 100;
   
@@ -586,7 +689,17 @@ function handleBotSpin(botId, roomId) {
     return;
   }
   
-  const spinCost = 5;
+  // Рассчитываем и устанавливаем перезарядку сразу после проверки (до обработки урона)
+  // Пока устанавливаем базовое время - fastStrike применится после всех модификаторов
+  bot.lastSpinTime = now;
+  let baseRechargeTime = 3000; // 3 секунды перезарядки (базовое время)
+  bot.rechargeEndTime = now + baseRechargeTime;
+  
+  // Применяем эффект предмета: -1 к стоимости спина
+  let spinCost = 5;
+  if (bot.selectedItem && bot.selectedItem.effect === ITEM_EFFECTS.SPIN_COST_REDUCTION) {
+    spinCost = Math.max(1, spinCost - 1); // Минимум 1 золото
+  }
   
   // Проверяем наличие золота
   if (bot.temporaryGold < spinCost && bot.permanentGold < spinCost) {
@@ -636,7 +749,7 @@ function handleBotSpin(botId, roomId) {
   // Планируем нанесение урона после завершения спина
   setTimeout(() => {
     const spinEndTime = Date.now();
-    const spinResult = simulateBotSpin();
+    const spinResult = simulateBotSpin(bot);
     let damage = spinResult.damage || 0;
     
     // Рассчитываем характеристики игроков
@@ -644,11 +757,8 @@ function handleBotSpin(botId, roomId) {
     const targetStats = calculatePlayerStats(opponent);
     
     // Применяем антикарты противника к атакующему
-    const targetAntiCards = opponent.antiCards || {};
-    let effectiveAttack = attackerStats.attack;
-    if (targetAntiCards[CARD_TYPES.ATTACK]) {
-      effectiveAttack = Math.max(0, effectiveAttack + targetAntiCards[CARD_TYPES.ATTACK]);
-    }
+    const attackReduction = getAntiCardEffect(opponent, CARD_TYPES.ATTACK);
+    let effectiveAttack = attackerStats.attack * (1 - attackReduction);
     
     // Формула урона: базовый урон (10) + урон от всех линий (5 * совпадения) + бонус атаки
     const baseSpinDamage = 10; // Базовый урон всегда 10, даже если нет линий
@@ -656,8 +766,11 @@ function handleBotSpin(botId, roomId) {
     const attackBonus = Math.max(0, effectiveAttack - 10); // Бонус атаки сверх базовой (10)
     let finalDamage = baseSpinDamage + lineDamage + attackBonus;
     
+    // Применяем антикарты противника к статистике атакующего для крита
+    const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, opponent);
+    
     // Проверяем крит (применяется к итоговому урону)
-    const critResult = applyCritToDamage(finalDamage, attackerStats);
+    const critResult = applyCritToDamage(finalDamage, attackerStatsWithAntiCards);
     finalDamage = Math.max(0, critResult.damage); // Убеждаемся что урон не может быть отрицательным или -0
     let isCrit = critResult.isCrit;
     
@@ -671,10 +784,12 @@ function handleBotSpin(botId, roomId) {
       const abilityResult = useCharacterAbility(bot, opponent, roomId);
       if (abilityResult) {
         if (abilityResult.ability === 'damage' && abilityResult.damage) {
+          // Применяем антикарты противника к статистике атакующего для крита
+          const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, targetAntiCards);
           // Применяем крит к урону от способности
-          const critResult = applyCritToDamage(abilityResult.damage, attackerStats);
-          finalDamage = critResult.damage;
-          isCrit = critResult.isCrit;
+          const critResult = applyCritToDamage(abilityResult.damage, attackerStatsWithAntiCards);
+          finalDamage = finalDamage + critResult.damage;
+          isCrit = isCrit || critResult.isCrit;
         } else {
           finalDamage = 0;
           isCrit = false;
@@ -682,13 +797,35 @@ function handleBotSpin(botId, roomId) {
         
         // Эффект регенерации при бонусе
         if (bot.legendaryEffects && bot.legendaryEffects.regeneration) {
-          bot.roundHp = attackerStats.maxHp;
-          bot.totalHp = attackerStats.maxHp;
-          io.to(roomId).emit('heal', {
-            playerSocketId: botId,
-            amount: attackerStats.maxHp - bot.roundHp,
-            isFull: true
-          });
+          // Вычисляем количество HP, которое было бы восстановлено
+          // Даже если HP уже максимальное, используем healing stat
+          const potentialHeal = Math.max(
+            attackerStats.maxHp - bot.roundHp,
+            attackerStats.healing || 0
+          );
+          
+          // Наносим 20% от восстановленного здоровья как урон врагу
+          if (potentialHeal > 0) {
+            const regenerationDamage = Math.floor(potentialHeal * 0.2);
+            // Применяем антикарты противника к статистике атакующего для крита
+            const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, targetAntiCards);
+            // Применяем крит к урону от регенерации
+            const critResult = applyCritToDamage(regenerationDamage, attackerStatsWithAntiCards);
+            const finalRegenDamage = critResult.damage;
+            
+            // Наносим урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+            opponent.roundHp = Math.max(0, opponent.roundHp - finalRegenDamage);
+            if (finalRegenDamage > 0) {
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: botId,
+                targetPlayerSocketId: opponentId,
+                damage: finalRegenDamage,
+                matches: 'regeneration',
+                crit: critResult.isCrit,
+                comboInfo: { type: 'regeneration', text: 'Регенерация', description: '20% от восстановленного HP' }
+              });
+            }
+          }
         }
         
         // Отправляем информацию о способности
@@ -720,7 +857,9 @@ function handleBotSpin(botId, roomId) {
             // чтобы исключить бесконечные циклы отражения
             if (opponent.legendaryEffects && opponent.legendaryEffects.reflection) {
               let reflectedDamage = Math.floor(originalDamage * 0.5);
-              const critResult = applyCritToDamage(reflectedDamage, targetStats);
+              // Применяем антикарты атакующего (bot) к статистике цели (opponent) для крита
+              const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, bot);
+              const critResult = applyCritToDamage(reflectedDamage, targetStatsWithAntiCards);
               reflectedDamage = critResult.damage;
               // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
               bot.roundHp = Math.max(0, bot.roundHp - reflectedDamage);
@@ -753,7 +892,9 @@ function handleBotSpin(botId, roomId) {
             if (opponent.legendaryEffects && opponent.legendaryEffects.vengefulHealth) {
               const lostHp = opponent.roundHp - Math.max(0, opponent.roundHp - finalDamage);
               let revengeDamage = Math.floor(lostHp * 0.1);
-              const critResult = applyCritToDamage(revengeDamage, targetStats);
+              // Применяем антикарты атакующего (bot) к статистике цели (opponent) для крита
+              const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, bot);
+              const critResult = applyCritToDamage(revengeDamage, targetStatsWithAntiCards);
               revengeDamage = critResult.damage;
               bot.roundHp = Math.max(0, bot.roundHp - revengeDamage);
               if (revengeDamage > 0) {
@@ -792,10 +933,8 @@ function handleBotSpin(botId, roomId) {
       if (finalDamage > 0) {
         // Проверяем уклонение (считается для каждого источника урона отдельно)
         const dodgeRoll = Math.random() * 100;
-        let effectiveDodge = targetStats.dodge;
-        if (targetAntiCards[CARD_TYPES.DODGE]) {
-          effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
-        }
+        const dodgeReduction = getAntiCardEffect(opponent, CARD_TYPES.DODGE);
+        let effectiveDodge = targetStats.dodge * (1 - dodgeReduction);
         
         if (dodgeRoll < effectiveDodge) {
           dodged = true;
@@ -807,8 +946,10 @@ function handleBotSpin(botId, roomId) {
           // чтобы исключить бесконечные циклы отражения
           if (opponent.legendaryEffects && opponent.legendaryEffects.reflection) {
             let reflectedDamage = Math.floor(originalDamage * 0.5);
+            // Применяем антикарты атакующего (bot) к статистике цели (opponent) для крита
+            const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, bot);
             // Применяем крит к отражённому урону (крит применяется от того, кто отражает)
-            const critResult = applyCritToDamage(reflectedDamage, targetStats);
+            const critResult = applyCritToDamage(reflectedDamage, targetStatsWithAntiCards);
             reflectedDamage = critResult.damage;
             // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
             bot.roundHp = Math.max(0, bot.roundHp - reflectedDamage);
@@ -825,13 +966,9 @@ function handleBotSpin(botId, roomId) {
         } else {
           // Применяем броню
           const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
-          const armorReduction = targetStats.armor / 100;
-          if (targetAntiCards[CARD_TYPES.ARMOR]) {
-            const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
-            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - effectiveArmor / 100)));
-          } else {
-            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - armorReduction)));
-          }
+          const armorReduction = getAntiCardEffect(opponent, CARD_TYPES.ARMOR);
+          const effectiveArmor = targetStats.armor * (1 - armorReduction);
+          finalDamage = Math.max(0, Math.floor(finalDamage * (1 - effectiveArmor / 100)));
           // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
           if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
             armorReduced = true;
@@ -846,8 +983,10 @@ function handleBotSpin(botId, roomId) {
           if (opponent.legendaryEffects && opponent.legendaryEffects.vengefulHealth) {
             const lostHp = opponent.roundHp - Math.max(0, opponent.roundHp - finalDamage);
             let revengeDamage = Math.floor(lostHp * 0.1);
+            // Применяем антикарты атакующего (bot) к статистике цели (opponent) для крита
+            const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, bot);
             // Применяем крит к мстительному урону (крит применяется от того, кто мстит)
-            const critResult = applyCritToDamage(revengeDamage, targetStats);
+            const critResult = applyCritToDamage(revengeDamage, targetStatsWithAntiCards);
             revengeDamage = critResult.damage;
             bot.roundHp = Math.max(0, bot.roundHp - revengeDamage);
             if (revengeDamage > 0) {
@@ -871,24 +1010,85 @@ function handleBotSpin(botId, roomId) {
     // Применяем лечение при спине
     if (attackerStats.healing > 0) {
       const healAmount = attackerStats.healing;
+      const actualHeal = Math.min(attackerStats.maxHp - bot.roundHp, healAmount);
       bot.roundHp = Math.min(attackerStats.maxHp, bot.roundHp + healAmount);
       io.to(roomId).emit('heal', {
         playerSocketId: botId,
-        amount: healAmount
+        amount: actualHeal
       });
+      
+      // Эффект регенерации: наносим 20% от восстановленного здоровья как урон врагу
+      // Даже если HP уже максимальное, считаем восстановление равным healAmount
+      if (bot.legendaryEffects && bot.legendaryEffects.regeneration) {
+        const regenerationDamage = Math.floor(healAmount * 0.2);
+        // Применяем антикарты противника к статистике атакующего для крита
+        const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, opponent);
+        // Применяем крит к урону от регенерации
+        const critResult = applyCritToDamage(regenerationDamage, attackerStatsWithAntiCards);
+        const finalRegenDamage = critResult.damage;
+        
+        // Наносим урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+        opponent.roundHp = Math.max(0, opponent.roundHp - finalRegenDamage);
+        if (finalRegenDamage > 0) {
+          io.to(roomId).emit('attack', {
+            fromPlayerSocketId: botId,
+            targetPlayerSocketId: opponentId,
+            damage: finalRegenDamage,
+            matches: 'regeneration',
+            crit: critResult.isCrit,
+            comboInfo: { type: 'regeneration', text: 'Регенерация', description: '20% от восстановленного HP' }
+          });
+        }
+      }
     }
     
     // Применяем заморозку (увеличиваем перезарядку противника)
     // Заморозка добавляется к базовому времени перезарядки (3000ms)
     if (attackerStats.freeze > 0) {
-      const freezeTime = attackerStats.freeze * 1000; // в миллисекундах
-      const baseRechargeTime = 3000; // Базовое время перезарядки
-      if (opponent.rechargeEndTime > spinEndTime) {
-        // Если уже идет перезарядка, добавляем время заморозки
-        opponent.rechargeEndTime += freezeTime;
-      } else {
-        // Если перезарядка не идет, устанавливаем базовое время + заморозка
-        opponent.rechargeEndTime = spinEndTime + baseRechargeTime + freezeTime;
+      // Учитываем анти-заморозку противника
+      const freezeReduction = getAntiCardEffect(opponent, CARD_TYPES.FREEZE);
+      const effectiveFreeze = attackerStats.freeze * (1 - freezeReduction);
+      
+      if (effectiveFreeze > 0) {
+        const freezeTime = effectiveFreeze * 1000; // в миллисекундах
+        const baseRechargeTime = 3000; // Базовое время перезарядки
+        if (opponent.rechargeEndTime > spinEndTime) {
+          // Если уже идет перезарядка, добавляем время заморозки
+          opponent.rechargeEndTime += freezeTime;
+        } else {
+          // Если перезарядка не идет, устанавливаем базовое время + заморозка
+          opponent.rechargeEndTime = spinEndTime + baseRechargeTime + freezeTime;
+        }
+        
+        // Применяем fastStrike цели ПОСЛЕ всех модификаторов (включая заморозку)
+        if (opponent.legendaryEffects && opponent.legendaryEffects.fastStrike) {
+          const currentRechargeTime = opponent.rechargeEndTime - spinEndTime;
+          const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
+          opponent.rechargeEndTime = spinEndTime + reducedRechargeTime;
+        }
+        
+        // Отправляем обновление перезарядки противнику с учетом заморозки и fastStrike
+        const opponentSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === opponentId);
+        if (opponentSocket) {
+          const currentNow = Date.now();
+          opponentSocket.emit('spinRecharge', {
+            playerSocketId: opponentId,
+            rechargeTime: Math.max(0, opponent.rechargeEndTime - currentNow),
+            rechargeEndTime: opponent.rechargeEndTime,
+            freezeApplied: effectiveFreeze
+          });
+        }
+      }
+    }
+    
+    // Применяем fastStrike боту ПОСЛЕ всех модификаторов
+    // Используем now (время начала спина), так как перезарядка установлена относительно now
+    if (bot.legendaryEffects && bot.legendaryEffects.fastStrike) {
+      const botNow = Date.now(); // Текущее время в момент обработки
+      const currentRechargeTime = bot.rechargeEndTime - botNow;
+      if (currentRechargeTime > 0) {
+        const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
+        bot.rechargeEndTime = botNow + reducedRechargeTime;
       }
     }
     
@@ -923,9 +1123,12 @@ function handleBotSpin(botId, roomId) {
             // Перезарядка идет - наносим урон
             // Пересчитываем статистику атакующего для проверки крита
             const currentAttackerStats = calculatePlayerStats(currentAttacker);
+            // Применяем антикарты цели к статистике атакующего для крита
+            const currentTargetAntiCards = currentTarget.antiCards || {};
+            const currentAttackerStatsWithAntiCards = applyAntiCardsToStats(currentAttackerStats, currentTargetAntiCards);
             let actualIceDamage = iceDamage;
             // Применяем крит к урону от ледяной кары
-            const critResult = applyCritToDamage(actualIceDamage, currentAttackerStats);
+            const critResult = applyCritToDamage(actualIceDamage, currentAttackerStatsWithAntiCards);
             actualIceDamage = critResult.damage;
             
             currentTarget.roundHp = Math.max(0, currentTarget.roundHp - actualIceDamage);
@@ -995,14 +1198,7 @@ function handleBotSpin(botId, roomId) {
       });
     }
     
-    // Обновляем время последнего спина и перезарядки
-    bot.lastSpinTime = spinEndTime;
-    let rechargeTime = 3000; // 3 секунды перезарядки
-    // Эффект быстрого удара (50% сокращение перезарядки)
-    if (bot.legendaryEffects && bot.legendaryEffects.fastStrike) {
-      rechargeTime = Math.floor(rechargeTime * 0.5);
-    }
-    bot.rechargeEndTime = spinEndTime + rechargeTime;
+    // Перезарядка уже установлена в начале handleBotSpin, не переустанавливаем
     
     // Обновляем состояние
     updateRoomState(roomId);
@@ -1208,12 +1404,21 @@ function generateCardShopOffers(player) {
       }
     } else {
       // Обычная карточка или антикарта
-      const allCommon = [...commonCards, ...antiCards.filter(c => c.rarity === CARD_RARITIES.COMMON)];
-      if (allCommon.length > 0) {
-        card = allCommon[Math.floor(Math.random() * allCommon.length)];
+      // Антикарты имеют меньший шанс выпадения (30% против 70% для обычных карт)
+      const antiCardChance = 0.3; // 30% шанс выбрать антикарту вместо обычной
+      const commonAntiCards = antiCards.filter(c => c.rarity === CARD_RARITIES.COMMON);
+      
+      if (commonCards.length > 0 && (commonAntiCards.length === 0 || Math.random() >= antiCardChance)) {
+        // Выбираем из обычных карт (70% шанс или если нет антикарт)
+        card = commonCards[Math.floor(Math.random() * commonCards.length)];
+      } else if (commonAntiCards.length > 0) {
+        // Выбираем из антикарт (30% шанс)
+        card = commonAntiCards[Math.floor(Math.random() * commonAntiCards.length)];
       } else if (commonCards.length > 0) {
+        // Fallback: если нет антикарт, выбираем из обычных
         card = commonCards[Math.floor(Math.random() * commonCards.length)];
       } else if (antiCards.length > 0) {
+        // Fallback: если нет обычных, выбираем из всех антикарт
         card = antiCards[Math.floor(Math.random() * antiCards.length)];
       }
     }
@@ -1298,22 +1503,8 @@ function buyCard(player, cardId) {
     player.cardShopOffers = generateCardShopOffers(player);
   }
   
-  // Обрабатываем антикарты
+  // Обрабатываем антикарты - они уже добавлены в cardsOwned выше
   if (card.isAnti) {
-    if (!player.antiCards) player.antiCards = {};
-    const antiValue = card.rarity === CARD_RARITIES.RARE ? -4 : -2;
-    const currentValue = player.antiCards[card.antiType] || 0;
-    
-    if (card.antiType === CARD_TYPES.CRITICAL) {
-      // Для крита снижаем и шанс, и множитель
-      if (!player.antiCards.critChance) player.antiCards.critChance = 0;
-      if (!player.antiCards.critMultiplier) player.antiCards.critMultiplier = 0;
-      player.antiCards.critChance += antiValue;
-      player.antiCards.critMultiplier += (card.rarity === CARD_RARITIES.RARE ? -0.2 : -0.1);
-    } else {
-      player.antiCards[card.antiType] = currentValue + antiValue;
-    }
-    
     return { success: true, message: `Антикарта "${card.name}" куплена!` };
   }
   
@@ -1323,49 +1514,6 @@ function buyCard(player, cardId) {
   // Если это комбинированная карта, добавляем очки и второму стилю
   if (card.isHybrid && card.secondaryType) {
     player.stylePoints[card.secondaryType] = (player.stylePoints[card.secondaryType] || 0) + card.stylePoints;
-  }
-  
-  // Проверяем и выдаем награды за пороговые уровни стиля
-  if (!player.styleThresholdRewards) player.styleThresholdRewards = {};
-  
-  // Проверяем основной тип карты
-  const mainStylePoints = player.stylePoints[card.type] || 0;
-  const mainRewards = player.styleThresholdRewards[card.type] || [];
-  let totalReward = 0;
-  
-  if (mainStylePoints >= 20 && !mainRewards.includes(20)) {
-    totalReward += 15;
-    mainRewards.push(20);
-  } else if (mainStylePoints >= 10 && !mainRewards.includes(10)) {
-    totalReward += 10;
-    mainRewards.push(10);
-  } else if (mainStylePoints >= 4 && !mainRewards.includes(4)) {
-    totalReward += 5;
-    mainRewards.push(4);
-  }
-  player.styleThresholdRewards[card.type] = mainRewards;
-  
-  // Проверяем вторичный тип карты (если есть)
-  if (card.isHybrid && card.secondaryType) {
-    const secondaryStylePoints = player.stylePoints[card.secondaryType] || 0;
-    const secondaryRewards = player.styleThresholdRewards[card.secondaryType] || [];
-    
-    if (secondaryStylePoints >= 20 && !secondaryRewards.includes(20)) {
-      totalReward += 15;
-      secondaryRewards.push(20);
-    } else if (secondaryStylePoints >= 10 && !secondaryRewards.includes(10)) {
-      totalReward += 10;
-      secondaryRewards.push(10);
-    } else if (secondaryStylePoints >= 4 && !secondaryRewards.includes(4)) {
-      totalReward += 5;
-      secondaryRewards.push(4);
-    }
-    player.styleThresholdRewards[card.secondaryType] = secondaryRewards;
-  }
-  
-  // Выдаем награду
-  if (totalReward > 0) {
-    player.permanentGold += totalReward;
   }
   
   // Активируем легендарные эффекты
@@ -1379,10 +1527,7 @@ function buyCard(player, cardId) {
     }
   }
   
-  let message = `Карточка "${card.name}" куплена!`;
-  if (totalReward > 0) {
-    message += ` Награда за порог стиля: +${totalReward}💰`;
-  }
+  const message = `Карточка "${card.name}" куплена!`;
   
   return { success: true, message: message };
 }
@@ -1483,6 +1628,18 @@ function getHealingThresholdBonus(stylePoints) {
   return 0;
 }
 
+// Расчет пороговых бонусов для здоровья
+function getHealthThresholdBonus(stylePoints) {
+  if (stylePoints >= 20) {
+    return 30; // 20 единиц: +30 HP (5 + 10 + 15)
+  } else if (stylePoints >= 10) {
+    return 15; // 10 единиц: +15 HP (5 + 10)
+  } else if (stylePoints >= 4) {
+    return 5; // 4 единицы: +5 HP
+  }
+  return 0;
+}
+
 // Проверка и выбывание игрока, если totalHp <= 0
 function checkAndEliminatePlayer(player) {
   if (player && player.totalHp <= 0) {
@@ -1512,6 +1669,99 @@ function absorbDamageWithShields(target, damage) {
   return { remainingDamage, shieldsUsed };
 }
 
+// Получение эффекта антикарт для определенного типа
+function getAntiCardEffect(player, antiType) {
+  if (!player || !player.cardsOwned) {
+    return 0;
+  }
+  
+  // Находим все антикарты нужного типа
+  const antiCards = CARDS.filter(card => card.isAnti && card.antiType === antiType);
+  let totalCount = 0;
+  
+  antiCards.forEach(card => {
+    const count = player.cardsOwned[card.id] || 0;
+    totalCount += count;
+  });
+  
+  // Возвращаем процент снижения (10% за каждую карту)
+  return totalCount * 0.1;
+}
+
+// Применение антикарт противника к статистике с процентным снижением
+function applyAntiCardsPercentage(stats, targetPlayer) {
+  if (!targetPlayer || !stats) {
+    return stats;
+  }
+  
+  const modifiedStats = { ...stats };
+  
+  // Применяем антикарты для атаки
+  const attackReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.ATTACK);
+  if (attackReduction > 0) {
+    modifiedStats.attack = modifiedStats.attack * (1 - attackReduction);
+  }
+  
+  // Применяем антикарты для уклонения
+  const dodgeReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.DODGE);
+  if (dodgeReduction > 0) {
+    modifiedStats.dodge = modifiedStats.dodge * (1 - dodgeReduction);
+  }
+  
+  // Применяем антикарты для брони
+  const armorReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.ARMOR);
+  if (armorReduction > 0) {
+    modifiedStats.armor = modifiedStats.armor * (1 - armorReduction);
+  }
+  
+  // Применяем антикарты для заморозки
+  const freezeReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.FREEZE);
+  if (freezeReduction > 0) {
+    modifiedStats.freeze = modifiedStats.freeze * (1 - freezeReduction);
+  }
+  
+  // Применяем антикарты для лечения
+  const healingReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.HEALING);
+  if (healingReduction > 0) {
+    modifiedStats.healing = modifiedStats.healing * (1 - healingReduction);
+  }
+  
+  // Применяем антикарты для здоровья (только к добавочному)
+  const healthReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.HEALTH);
+  if (healthReduction > 0 && modifiedStats.maxHp > 100) {
+    const additionalHp = modifiedStats.maxHp - 100;
+    modifiedStats.maxHp = 100 + (additionalHp * (1 - healthReduction));
+  }
+  
+  // Применяем антикарты для крита
+  const critReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.CRITICAL);
+  if (critReduction > 0) {
+    modifiedStats.critChance = Math.max(0, modifiedStats.critChance * (1 - critReduction));
+    modifiedStats.critMultiplier = Math.max(0.1, modifiedStats.critMultiplier * (1 - critReduction));
+  }
+  
+  return modifiedStats;
+}
+
+// Применение антикарт противника к статистике атакующего
+function applyAntiCardsToStats(attackerStats, targetPlayer) {
+  if (!targetPlayer) {
+    return attackerStats;
+  }
+  
+  // Создаем копию статистики
+  const modifiedStats = { ...attackerStats };
+  
+  // Применяем антикарты для крита
+  const critReduction = getAntiCardEffect(targetPlayer, CARD_TYPES.CRITICAL);
+  if (critReduction > 0) {
+    modifiedStats.critChance = Math.max(0, attackerStats.critChance * (1 - critReduction));
+    modifiedStats.critMultiplier = Math.max(0.1, attackerStats.critMultiplier * (1 - critReduction));
+  }
+  
+  return modifiedStats;
+}
+
 // Применение крита к урону
 function applyCritToDamage(damage, attackerStats) {
   if (!damage || damage <= 0) {
@@ -1532,6 +1782,7 @@ function applyCritToDamage(damage, attackerStats) {
 // Расчет характеристик игрока с учетом карточек
 function calculatePlayerStats(player) {
   const stylePoints = player.stylePoints || {};
+  const cardsOwned = player.cardsOwned || {};
   
   // Базовые значения
   let baseAttack = 10;
@@ -1543,23 +1794,42 @@ function calculatePlayerStats(player) {
   let baseHealing = 0;
   let maxHp = 100;
   
-  // Применяем очки стиля (1 единица = базовый эффект)
-  baseAttack += stylePoints.attack || 0;
-  baseArmor += stylePoints.armor || 0;
-  baseDodge += stylePoints.dodge || 0;
-  baseCritChance += stylePoints.critical || 0;
-  baseCritMultiplier += (stylePoints.critical || 0) * 0.1; // +0.1 за единицу крита
-  baseFreeze += (stylePoints.freeze || 0) * 0.3; // +0.3 сек за единицу заморозки
-  baseHealing += (stylePoints.healing || 0) * 10; // +10 HP за единицу лечения
-  maxHp += (stylePoints.health || 0) * 20; // +20 HP за единицу здоровья (ослаблено в 1.5 раза)
+  // Суммируем бонусы из всех купленных карт
+  Object.keys(cardsOwned).forEach(cardId => {
+    const card = CARDS.find(c => c.id === cardId);
+    if (card && card.bonus) {
+      const count = cardsOwned[cardId] || 0;
+      if (card.bonus.attack) baseAttack += card.bonus.attack * count;
+      if (card.bonus.armor) baseArmor += card.bonus.armor * count;
+      if (card.bonus.dodge) baseDodge += card.bonus.dodge * count;
+      if (card.bonus.critical) baseCritChance += card.bonus.critical * count;
+      if (card.bonus.critMultiplier) baseCritMultiplier += card.bonus.critMultiplier * count;
+      if (card.bonus.freeze) baseFreeze += card.bonus.freeze * count;
+      if (card.bonus.healing) baseHealing += card.bonus.healing * count;
+      if (card.bonus.health) maxHp += card.bonus.health * count;
+    }
+  });
   
-  // Применяем пороговые бонусы
+  // Применяем бонусы от предмета
+  if (player.itemBonus) {
+    if (player.itemBonus.attack) baseAttack += player.itemBonus.attack;
+    if (player.itemBonus.armor) baseArmor += player.itemBonus.armor;
+    if (player.itemBonus.dodge) baseDodge += player.itemBonus.dodge;
+    if (player.itemBonus.critical) baseCritChance += player.itemBonus.critical;
+    if (player.itemBonus.critMultiplier) baseCritMultiplier += player.itemBonus.critMultiplier;
+    if (player.itemBonus.freeze) baseFreeze += player.itemBonus.freeze;
+    if (player.itemBonus.healing) baseHealing += player.itemBonus.healing;
+    if (player.itemBonus.health) maxHp += player.itemBonus.health;
+  }
+  
+  // Применяем пороговые бонусы (на основе stylePoints)
   const attackBonus = getAttackThresholdBonus(stylePoints.attack || 0);
   const armorBonus = getArmorThresholdBonus(stylePoints.armor || 0);
   const dodgeBonus = getDodgeThresholdBonus(stylePoints.dodge || 0);
   const critBonus = getCriticalThresholdBonus(stylePoints.critical || 0);
   const freezeBonus = getFreezeThresholdBonus(stylePoints.freeze || 0);
   const healingBonus = getHealingThresholdBonus(stylePoints.healing || 0);
+  const healthBonus = getHealthThresholdBonus(stylePoints.health || 0);
   
   // Применяем пороговые бонусы для крита (шанс и множитель)
   const critChanceBonus = critBonus.chance;
@@ -1588,11 +1858,64 @@ function calculatePlayerStats(player) {
     critMultiplier: baseCritMultiplier + critMultBonus,
     freeze: baseFreeze + freezeTimeBonus,
     healing: baseHealing + healingHpBonus,
-    maxHp: maxHp
+    maxHp: maxHp + healthBonus
   };
 }
 
 // Обработка покупки карточек ботом
+// Обработка выбора предмета игроком
+function handleItemSelection(playerId, roomId, itemId) {
+  const player = players.get(playerId);
+  if (!player) {
+    console.warn(`Игрок ${playerId} не найден для выбора предмета`);
+    return;
+  }
+  
+  const room = rooms.get(roomId);
+  if (!room) {
+    console.warn(`Комната ${roomId} не найдена для выбора предмета`);
+    return;
+  }
+  
+  // Находим выбранный предмет из предложенных
+  if (!player.itemChoices || player.itemChoices.length === 0) {
+    console.warn(`У игрока ${playerId} нет предложенных предметов`);
+    return;
+  }
+  
+  const selectedItem = player.itemChoices.find(item => item.id === itemId);
+  
+  if (!selectedItem) {
+    console.warn(`Предмет ${itemId} не найден среди предложенных`);
+    return;
+  }
+  
+  // Сохраняем выбранный предмет
+  player.selectedItem = selectedItem;
+  player.itemChoices = null; // Очищаем предложенные предметы
+  
+  // Применяем характеристику предмета к игроку
+  if (selectedItem.characteristic && selectedItem.characteristic.bonus) {
+    const bonus = selectedItem.characteristic.bonus;
+    if (!player.itemBonus) {
+      player.itemBonus = {};
+    }
+    Object.keys(bonus).forEach(key => {
+      player.itemBonus[key] = (player.itemBonus[key] || 0) + bonus[key];
+    });
+  }
+  
+  console.log(`Игрок ${player.nickname} выбрал предмет: ${selectedItem.name} (эффект: ${selectedItem.effect})`);
+  
+  // Отправляем подтверждение выбора
+  io.to(playerId).emit('itemSelected', {
+    item: selectedItem
+  });
+  
+  // Обновляем состояние комнаты
+  updateRoomState(roomId);
+}
+
 function handleBotCardPurchase(botId, roomId) {
   try {
     const bot = bots.get(botId);
@@ -2155,19 +2478,69 @@ function checkAllDuelsFinished(roomId) {
         }
       });
       
-      // Устанавливаем состояние BREAK с таймером 1 минута
-      setGameState(roomId, GAME_STATES.BREAK);
+      // Проверяем, нужно ли показывать выбор предметов (раунды 2, 4, 6)
+      const shouldShowItemSelection = [2, 4, 6].includes(room.currentRound);
       
-      // Боты покупают карточки во время перерыва
-      activePlayers.forEach(id => {
-        const p = players.get(id);
-        if (p && p.isBot) {
-          // Запускаем покупку карточек для бота с небольшой задержкой
-          setTimeout(() => {
-            handleBotCardPurchase(id, roomId);
-          }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
-        }
-      });
+      if (shouldShowItemSelection) {
+        // Генерируем предметы для выбора для каждого живого игрока
+        const alivePlayersForItems = activePlayers.filter(id => {
+          const p = players.get(id);
+          return p && p.totalHp > 0 && !p.isEliminated;
+        });
+        
+        alivePlayersForItems.forEach(id => {
+          const p = players.get(id);
+          if (p && !p.selectedItem) { // Только если у игрока еще нет предмета
+            const itemChoices = generateItemChoices();
+            p.itemChoices = itemChoices; // Сохраняем предложенные предметы
+            // Отправляем выбор предметов игроку
+            if (p.isBot) {
+              // Боты выбирают случайно
+              setTimeout(() => {
+                const randomChoice = itemChoices[Math.floor(Math.random() * itemChoices.length)];
+                handleItemSelection(id, roomId, randomChoice.id);
+              }, 500 + Math.random() * 1000); // Случайная задержка 0.5-1.5 секунды
+            } else {
+              // Реальные игроки получают выбор
+              io.to(id).emit('itemSelectionRequired', {
+                items: itemChoices,
+                duration: 10000 // 10 секунд
+              });
+            }
+          }
+        });
+        
+        // Устанавливаем состояние BREAK после отправки выбора предметов
+        // (экран выбора будет показан перед магазином карт)
+        setTimeout(() => {
+          setGameState(roomId, GAME_STATES.BREAK);
+          
+          // Боты покупают карточки во время перерыва
+          activePlayers.forEach(id => {
+            const p = players.get(id);
+            if (p && p.isBot) {
+              // Запускаем покупку карточек для бота с небольшой задержкой
+              setTimeout(() => {
+                handleBotCardPurchase(id, roomId);
+              }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
+            }
+          });
+        }, 100); // Небольшая задержка для отправки события выбора предметов
+      } else {
+        // Устанавливаем состояние BREAK с таймером 1 минута
+        setGameState(roomId, GAME_STATES.BREAK);
+        
+        // Боты покупают карточки во время перерыва
+        activePlayers.forEach(id => {
+          const p = players.get(id);
+          if (p && p.isBot) {
+            // Запускаем покупку карточек для бота с небольшой задержкой
+            setTimeout(() => {
+              handleBotCardPurchase(id, roomId);
+            }, 1000 + Math.random() * 2000); // Случайная задержка 1-3 секунды
+          }
+        });
+      }
       
       // Отправляем событие о начале перерыва перед следующим раундом (для обратной совместимости)
       io.to(roomId).emit('breakStarted', {
@@ -2408,14 +2781,20 @@ function startNextRound(roomId) {
       p.rechargeEndTime = 0;
       
       // Выдаем 30 временного золота (для копий синхронизируем с оригиналом после)
+      // Применяем эффект предмета: +20 временного золота в каждом бою
+      let baseTempGold = 30;
+      if (p.selectedItem && p.selectedItem.effect === ITEM_EFFECTS.TEMP_GOLD_BONUS) {
+        baseTempGold += 20;
+      }
+      
       if (!p.isCopy) {
-        p.temporaryGold = 30;
+        p.temporaryGold = baseTempGold;
       } else if (p.originalSocketId) {
         const original = players.get(p.originalSocketId);
         if (original) {
           p.temporaryGold = original.temporaryGold;
         } else {
-          p.temporaryGold = 30; // Fallback
+          p.temporaryGold = baseTempGold; // Fallback
         }
       }
       
@@ -2681,8 +3060,25 @@ io.on('connection', (socket) => {
       return;
     }
     
+    // Рассчитываем и устанавливаем перезарядку сразу после проверки (до обработки урона)
+    // Пока устанавливаем базовое время - fastStrike применится после всех модификаторов
+    attacker.lastSpinTime = now;
+    let baseRechargeTime = 3000; // 3 секунды перезарядки (базовое время)
+    attacker.rechargeEndTime = now + baseRechargeTime;
+    
+    // Отправляем информацию о перезарядке клиенту (пока без fastStrike)
+    socket.emit('spinRecharge', {
+      playerSocketId: fromPlayerSocketId,
+      rechargeTime: baseRechargeTime,
+      rechargeEndTime: attacker.rechargeEndTime
+    });
+    
     // Тратим золото на спин (5 золота) - ВСЕГДА, даже если нет комбинации
-    const spinCost = 5;
+    // Применяем эффект предмета: -1 к стоимости спина
+    let spinCost = 5;
+    if (attacker.selectedItem && attacker.selectedItem.effect === ITEM_EFFECTS.SPIN_COST_REDUCTION) {
+      spinCost = Math.max(1, spinCost - 1); // Минимум 1 золото
+    }
     // Копии тратят только временное золото
     if (attacker.isCopy) {
       if (attacker.temporaryGold >= spinCost) {
@@ -2701,25 +3097,13 @@ io.on('connection', (socket) => {
       return;
     }
     
-    // Обновляем время последнего спина и перезарядки
-    attacker.lastSpinTime = now;
-    let rechargeTime = 3000; // 3 секунды перезарядки
-    // Эффект быстрого удара (50% сокращение перезарядки)
-    if (attacker.legendaryEffects && attacker.legendaryEffects.fastStrike) {
-      rechargeTime = Math.floor(rechargeTime * 0.5);
-    }
-    attacker.rechargeEndTime = now + rechargeTime;
-    
     // Рассчитываем характеристики игроков
     const attackerStats = calculatePlayerStats(attacker);
     const targetStats = calculatePlayerStats(target);
     
     // Применяем антикарты противника к атакующему
-    const targetAntiCards = target.antiCards || {};
-    let effectiveAttack = attackerStats.attack;
-    if (targetAntiCards[CARD_TYPES.ATTACK]) {
-      effectiveAttack = Math.max(0, effectiveAttack + targetAntiCards[CARD_TYPES.ATTACK]);
-    }
+    const attackReduction = getAntiCardEffect(target, CARD_TYPES.ATTACK);
+    let effectiveAttack = attackerStats.attack * (1 - attackReduction);
     
     // Формула урона: базовый урон (10) + урон от всех линий (5 * совпадения) + бонус атаки
     const baseSpinDamage = 10; // Базовый урон всегда 10, даже если нет линий
@@ -2727,8 +3111,11 @@ io.on('connection', (socket) => {
     const attackBonus = Math.max(0, effectiveAttack - 10); // Бонус атаки сверх базовой (10)
     let finalDamage = baseSpinDamage + lineDamage + attackBonus;
     
+    // Применяем антикарты противника к статистике атакующего для крита
+    const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, target);
+    
     // Проверяем крит (применяется к итоговому урону)
-    const critResult = applyCritToDamage(finalDamage, attackerStats);
+    const critResult = applyCritToDamage(finalDamage, attackerStatsWithAntiCards);
     finalDamage = Math.max(0, critResult.damage); // Убеждаемся что урон не может быть отрицательным или -0
     let isCrit = critResult.isCrit;
     
@@ -2742,10 +3129,12 @@ io.on('connection', (socket) => {
       const abilityResult = useCharacterAbility(attacker, target, roomId);
       if (abilityResult) {
         if (abilityResult.ability === 'damage' && abilityResult.damage) {
+          // Применяем антикарты противника к статистике атакующего для крита
+          const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, target);
           // Применяем крит к урону от способности
-          const critResult = applyCritToDamage(abilityResult.damage, attackerStats);
-          finalDamage = critResult.damage;
-          isCrit = critResult.isCrit;
+          const critResult = applyCritToDamage(abilityResult.damage, attackerStatsWithAntiCards);
+          finalDamage = finalDamage + critResult.damage;
+          isCrit = isCrit || critResult.isCrit;
         } else {
           finalDamage = 0;
           isCrit = false;
@@ -2753,13 +3142,35 @@ io.on('connection', (socket) => {
         
         // Эффект регенерации при бонусе
         if (attacker.legendaryEffects && attacker.legendaryEffects.regeneration) {
-          attacker.roundHp = attackerStats.maxHp;
-          attacker.totalHp = attackerStats.maxHp;
-          io.to(roomId).emit('heal', {
-            playerSocketId: fromPlayerSocketId,
-            amount: attackerStats.maxHp - attacker.roundHp,
-            isFull: true
-          });
+          // Вычисляем количество HP, которое было бы восстановлено
+          // Даже если HP уже максимальное, используем healing stat
+          const potentialHeal = Math.max(
+            attackerStats.maxHp - attacker.roundHp,
+            attackerStats.healing || 0
+          );
+          
+          // Наносим 20% от восстановленного здоровья как урон врагу
+          if (potentialHeal > 0) {
+            const regenerationDamage = Math.floor(potentialHeal * 0.2);
+            // Применяем антикарты противника к статистике атакующего для крита
+            const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, target);
+            // Применяем крит к урону от регенерации
+            const critResult = applyCritToDamage(regenerationDamage, attackerStatsWithAntiCards);
+            const finalRegenDamage = critResult.damage;
+            
+            // Наносим урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+            target.roundHp = Math.max(0, target.roundHp - finalRegenDamage);
+            if (finalRegenDamage > 0) {
+              io.to(roomId).emit('attack', {
+                fromPlayerSocketId: fromPlayerSocketId,
+                targetPlayerSocketId: targetPlayerSocketId,
+                damage: finalRegenDamage,
+                matches: 'regeneration',
+                crit: critResult.isCrit,
+                comboInfo: { type: 'regeneration', text: 'Регенерация', description: '20% от восстановленного HP' }
+              });
+            }
+          }
         }
         
         // Отправляем информацию о способности
@@ -2776,10 +3187,8 @@ io.on('connection', (socket) => {
         if (abilityResult.ability === 'damage' && finalDamage > 0) {
           // Проверяем уклонение
           const dodgeRoll = Math.random() * 100;
-          let effectiveDodge = targetStats.dodge;
-          if (targetAntiCards[CARD_TYPES.DODGE]) {
-            effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
-          }
+          const dodgeReduction = getAntiCardEffect(target, CARD_TYPES.DODGE);
+          let effectiveDodge = targetStats.dodge * (1 - dodgeReduction);
           
           if (dodgeRoll < effectiveDodge) {
             dodged = true;
@@ -2791,7 +3200,9 @@ io.on('connection', (socket) => {
             // чтобы исключить бесконечные циклы отражения
             if (target.legendaryEffects && target.legendaryEffects.reflection) {
               let reflectedDamage = Math.floor(originalDamage * 0.5);
-              const critResult = applyCritToDamage(reflectedDamage, targetStats);
+              // Применяем антикарты атакующего (attacker) к статистике цели (target) для крита
+              const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, attacker);
+              const critResult = applyCritToDamage(reflectedDamage, targetStatsWithAntiCards);
               reflectedDamage = critResult.damage;
               // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
               attacker.roundHp = Math.max(0, attacker.roundHp - reflectedDamage);
@@ -2808,13 +3219,9 @@ io.on('connection', (socket) => {
           } else {
             // Применяем броню
             const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
-            const armorReduction = targetStats.armor / 100;
-            if (targetAntiCards[CARD_TYPES.ARMOR]) {
-              const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
-              finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
-            } else {
-              finalDamage = Math.floor(finalDamage * (1 - armorReduction));
-            }
+            const armorReduction = getAntiCardEffect(target, CARD_TYPES.ARMOR);
+            const effectiveArmor = targetStats.armor * (1 - armorReduction);
+            finalDamage = Math.floor(finalDamage * (1 - effectiveArmor / 100));
             // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
             if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
               armorReduced = true;
@@ -2824,7 +3231,9 @@ io.on('connection', (socket) => {
             if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
               const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
               let revengeDamage = Math.floor(lostHp * 0.1);
-              const critResult = applyCritToDamage(revengeDamage, targetStats);
+              // Применяем антикарты атакующего (attacker) к статистике цели (target) для крита
+              const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, attacker);
+              const critResult = applyCritToDamage(revengeDamage, targetStatsWithAntiCards);
               revengeDamage = critResult.damage;
               attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
               if (revengeDamage > 0) {
@@ -2863,10 +3272,8 @@ io.on('connection', (socket) => {
       if (finalDamage > 0) {
         // Проверяем уклонение (считается для каждого источника урона отдельно)
         const dodgeRoll = Math.random() * 100;
-        let effectiveDodge = targetStats.dodge;
-        if (targetAntiCards[CARD_TYPES.DODGE]) {
-          effectiveDodge = Math.max(0, effectiveDodge + targetAntiCards[CARD_TYPES.DODGE]);
-        }
+        const dodgeReduction = getAntiCardEffect(target, CARD_TYPES.DODGE);
+        let effectiveDodge = targetStats.dodge * (1 - dodgeReduction);
         
         if (dodgeRoll < effectiveDodge) {
           dodged = true;
@@ -2878,8 +3285,10 @@ io.on('connection', (socket) => {
           // чтобы исключить бесконечные циклы отражения
           if (target.legendaryEffects && target.legendaryEffects.reflection) {
             let reflectedDamage = Math.floor(originalDamage * 0.5);
+            // Применяем антикарты атакующего (attacker) к статистике цели (target) для крита
+            const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, attacker);
             // Применяем крит к отражённому урону (крит применяется от того, кто отражает)
-            const critResult = applyCritToDamage(reflectedDamage, targetStats);
+            const critResult = applyCritToDamage(reflectedDamage, targetStatsWithAntiCards);
             reflectedDamage = critResult.damage;
             // Наносим отражённый урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
             attacker.roundHp = Math.max(0, attacker.roundHp - reflectedDamage);
@@ -2896,29 +3305,27 @@ io.on('connection', (socket) => {
         } else {
           // Применяем броню
           const originalDamageBeforeArmor = finalDamage; // Сохраняем урон до применения брони
-          const armorReduction = targetStats.armor / 100;
-          if (targetAntiCards[CARD_TYPES.ARMOR]) {
-            const effectiveArmor = Math.max(0, targetStats.armor + targetAntiCards[CARD_TYPES.ARMOR]);
-            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - effectiveArmor / 100)));
-          } else {
-            finalDamage = Math.max(0, Math.floor(finalDamage * (1 - armorReduction)));
+          const armorReduction = getAntiCardEffect(target, CARD_TYPES.ARMOR);
+          const effectiveArmor = targetStats.armor * (1 - armorReduction);
+          finalDamage = Math.max(0, Math.floor(finalDamage * (1 - effectiveArmor / 100)));
+          // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
+          if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
+            armorReduced = true;
           }
-            // Отмечаем что урон был снижен броней (если урон действительно уменьшился)
-            if (finalDamage < originalDamageBeforeArmor && finalDamage > 0) {
-              armorReduced = true;
-            }
-            
-            // Исправление бага: если урон стал 0, но у противника очень мало HP (<=2), применяем минимум 1 урон
-            if (finalDamage === 0 && target.roundHp > 0 && target.roundHp <= 2) {
-              finalDamage = 1;
-            }
-            
-            // Эффект мстительного здоровья
-            if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
-              const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
-              let revengeDamage = Math.floor(lostHp * 0.1);
+          
+          // Исправление бага: если урон стал 0, но у противника очень мало HP (<=2), применяем минимум 1 урон
+          if (finalDamage === 0 && target.roundHp > 0 && target.roundHp <= 2) {
+            finalDamage = 1;
+          }
+          
+          // Эффект мстительного здоровья
+          if (target.legendaryEffects && target.legendaryEffects.vengefulHealth) {
+            const lostHp = target.roundHp - Math.max(0, target.roundHp - finalDamage);
+            let revengeDamage = Math.floor(lostHp * 0.1);
+            // Применяем антикарты атакующего (attacker) к статистике цели (target) для крита
+            const targetStatsWithAntiCards = applyAntiCardsToStats(targetStats, attacker);
               // Применяем крит к мстительному урону (крит применяется от того, кто мстит)
-              const critResult = applyCritToDamage(revengeDamage, targetStats);
+              const critResult = applyCritToDamage(revengeDamage, targetStatsWithAntiCards);
               revengeDamage = critResult.damage;
               attacker.roundHp = Math.max(0, attacker.roundHp - revengeDamage);
             if (revengeDamage > 0) {
@@ -2939,26 +3346,93 @@ io.on('connection', (socket) => {
       
       // Применяем лечение при спине
       if (attackerStats.healing > 0) {
-        const healAmount = attackerStats.healing;
+        // Применяем антикарты лечения цели к лечению атакующего
+        const healingReduction = getAntiCardEffect(target, CARD_TYPES.HEALING);
+        const effectiveHealing = attackerStats.healing * (1 - healingReduction);
+        const healAmount = effectiveHealing;
+        const actualHeal = Math.min(attackerStats.maxHp - attacker.roundHp, healAmount);
         attacker.roundHp = Math.min(attackerStats.maxHp, attacker.roundHp + healAmount);
         io.to(roomId).emit('heal', {
           playerSocketId: fromPlayerSocketId,
-          amount: healAmount
+          amount: actualHeal
         });
+        
+        // Эффект регенерации: наносим 20% от восстановленного здоровья как урон врагу
+        // Даже если HP уже максимальное, считаем восстановление равным healAmount
+        if (attacker.legendaryEffects && attacker.legendaryEffects.regeneration) {
+          const regenerationDamage = Math.floor(healAmount * 0.2);
+          // Применяем антикарты противника к статистике атакующего для крита
+          const attackerStatsWithAntiCards = applyAntiCardsToStats(attackerStats, target);
+          // Применяем крит к урону от регенерации
+          const critResult = applyCritToDamage(regenerationDamage, attackerStatsWithAntiCards);
+          const finalRegenDamage = critResult.damage;
+          
+          // Наносим урон напрямую, минуя логику обработки урона (уклонение, броня, отражение)
+          target.roundHp = Math.max(0, target.roundHp - finalRegenDamage);
+          if (finalRegenDamage > 0) {
+            io.to(roomId).emit('attack', {
+              fromPlayerSocketId: fromPlayerSocketId,
+              targetPlayerSocketId: targetPlayerSocketId,
+              damage: finalRegenDamage,
+              matches: 'regeneration',
+              crit: critResult.isCrit,
+              comboInfo: { type: 'regeneration', text: 'Регенерация', description: '20% от восстановленного HP' }
+            });
+          }
+        }
       }
       
       // Применяем заморозку (увеличиваем перезарядку противника)
       // Заморозка добавляется к базовому времени перезарядки (3000ms)
       if (attackerStats.freeze > 0) {
-        const freezeTime = attackerStats.freeze * 1000; // в миллисекундах
-        const baseRechargeTime = 3000; // Базовое время перезарядки
-        if (target.rechargeEndTime > now) {
-          // Если уже идет перезарядка, добавляем время заморозки
-          target.rechargeEndTime += freezeTime;
-        } else {
-          // Если перезарядка не идет, устанавливаем базовое время + заморозка
-          target.rechargeEndTime = now + baseRechargeTime + freezeTime;
+        // Учитываем анти-заморозку противника
+        const freezeReduction = getAntiCardEffect(target, CARD_TYPES.FREEZE);
+        const effectiveFreeze = attackerStats.freeze * (1 - freezeReduction);
+        
+        if (effectiveFreeze > 0) {
+          const freezeTime = effectiveFreeze * 1000; // в миллисекундах
+          const baseRechargeTime = 3000; // Базовое время перезарядки
+          if (target.rechargeEndTime > now) {
+            // Если уже идет перезарядка, добавляем время заморозки
+            target.rechargeEndTime += freezeTime;
+          } else {
+            // Если перезарядка не идет, устанавливаем базовое время + заморозка
+            target.rechargeEndTime = now + baseRechargeTime + freezeTime;
+          }
+          
+          // Применяем fastStrike цели ПОСЛЕ всех модификаторов (включая заморозку)
+          if (target.legendaryEffects && target.legendaryEffects.fastStrike) {
+            const currentRechargeTime = target.rechargeEndTime - now;
+            const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
+            target.rechargeEndTime = now + reducedRechargeTime;
+          }
+          
+          // Отправляем обновление перезарядки противнику с учетом заморозки и fastStrike
+          const targetSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === targetPlayerSocketId);
+          if (targetSocket) {
+            const currentNow = Date.now();
+            targetSocket.emit('spinRecharge', {
+              playerSocketId: targetPlayerSocketId,
+              rechargeTime: target.rechargeEndTime - currentNow,
+              rechargeEndTime: target.rechargeEndTime,
+              freezeApplied: effectiveFreeze
+            });
+          }
         }
+      }
+      
+      // Применяем fastStrike атакующему ПОСЛЕ всех модификаторов
+      if (attacker.legendaryEffects && attacker.legendaryEffects.fastStrike) {
+        const currentRechargeTime = attacker.rechargeEndTime - now;
+        const reducedRechargeTime = Math.floor(currentRechargeTime * 0.5);
+        attacker.rechargeEndTime = now + reducedRechargeTime;
+        
+        // Отправляем обновление перезарядки атакующему
+        socket.emit('spinRecharge', {
+          playerSocketId: fromPlayerSocketId,
+          rechargeTime: attacker.rechargeEndTime - now,
+          rechargeEndTime: attacker.rechargeEndTime
+        });
       }
       
       // Эффект ледяной кары (25 урона в секунду во время перезарядки спина противника)
@@ -2992,9 +3466,12 @@ io.on('connection', (socket) => {
               // Перезарядка идет - наносим урон
               // Пересчитываем статистику атакующего для проверки крита
               const currentAttackerStats = calculatePlayerStats(currentAttacker);
+              // Применяем антикарты цели к статистике атакующего для крита
+              const currentTargetAntiCards = currentTarget.antiCards || {};
+              const currentAttackerStatsWithAntiCards = applyAntiCardsToStats(currentAttackerStats, currentTargetAntiCards);
               let actualIceDamage = iceDamage;
               // Применяем крит к урону от ледяной кары
-              const critResult = applyCritToDamage(actualIceDamage, currentAttackerStats);
+              const critResult = applyCritToDamage(actualIceDamage, currentAttackerStatsWithAntiCards);
               actualIceDamage = critResult.damage;
               
               currentTarget.roundHp = Math.max(0, currentTarget.roundHp - actualIceDamage);
@@ -3189,6 +3666,28 @@ io.on('connection', (socket) => {
   });
   
   // Обработка готовности игрока к следующему раунду
+  socket.on('selectItem', (data) => {
+    const player = players.get(socket.id);
+    if (!player) {
+      socket.emit('error', { message: 'Игрок не найден' });
+      return;
+    }
+    
+    const roomId = player.roomId;
+    if (!roomId) {
+      socket.emit('error', { message: 'Игрок не в комнате' });
+      return;
+    }
+    
+    const itemId = data?.itemId;
+    if (!itemId) {
+      socket.emit('error', { message: 'Не указан ID предмета' });
+      return;
+    }
+    
+    handleItemSelection(socket.id, roomId, itemId);
+  });
+
   socket.on('playerReady', (data) => {
     const { roomId } = data;
     const player = players.get(socket.id);

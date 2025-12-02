@@ -48,7 +48,19 @@ const SYMBOLS = [
 const WILD_SYMBOL = { emoji: '⭐', color: '#ffd700', name: 'wild', weight: 5 };
 
 // Бонус символ
-const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 10 };
+const BONUS_SYMBOL = { emoji: '💥', color: '#ff00ff', name: 'bonus', weight: 8 };
+
+// Получение эффектов предмета игрока
+function getPlayerItemEffects() {
+    const player = roomState.players.find(p => p.socketId === playerState.socketId);
+    if (!player || !player.selectedItem) return null;
+    return {
+        effect: player.selectedItem.effect,
+        hasGuaranteedWild: player.selectedItem.effect === 'guaranteedWild',
+        hasGuaranteedWildCount: player.selectedItem.effect === 'guaranteedWildCount',
+        hasBonusWeightIncrease: player.selectedItem.effect === 'bonusWeightIncrease'
+    };
+}
 
 // Персонажи (должны совпадать с сервером)
 const CHARACTERS = [
@@ -57,8 +69,8 @@ const CHARACTERS = [
         name: 'Торговец',
         emoji: '💰',
         ability: 'gold',
-        description: '+25 постоянного золота',
-        abilityValue: 25
+        description: '+15 постоянного золота',
+        abilityValue: 15
     },
     {
         id: 'healer',
@@ -84,6 +96,44 @@ const CHARACTERS = [
         description: 'Нанесение 50 урона',
         abilityValue: 50
     }
+];
+
+// Определения карт (должны совпадать с сервером)
+const CARDS = [
+  // Комбинированные карточки
+  { id: 'health_dodge_combined', bonus: { health: 20, dodge: 2 } },
+  { id: 'health_armor_combined', bonus: { health: 20, armor: 2 } },
+  { id: 'dodge_critical_combined', bonus: { dodge: 2, critical: 2, critMultiplier: 0.1 } },
+  { id: 'armor_healing_combined', bonus: { armor: 2, healing: 10 } },
+  { id: 'critical_freeze_combined', bonus: { critical: 2, critMultiplier: 0.1, freeze: 0.3 } },
+  { id: 'health_healing_combined', bonus: { health: 20, healing: 10 } },
+  { id: 'dodge_armor_combined', bonus: { dodge: 2, armor: 2 } },
+  { id: 'attack_critical_combined', bonus: { attack: 6, critical: 2, critMultiplier: 0.1 } },
+  { id: 'attack_dodge_combined', bonus: { attack: 6, dodge: 2 } },
+  { id: 'attack_armor_combined', bonus: { attack: 6, armor: 2 } },
+  { id: 'attack_health_combined', bonus: { attack: 6, health: 20 } },
+  { id: 'attack_healing_combined', bonus: { attack: 6, healing: 10 } },
+  { id: 'critical_healing_combined', bonus: { critical: 2, critMultiplier: 0.1, healing: 10 } },
+  { id: 'freeze_armor_combined', bonus: { freeze: 0.3, armor: 2 } },
+  { id: 'freeze_dodge_combined', bonus: { freeze: 0.3, dodge: 2 } },
+  { id: 'attack_freeze_combined', bonus: { attack: 6, freeze: 0.3 } },
+  { id: 'critical_armor_combined', bonus: { critical: 2, critMultiplier: 0.1, armor: 2 } },
+  { id: 'health_critical_combined', bonus: { health: 20, critical: 2, critMultiplier: 0.1 } },
+  // Редкие карточки
+  { id: 'health_rare', bonus: { health: 67 } },
+  { id: 'dodge_rare', bonus: { dodge: 4 } },
+  { id: 'critical_rare', bonus: { critical: 4, critMultiplier: 0.2 } },
+  { id: 'armor_rare', bonus: { armor: 4 } },
+  { id: 'healing_rare', bonus: { healing: 20 } },
+  { id: 'freeze_rare', bonus: { freeze: 0.6 } },
+  { id: 'attack_rare', bonus: { attack: 12 } },
+  // Легендарные карточки
+  { id: 'attack_legendary', bonus: { attack: 4 } },
+  { id: 'health_legendary', bonus: { health: 4 } },
+  { id: 'healing_legendary', bonus: { healing: 4 } },
+  { id: 'freeze_legendary', bonus: { freeze: 4 } },
+  { id: 'health_legendary2', bonus: { health: 4 } },
+  { id: 'dodge_legendary', bonus: { dodge: 4 } }
 ];
 
 // Игровое состояние
@@ -183,6 +233,9 @@ const endTurnBtn = document.getElementById('endTurnBtn');
 const roundStatsScreen = document.getElementById('roundStatsScreen');
 const roundStatsContent = document.getElementById('roundStatsContent');
 const cardShopScreen = document.getElementById('cardShopScreen');
+const itemSelectScreen = document.getElementById('itemSelectScreen');
+const itemsList = document.getElementById('itemsList');
+const itemSelectTimerCountdown = document.getElementById('itemSelectTimerCountdown');
 const cardsShopList = document.getElementById('cardsShopList');
 const refreshShopBtn = document.getElementById('refreshShopBtn');
 const permGoldShop = document.getElementById('permGoldShop');
@@ -377,10 +430,38 @@ socket.on('roomStateUpdate', (data) => {
                 }
             }
             
+            // Синхронизируем перезарядку с сервером при обновлении состояния
+            if (player.rechargeEndTime && player.rechargeEndTime > Date.now()) {
+                const now = Date.now();
+                if (!gameState.isRecharging || player.rechargeEndTime > gameState.rechargeEndTime) {
+                    gameState.isRecharging = true;
+                    gameState.rechargeEndTime = player.rechargeEndTime;
+                    gameState.rechargeTime = player.rechargeEndTime - now;
+                    updateRechargeDisplay();
+                    if (!rechargeInterval) {
+                        rechargeInterval = setInterval(() => {
+                            updateRechargeDisplay();
+                        }, 50);
+                    }
+                }
+            } else if (player.rechargeEndTime === 0 || !player.rechargeEndTime) {
+                // Если на сервере перезарядка закончилась, сбрасываем на клиенте
+                if (gameState.isRecharging && gameState.rechargeEndTime <= Date.now()) {
+                    if (rechargeInterval) {
+                        clearInterval(rechargeInterval);
+                        rechargeInterval = null;
+                    }
+                    gameState.isRecharging = false;
+                    gameState.rechargeTime = 0;
+                    gameState.rechargeEndTime = 0;
+                }
+            }
+            
             // Обновляем состояние кнопки spin
             enableSpin();
             updateBattlePhase();
             updateCharacterStats();
+            updateSpinButtonCost();
             
             // Если игрок в дуэли и есть общее состояние подготовки, запускаем таймер
             if (player.isInDuel && gameStateController.currentState === 'preparation' && 
@@ -427,6 +508,15 @@ socket.on('roundStarted', (data) => {
         breakTimerInterval = null;
     }
     
+    // Сбрасываем состояние перезарядки при начале раунда
+    if (rechargeInterval) {
+        clearInterval(rechargeInterval);
+        rechargeInterval = null;
+    }
+    gameState.isRecharging = false;
+    gameState.rechargeTime = 0;
+    gameState.rechargeEndTime = 0;
+    
     // Скрываем экран статистики и магазина, показываем игровой экран
     if (roundStatsScreen) roundStatsScreen.classList.remove('active');
     if (cardShopScreen) cardShopScreen.classList.remove('active');
@@ -446,6 +536,20 @@ socket.on('roundStarted', (data) => {
         startBattleTimerFromState(gameStateController.preBattleEndTime);
     } else if (!player || !player.isInDuel) {
         lastDuelStartTime = null;
+    }
+    
+    // Синхронизируем перезарядку с сервером, если она есть
+    if (player && player.rechargeEndTime && player.rechargeEndTime > Date.now()) {
+        const now = Date.now();
+        gameState.isRecharging = true;
+        gameState.rechargeEndTime = player.rechargeEndTime;
+        gameState.rechargeTime = player.rechargeEndTime - now;
+        updateRechargeDisplay();
+        if (!rechargeInterval) {
+            rechargeInterval = setInterval(() => {
+                updateRechargeDisplay();
+            }, 50);
+        }
     }
     
     // Обновляем состояние кнопки спин
@@ -513,6 +617,40 @@ socket.on('heal', (data) => {
     }
 });
 
+socket.on('spinRecharge', (data) => {
+    console.log('Получена информация о перезарядке:', data);
+    
+    // Обновляем перезарядку только если это для текущего игрока
+    if (data.playerSocketId === playerState.socketId) {
+        // Синхронизируем с серверными данными
+        const serverRechargeEndTime = data.rechargeEndTime;
+        const serverRechargeTime = data.rechargeTime;
+        const now = Date.now();
+        
+        // Если серверное время больше клиентского - используем серверное
+        if (serverRechargeEndTime > gameState.rechargeEndTime || !gameState.isRecharging) {
+            gameState.isRecharging = true;
+            gameState.rechargeTime = serverRechargeTime;
+            gameState.rechargeEndTime = serverRechargeEndTime;
+            
+            // Запускаем интервал обновления, если его нет
+            if (!rechargeInterval) {
+                rechargeInterval = setInterval(() => {
+                    updateRechargeDisplay();
+                }, 50);
+            }
+            
+            // Обновляем визуализацию перезарядки
+            updateRechargeDisplay();
+        }
+        
+        // Если есть заморозка, показываем информацию
+        if (data.freezeApplied && data.freezeApplied > 0) {
+            console.log(`Применена заморозка: +${data.freezeApplied} сек`);
+        }
+    }
+});
+
 socket.on('abilityUsed', (data) => {
     console.log('Способность использована:', data);
     // Обновляем щиты при использовании способности
@@ -546,6 +684,68 @@ socket.on('abilityUsed', (data) => {
     }
 });
 
+// Обработка выбора предметов
+socket.on('itemSelectionRequired', (data) => {
+    console.log('Требуется выбор предмета:', data);
+    if (!itemSelectScreen || !itemsList) return;
+    
+    // Показываем экран выбора предметов
+    showScreen(itemSelectScreen);
+    
+    // Отображаем предметы
+    itemsList.innerHTML = data.items.map(item => `
+        <div class="item-card" data-item-id="${item.id}">
+            <div class="item-name">${item.name}</div>
+            <div class="item-description">${item.description}</div>
+            <div class="item-characteristic">${item.characteristic.description}</div>
+            <div class="item-effect">${item.effectDescription}</div>
+            <button class="btn btn-primary select-item-btn" data-item-id="${item.id}">Выбрать</button>
+        </div>
+    `).join('');
+    
+    // Добавляем обработчики выбора
+    itemsList.querySelectorAll('.select-item-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const itemId = btn.getAttribute('data-item-id');
+            socket.emit('selectItem', { itemId });
+        });
+    });
+    
+    // Запускаем таймер
+    let timeLeft = Math.floor(data.duration / 1000);
+    if (itemSelectTimerCountdown) {
+        itemSelectTimerCountdown.textContent = timeLeft;
+    }
+    
+    const timerInterval = setInterval(() => {
+        timeLeft--;
+        if (itemSelectTimerCountdown) {
+            itemSelectTimerCountdown.textContent = timeLeft;
+        }
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            // Автоматически выбираем первый предмет, если не выбран
+            if (data.items.length > 0) {
+                socket.emit('selectItem', { itemId: data.items[0].id });
+            }
+        }
+    }, 1000);
+});
+
+socket.on('itemSelected', (data) => {
+    console.log('Предмет выбран:', data);
+    // Скрываем экран выбора предметов
+    if (itemSelectScreen) {
+        itemSelectScreen.classList.remove('active');
+    }
+    // Показываем магазин карт
+    if (cardShopScreen) {
+        cardShopScreen.classList.add('active');
+        updateCardShop();
+        updateRoundStatsInShop();
+    }
+});
+
 // Обработка начала перерыва между боями
 let breakTimerInterval = null;
 socket.on('breakStarted', (data) => {
@@ -555,7 +755,10 @@ socket.on('breakStarted', (data) => {
     if (gameScreen) gameScreen.classList.remove('active');
     if (roundStatsScreen) roundStatsScreen.classList.remove('active');
     
-    // Показываем экран покупки карточек
+    // Показываем экран покупки карточек только если нет экрана выбора предметов
+    if (itemSelectScreen && itemSelectScreen.classList.contains('active')) {
+        return; // Не показываем магазин, если еще выбираем предмет
+    }
     if (cardShopScreen) {
         cardShopScreen.classList.add('active');
         // Ждем обновления состояния с предложениями карт
@@ -678,7 +881,7 @@ function updatePlayersStatsInShop() {
         attack: '⚔️ Атака'
     };
     
-    // Получаем статистику из stylePoints
+    // Получаем статистику из stylePoints (для пороговых бонусов)
     const stylePoints = player.stylePoints || {};
     const attackStyle = stylePoints.attack || 0;
     const armorStyle = stylePoints.armor || 0;
@@ -688,24 +891,33 @@ function updatePlayersStatsInShop() {
     const healingStyle = stylePoints.healing || 0;
     
     // Базовые значения
-    const baseAttack = 10;
-    const baseArmor = 25;
-    const baseDodge = 15;
-    const baseCritChance = 10;
-    const baseCritMultiplier = 1.5;
-    const baseFreeze = 0;
-    const baseHealing = 0;
+    let baseAttack = 10;
+    let baseArmor = 25;
+    let baseDodge = 15;
+    let baseCritChance = 10;
+    let baseCritMultiplier = 1.5;
+    let baseFreeze = 0;
+    let baseHealing = 0;
+    let maxHp = 100;
     
-    // Применяем очки стиля
-    let attack = baseAttack + attackStyle;
-    let armor = baseArmor + armorStyle;
-    let dodge = baseDodge + dodgeStyle;
-    let critChance = baseCritChance + critStyle;
-    let critMultiplier = baseCritMultiplier + (critStyle * 0.1);
-    let freeze = baseFreeze + (freezeStyle * 0.3);
-    let healing = baseHealing + (healingStyle * 10);
+    // Суммируем бонусы из всех купленных карт
+    const cardsOwned = player.cardsOwned || {};
+    Object.keys(cardsOwned).forEach(cardId => {
+        const card = CARDS.find(c => c.id === cardId);
+        if (card && card.bonus) {
+            const count = cardsOwned[cardId] || 0;
+            if (card.bonus.attack) baseAttack += card.bonus.attack * count;
+            if (card.bonus.armor) baseArmor += card.bonus.armor * count;
+            if (card.bonus.dodge) baseDodge += card.bonus.dodge * count;
+            if (card.bonus.critical) baseCritChance += card.bonus.critical * count;
+            if (card.bonus.critMultiplier) baseCritMultiplier += card.bonus.critMultiplier * count;
+            if (card.bonus.freeze) baseFreeze += card.bonus.freeze * count;
+            if (card.bonus.healing) baseHealing += card.bonus.healing * count;
+            if (card.bonus.health) maxHp += card.bonus.health * count;
+        }
+    });
     
-    // Применяем пороговые бонусы
+    // Применяем пороговые бонусы (на основе stylePoints)
     const attackBonus = getStyleBonus(attackStyle);
     const armorBonus = getStyleBonus(armorStyle);
     const dodgeBonus = getStyleBonus(dodgeStyle);
@@ -735,14 +947,14 @@ function updatePlayersStatsInShop() {
     const healingBonus = getStyleBonus(healingStyle);
     
     // Финальные значения
-    const finalAttack = Math.round(attack + attackBonus);
-    const finalArmor = Math.round(armor + armorBonus);
-    const finalDodge = Math.round(dodge + dodgeBonus);
-    const finalCritChance = Math.round(critChance + critBonus);
-    const finalCritMultiplier = (critMultiplier + critMultBonus).toFixed(1);
-    const finalFreeze = (freeze + freezeTimeBonus).toFixed(1);
-    const finalHealing = Math.round(healing + healingBonus);
-    const maxHp = player.maxHp || 100;
+    const finalAttack = Math.round(baseAttack + attackBonus);
+    const finalArmor = Math.round(baseArmor + armorBonus);
+    const finalDodge = Math.round(baseDodge + dodgeBonus);
+    const finalCritChance = Math.round(baseCritChance + critBonus);
+    const finalCritMultiplier = (baseCritMultiplier + critMultBonus).toFixed(1);
+    const finalFreeze = (baseFreeze + freezeTimeBonus).toFixed(1);
+    const finalHealing = Math.round(baseHealing + healingBonus);
+    const finalMaxHp = player.maxHp || maxHp;
     
     // Создаем двухколоночный layout
     let html = '<div class="player-stats-compact">';
@@ -759,7 +971,7 @@ function updatePlayersStatsInShop() {
     
     html += '<div class="player-stats-column">';
     html += '<div class="player-stats-list">';
-    html += `<div class="stat-row"><span>Макс. HP:</span> <strong>${maxHp}</strong></div>`;
+    html += `<div class="stat-row"><span>Макс. HP:</span> <strong>${finalMaxHp}</strong></div>`;
     html += `<div class="stat-row"><span>Атака:</span> <strong>${finalAttack}</strong></div>`;
     html += `<div class="stat-row"><span>Броня:</span> <strong>${finalArmor}%</strong></div>`;
     html += `<div class="stat-row"><span>Уклонение:</span> <strong>${finalDodge}%</strong></div>`;
@@ -1126,7 +1338,16 @@ function initGame() {
 
 // Получение случайного символа с учетом весов
 function getRandomSymbol() {
-    const allSymbols = [...SYMBOLS, WILD_SYMBOL, BONUS_SYMBOL];
+    const itemEffects = getPlayerItemEffects();
+    
+    // Применяем эффект предмета: +3 к весу бонусного эффекта
+    let bonusWeight = BONUS_SYMBOL.weight;
+    if (itemEffects && itemEffects.hasBonusWeightIncrease) {
+        bonusWeight += 3;
+    }
+    const adjustedBonusSymbol = { ...BONUS_SYMBOL, weight: bonusWeight };
+    
+    const allSymbols = [...SYMBOLS, WILD_SYMBOL, adjustedBonusSymbol];
     const totalWeight = allSymbols.reduce((sum, symbol) => sum + symbol.weight, 0);
     let random = Math.random() * totalWeight;
     
@@ -1362,14 +1583,30 @@ function spinReels() {
     let completedReels = 0;
     const totalReels = slotReels.length;
     
+    // Проверяем эффекты предмета: гарантированный wild при спине
+    const itemEffects = getPlayerItemEffects();
+    let wildCount = 0;
+    if (itemEffects) {
+        if (itemEffects.hasGuaranteedWildCount) {
+            wildCount = 2; // +2 вайлда
+        } else if (itemEffects.hasGuaranteedWild) {
+            wildCount = 1; // 1 вайлд
+        }
+    }
+    
     // Генерируем финальные символы для каждого столбца заранее
     const finalSymbols = [];
     for (let i = 0; i < totalReels; i++) {
-        finalSymbols.push([
-            getRandomSymbol(),
-            getRandomSymbol(),
-            getRandomSymbol()
-        ]);
+        const symbols = [];
+        for (let j = 0; j < 3; j++) {
+            // Применяем гарантированные wild символы к первой линии
+            if (wildCount > 0 && i === 0 && j < wildCount) {
+                symbols.push(WILD_SYMBOL);
+            } else {
+                symbols.push(getRandomSymbol());
+            }
+        }
+        finalSymbols.push(symbols);
     }
     
     slotReels.forEach((reel, reelIndex) => {
@@ -1915,6 +2152,35 @@ function checkMatches() {
     // Перезарядка уже началась при нажатии кнопки, не запускаем повторно
 }
 
+// Обновление визуализации перезарядки
+function updateRechargeDisplay() {
+    if (!gameState.isRecharging) return;
+    
+    const now = Date.now();
+    const remaining = Math.max(0, gameState.rechargeEndTime - now);
+    const progress = gameState.rechargeTime > 0 ? 1 - (remaining / gameState.rechargeTime) : 0;
+    
+    if (rechargeFill) {
+        rechargeFill.style.width = `${progress * 100}%`;
+    }
+    if (rechargeText) {
+        rechargeText.textContent = remaining > 0 
+            ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
+            : 'Готово';
+    }
+    
+    if (remaining <= 0) {
+        if (rechargeInterval) {
+            clearInterval(rechargeInterval);
+            rechargeInterval = null;
+        }
+        gameState.isRecharging = false;
+        gameState.rechargeTime = 0;
+        gameState.rechargeEndTime = 0;
+        enableSpin();
+    }
+}
+
 // Начало перезарядки
 function startRecharge() {
     // Если перезарядка уже идет (штраф), не перезапускаем
@@ -1922,14 +2188,17 @@ function startRecharge() {
         return;
     }
     
-    gameState.isRecharging = true;
-    gameState.rechargeTime = 3000; // 3 секунды
-    gameState.rechargeEndTime = Date.now() + gameState.rechargeTime;
+    // Используем дефолтное время, если сервер еще не отправил данные
+    // Сервер отправит точное время через spinRecharge
+    if (!gameState.isRecharging || gameState.rechargeTime === 0) {
+        gameState.isRecharging = true;
+        gameState.rechargeTime = 3000; // Дефолтное время (будет обновлено сервером)
+        gameState.rechargeEndTime = Date.now() + gameState.rechargeTime;
+    }
     
-    const startTime = Date.now();
     const endTime = gameState.rechargeEndTime;
     
-    // Блокируем кнопку спин на 3 секунды
+    // Блокируем кнопку спин
     if (spinBtn) {
         spinBtn.disabled = true;
     }
@@ -1939,29 +2208,13 @@ function startRecharge() {
         clearInterval(rechargeInterval);
     }
     
+    // Запускаем обновление визуализации
     rechargeInterval = setInterval(() => {
-        const now = Date.now();
-        const remaining = Math.max(0, endTime - now);
-        const progress = 1 - (remaining / gameState.rechargeTime);
-        
-        if (rechargeFill) {
-            rechargeFill.style.width = `${progress * 100}%`;
-        }
-        if (rechargeText) {
-            rechargeText.textContent = remaining > 0 
-                ? `Перезарядка: ${(remaining / 1000).toFixed(1)}с`
-                : 'Готово';
-        }
-        
-        if (remaining <= 0) {
-            clearInterval(rechargeInterval);
-            rechargeInterval = null;
-            gameState.isRecharging = false;
-            gameState.rechargeTime = 0;
-            gameState.rechargeEndTime = 0;
-            enableSpin();
-        }
+        updateRechargeDisplay();
     }, 50);
+    
+    // Сразу обновляем отображение
+    updateRechargeDisplay();
 }
 
 // Включение спина
@@ -2008,6 +2261,7 @@ function enableSpin() {
     gameState.canSpin = canSpinNow;
     if (spinBtn) {
         spinBtn.disabled = !canSpinNow;
+        updateSpinButtonCost();
     }
     
     // Обновляем UI перезарядки только если она активна
@@ -2070,31 +2324,68 @@ function updateCharacterStats() {
     const player = roomState.players.find(p => p.socketId === playerState.socketId);
     if (!player) return;
     
-    // Получаем статистику из stylePoints
+    // Получаем статистику из stylePoints (для пороговых бонусов)
     const stylePoints = player.stylePoints || {};
     const attackStyle = stylePoints.attack || 0;
     const armorStyle = stylePoints.armor || 0;
     const dodgeStyle = stylePoints.dodge || 0;
     const critStyle = stylePoints.critical || 0;
     
-    const attack = 10 + attackStyle;
-    const armor = 25 + armorStyle;
-    const dodge = 15 + dodgeStyle;
-    const crit = 10 + critStyle;
-    const critMult = 1.5;
+    // Базовые значения
+    let baseAttack = 10;
+    let baseArmor = 25;
+    let baseDodge = 15;
+    let baseCrit = 10;
+    let baseCritMult = 1.5;
     
-    // Применяем пороговые бонусы
+    // Суммируем бонусы из всех купленных карт
+    const cardsOwned = player.cardsOwned || {};
+    Object.keys(cardsOwned).forEach(cardId => {
+        const card = CARDS.find(c => c.id === cardId);
+        if (card && card.bonus) {
+            const count = cardsOwned[cardId] || 0;
+            if (card.bonus.attack) baseAttack += card.bonus.attack * count;
+            if (card.bonus.armor) baseArmor += card.bonus.armor * count;
+            if (card.bonus.dodge) baseDodge += card.bonus.dodge * count;
+            if (card.bonus.critical) baseCrit += card.bonus.critical * count;
+            if (card.bonus.critMultiplier) baseCritMult += card.bonus.critMultiplier * count;
+        }
+    });
+    
+    // Применяем бонусы от предмета
+    if (player.selectedItem && player.selectedItem.characteristic && player.selectedItem.characteristic.bonus) {
+        const itemBonus = player.selectedItem.characteristic.bonus;
+        if (itemBonus.attack) baseAttack += itemBonus.attack;
+        if (itemBonus.armor) baseArmor += itemBonus.armor;
+        if (itemBonus.dodge) baseDodge += itemBonus.dodge;
+        if (itemBonus.critical) baseCrit += itemBonus.critical;
+        if (itemBonus.critMultiplier) baseCritMult += itemBonus.critMultiplier;
+        if (itemBonus.health) {
+            // Здоровье учитывается отдельно в maxHp
+        }
+    }
+    
+    // Применяем пороговые бонусы (на основе stylePoints)
     const attackBonus = getStyleBonus(attackStyle);
     const armorBonus = getStyleBonus(armorStyle);
     const dodgeBonus = getStyleBonus(dodgeStyle);
     const critBonus = getStyleBonus(critStyle);
-    const critMultBonus = 0; // Крит множитель пока не зависит от стиля напрямую
     
-    const finalAttack = attack + attackBonus;
-    const finalArmor = armor + armorBonus;
-    const finalDodge = dodge + dodgeBonus;
-    const finalCrit = crit + critBonus;
-    const finalCritMult = critMult + critMultBonus * 0.25;
+    // Специальные пороговые эффекты для крита
+    let critMultBonus = 0;
+    if (critStyle >= 20) {
+        critMultBonus = 0.75;
+    } else if (critStyle >= 10) {
+        critMultBonus = 0.5;
+    } else if (critStyle >= 4) {
+        critMultBonus = 0.25;
+    }
+    
+    const finalAttack = baseAttack + attackBonus;
+    const finalArmor = baseArmor + armorBonus;
+    const finalDodge = baseDodge + dodgeBonus;
+    const finalCrit = baseCrit + critBonus;
+    const finalCritMult = baseCritMult + critMultBonus;
     
     // Обновляем tooltip для игрока (характеристики теперь только в tooltip)
     updateStatsTooltip('player', player, finalAttack, finalArmor, finalDodge, finalCrit, finalCritMult);
@@ -2109,23 +2400,47 @@ function updateCharacterStats() {
             const oppDodgeStyle = oppStylePoints.dodge || 0;
             const oppCritStyle = oppStylePoints.critical || 0;
             
-            const oppAttack = 10 + oppAttackStyle;
-            const oppArmor = 25 + oppArmorStyle;
-            const oppDodge = 15 + oppDodgeStyle;
-            const oppCrit = 10 + oppCritStyle;
-            const oppCritMult = 1.5;
+            // Базовые значения
+            let oppBaseAttack = 10;
+            let oppBaseArmor = 25;
+            let oppBaseDodge = 15;
+            let oppBaseCrit = 10;
+            let oppBaseCritMult = 1.5;
+            
+            // Суммируем бонусы из всех купленных карт противника
+            const oppCardsOwned = opponent.cardsOwned || {};
+            Object.keys(oppCardsOwned).forEach(cardId => {
+                const card = CARDS.find(c => c.id === cardId);
+                if (card && card.bonus) {
+                    const count = oppCardsOwned[cardId] || 0;
+                    if (card.bonus.attack) oppBaseAttack += card.bonus.attack * count;
+                    if (card.bonus.armor) oppBaseArmor += card.bonus.armor * count;
+                    if (card.bonus.dodge) oppBaseDodge += card.bonus.dodge * count;
+                    if (card.bonus.critical) oppBaseCrit += card.bonus.critical * count;
+                    if (card.bonus.critMultiplier) oppBaseCritMult += card.bonus.critMultiplier * count;
+                }
+            });
             
             const oppAttackBonus = getStyleBonus(oppAttackStyle);
             const oppArmorBonus = getStyleBonus(oppArmorStyle);
             const oppDodgeBonus = getStyleBonus(oppDodgeStyle);
             const oppCritBonus = getStyleBonus(oppCritStyle);
-            const oppCritMultBonus = 0;
             
-            const finalOppAttack = oppAttack + oppAttackBonus;
-            const finalOppArmor = oppArmor + oppArmorBonus;
-            const finalOppDodge = oppDodge + oppDodgeBonus;
-            const finalOppCrit = oppCrit + oppCritBonus;
-            const finalOppCritMult = oppCritMult + oppCritMultBonus * 0.25;
+            // Специальные пороговые эффекты для крита
+            let oppCritMultBonus = 0;
+            if (oppCritStyle >= 20) {
+                oppCritMultBonus = 0.75;
+            } else if (oppCritStyle >= 10) {
+                oppCritMultBonus = 0.5;
+            } else if (oppCritStyle >= 4) {
+                oppCritMultBonus = 0.25;
+            }
+            
+            const finalOppAttack = oppBaseAttack + oppAttackBonus;
+            const finalOppArmor = oppBaseArmor + oppArmorBonus;
+            const finalOppDodge = oppBaseDodge + oppDodgeBonus;
+            const finalOppCrit = oppBaseCrit + oppCritBonus;
+            const finalOppCritMult = oppBaseCritMult + oppCritMultBonus;
             
             // Обновляем tooltip для противника (характеристики теперь только в tooltip)
             updateStatsTooltip('enemy', opponent, finalOppAttack, finalOppArmor, finalOppDodge, finalOppCrit, finalOppCritMult);
@@ -2203,6 +2518,20 @@ function updateStatsTooltip(target, player, attack, armor, dodge, crit, critMult
         styleList = '<div class="tooltip-stat" style="color: #999;">Нет очков стиля</div>';
     }
     
+    // Формируем информацию о предмете
+    let itemInfo = '';
+    if (player.selectedItem) {
+        const item = player.selectedItem;
+        itemInfo = `
+            <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
+                <strong>🎁 Предмет:</strong>
+                <div class="tooltip-stat" style="color: #ff9800; font-weight: bold;">${item.name}</div>
+                <div class="tooltip-stat" style="font-size: 12px; color: #4caf50;">${item.characteristic.description}</div>
+                <div class="tooltip-stat" style="font-size: 12px; color: #ff9800;">${item.effectDescription}</div>
+            </div>
+        `;
+    }
+    
     tooltip.innerHTML = `
         <div class="tooltip-title">${player.nickname}${player.isBot ? ' 🤖' : ''}</div>
         <div class="tooltip-stat">Персонаж: <strong>${characterName}</strong></div>
@@ -2210,6 +2539,7 @@ function updateStatsTooltip(target, player, attack, armor, dodge, crit, critMult
         <div class="tooltip-stat">🛡️ Броня: <strong>${Math.round(armor)}%</strong></div>
         <div class="tooltip-stat">💨 Уклонение: <strong>${Math.round(dodge)}%</strong></div>
         <div class="tooltip-stat">⚡ Крит: <strong>${Math.round(crit)}%</strong> (x${critMult.toFixed(1)})</div>
+        ${itemInfo}
         <div class="tooltip-stat" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
             <strong>Уровни стилей:</strong>
         </div>
@@ -2650,30 +2980,54 @@ function updatePlayersListGame() {
         const characterEmoji = character ? character.emoji : '👤';
         const characterName = character ? character.name : 'Без персонажа';
         
-        // Вычисляем статистику для tooltip (используем stylePoints)
+        // Вычисляем статистику для tooltip (используем бонусы из карт)
         const stylePoints = player.stylePoints || {};
         const attackStyle = stylePoints.attack || 0;
         const armorStyle = stylePoints.armor || 0;
         const dodgeStyle = stylePoints.dodge || 0;
         const critStyle = stylePoints.critical || 0;
         
-        const attack = 10 + attackStyle;
-        const armor = 25 + armorStyle;
-        const dodge = 15 + dodgeStyle;
-        const crit = 10 + critStyle;
-        const critMult = 1.5;
+        // Базовые значения
+        let baseAttack = 10;
+        let baseArmor = 25;
+        let baseDodge = 15;
+        let baseCrit = 10;
+        let baseCritMult = 1.5;
+        
+        // Суммируем бонусы из всех купленных карт
+        const cardsOwned = player.cardsOwned || {};
+        Object.keys(cardsOwned).forEach(cardId => {
+            const card = CARDS.find(c => c.id === cardId);
+            if (card && card.bonus) {
+                const count = cardsOwned[cardId] || 0;
+                if (card.bonus.attack) baseAttack += card.bonus.attack * count;
+                if (card.bonus.armor) baseArmor += card.bonus.armor * count;
+                if (card.bonus.dodge) baseDodge += card.bonus.dodge * count;
+                if (card.bonus.critical) baseCrit += card.bonus.critical * count;
+                if (card.bonus.critMultiplier) baseCritMult += card.bonus.critMultiplier * count;
+            }
+        });
         
         const attackBonus = getStyleBonus(attackStyle);
         const armorBonus = getStyleBonus(armorStyle);
         const dodgeBonus = getStyleBonus(dodgeStyle);
         const critBonus = getStyleBonus(critStyle);
-        const critMultBonus = 0; // Крит множитель пока не зависит от стиля напрямую
         
-        const finalAttack = attack + attackBonus;
-        const finalArmor = armor + armorBonus;
-        const finalDodge = dodge + dodgeBonus;
-        const finalCrit = crit + critBonus;
-        const finalCritMult = critMult + critMultBonus * 0.25;
+        // Специальные пороговые эффекты для крита
+        let critMultBonus = 0;
+        if (critStyle >= 20) {
+            critMultBonus = 0.75;
+        } else if (critStyle >= 10) {
+            critMultBonus = 0.5;
+        } else if (critStyle >= 4) {
+            critMultBonus = 0.25;
+        }
+        
+        const finalAttack = baseAttack + attackBonus;
+        const finalArmor = baseArmor + armorBonus;
+        const finalDodge = baseDodge + dodgeBonus;
+        const finalCrit = baseCrit + critBonus;
+        const finalCritMult = baseCritMult + critMultBonus;
         
         // Получаем уровни стилей (используем уже объявленную переменную stylePoints)
         const styleNames = {
