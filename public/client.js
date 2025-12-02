@@ -934,9 +934,10 @@ socket.on('itemSelectionRequired', (data) => {
         }
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            // Автоматически выбираем первый предмет, если не выбран
+            // Автоматически выбираем случайный предмет, если не выбран
             if (data.items.length > 0) {
-                socket.emit('selectItem', { itemId: data.items[0].id });
+                const randomIndex = Math.floor(Math.random() * data.items.length);
+                socket.emit('selectItem', { itemId: data.items[randomIndex].id });
             }
         }
     }, 1000);
